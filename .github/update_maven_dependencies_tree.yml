@@ -1,0 +1,14 @@
+name: update_maven_dependencies_tree
+# This workflow represents a set of basic End-to-End tests
+on:
+  push:
+    branches:
+      - 'develop'
+
+jobs:
+  basic-ubuntu-20-v9:
+    runs-on: ubuntu-20.04
+    
+    steps:
+    - name: Maven Dependency Tree Dependency Submission
+      uses: advanced-security/maven-dependency-submission-action@v3.0.2
