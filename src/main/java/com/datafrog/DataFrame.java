@@ -17,4 +17,13 @@ public class DataFrame {
     public DataFrame() {
         this.headers = new ArrayList<>();
     }
+
+    public void addColumn(String columnName) {
+        headers.add(columnName);
+        // ToDo procurar forma mais eficiente de preencher esses dados
+        for (int i = 0; i < dataFrame.size(); i++) {
+            dataFrame.get(i).add(null);
+        }
+        // ToDo lidar com casos em que é utilizado a mesma variável para criar colunas -> Evitar que ao editar uma linha outras sejam editadas ao mesmo tempo
+    }
 }
