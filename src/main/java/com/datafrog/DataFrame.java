@@ -33,6 +33,15 @@ public class DataFrame {
 
     public void addColumn(String columnName) {
         headers.add(columnName);
+
+    public void addColumn(int index, String columnName, @Nullable Object data){
+        ArrayList<Object> dataArray = new ArrayList<Object>();
+        for (int i = 0; i< dataFrame.size(); i++){
+            dataArray.add(data);
+        }
+        addColumn(index,columnName,dataArray);
+    }
+
     public void addColumn(int index, String columnName, @NotNull ArrayList<Object> data){
         headers.add(index, columnName);
         int i = 0;
