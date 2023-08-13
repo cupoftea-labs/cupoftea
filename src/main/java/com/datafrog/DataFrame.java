@@ -1,11 +1,14 @@
 package com.datafrog;
 
+import com.opencsv.CSVWriter;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.*;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 
 public class DataFrame {
@@ -77,6 +80,56 @@ public class DataFrame {
             System.out.print("| ");
             this.dataFrame.get(i).forEach(rowColumn -> System.out.print(rowColumn + " | "));
             System.out.println();
+        }
+    }
+
+    // ToDo String deve gerar o CSV com ""?
+    // ToDo está dando erro para exportar outros formatos de dados
+    public void exportToCsv(File file){
+            // first create file object for file placed at location
+            // specified by filepath
+        try {
+            // create FileWriter object with file as parameter
+            FileWriter outputfile = new FileWriter(file);
+
+            // create CSVWriter object filewriter object as parameter
+            CSVWriter writer = new CSVWriter(outputfile);
+
+            // adding header to csv
+            String[] header = headers.toArray(new String[0]);
+            writer.writeNext(header);
+
+            for (int i = 0; i < dataFrame.size(); i++){
+                String[] data = dataFrame.get(i).toArray(new String[0]);
+                writer.writeNext(data);
+            }
+
+            // closing writer connection
+            writer.close();
+        }
+        catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    // ToDo importar numeros no formato de numero
+    public void importFromCsv(File file, boolean hasHeaders){
+        // ToDo verificar o tamanho de cada linha, nao podem ter linhas de tamanho diferente
+        // ToDo hasHeaders false criar cabeçalho com valores nulo
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+            String line;
+            if(hasHeaders){
+                line = br.readLine();
+                String[] values = line.split(",");
+                headers = new ArrayList<>(Arrays.asList(values));
+            }
+            while ((line = br.readLine()) != null) {
+                Object[] values = line.split(",");
+                dataFrame.add(new ArrayList<>(Arrays.asList(values)));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
