@@ -26,4 +26,19 @@ public class DataFrame {
         }
         // ToDo lidar com casos em que é utilizado a mesma variável para criar colunas -> Evitar que ao editar uma linha outras sejam editadas ao mesmo tempo
     }
+
+    public void removeColumn(String columnName) {
+        // ToDo lidar com colunas com mesmo nome? ou remover apenas a primeira que aparece
+        // ToDo Tratar caso nao exista a coluna
+        int columnIndex = headers.indexOf(columnName);
+        removeColumn(columnIndex);
+    }
+    public void removeColumn(int index) {
+        // ToDo tratar out of bond?
+        headers.remove(index);
+        for (int i = 0; i < dataFrame.size(); i++) {
+            dataFrame.get(i).remove(index);
+        }
+    }
+
 }
