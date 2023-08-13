@@ -60,4 +60,8 @@ public class DataFrame {
         dataFrame.add((ArrayList<Object>) row.clone());
     }
 
+    public void removeRow(int index){
+        dataFrame.remove(index);
+    }
+
 }
