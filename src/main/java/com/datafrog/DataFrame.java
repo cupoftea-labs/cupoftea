@@ -37,6 +37,10 @@ public class DataFrame {
         renameColumn(index, newName);
     }
 
+    public void renameColumn (int index, String newName) {
+        this.headers.set(index, newName);
+    }
+
     // The column will be created in the last position
     // The column will be set with value null
     public void addColumn(String columnName) {
