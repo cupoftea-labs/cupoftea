@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 
 public class DataFrame {
@@ -29,6 +30,11 @@ public class DataFrame {
         // https://blogs.oracle.com/javamagazine/post/the-unsafe-class-unsafe-at-any-speed
         this.dataFrame = new ArrayList<>();
         this.headers = new ArrayList<>();
+    }
+
+    public void renameColumn (String oldName, String newName) {
+        int index = this.headers.indexOf(oldName);
+        renameColumn(index, newName);
     }
 
     // The column will be created in the last position
