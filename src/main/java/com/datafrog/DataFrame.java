@@ -41,6 +41,12 @@ public class DataFrame {
         this.headers.set(index, newName);
     }
 
+    public void renameColumn (HashMap<String,String> name){
+        name.forEach((key, value) -> {
+            this.renameColumn(key, value);
+        });
+    }
+
     // The column will be created in the last position
     // The column will be set with value null
     public void addColumn(String columnName) {
