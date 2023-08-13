@@ -14,7 +14,17 @@ public class DataFrame {
     // ToDo Criar classe do tipo Header?
     @Getter @Setter
     private ArrayList<String> headers;
+    // ToDo tratar casos que as linhas tem diferentes quantidades de colunas
+    // ToDo ? uma coluna pode ter diferentes tipos de dados ?
+    // ToDo liberar o setter?
+    // ToDo Usar Generics
+    @Getter
+    private ArrayList<ArrayList<Object>> dataFrame;
+
     public DataFrame() {
+        // ToDo lidar com o limite de memoria do Java com (sun.misc.Unsafe class)
+        // https://blogs.oracle.com/javamagazine/post/the-unsafe-class-unsafe-at-any-speed
+        this.dataFrame = new ArrayList<>();
         this.headers = new ArrayList<>();
     }
 
