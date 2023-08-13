@@ -34,6 +34,11 @@ public class DataFrame {
     public void addColumn(String columnName) {
         headers.add(columnName);
 
+    // ToDo passar null sem cast esta dando erro
+    public void addColumn(int index, String columnName){
+        addColumn(index, columnName, (Object) null);
+    }
+
     public void addColumn(int index, String columnName, @Nullable Object data){
         ArrayList<Object> dataArray = new ArrayList<Object>();
         for (int i = 0; i< dataFrame.size(); i++){
