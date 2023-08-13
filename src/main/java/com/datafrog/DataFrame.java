@@ -31,8 +31,12 @@ public class DataFrame {
         this.headers = new ArrayList<>();
     }
 
+    // The column will be created in the last position
+    // The column will be set with value null
     public void addColumn(String columnName) {
-        headers.add(columnName);
+        int index = headers.size();
+        addColumn(index, columnName);
+    }
 
     // ToDo passar null sem cast esta dando erro
     public void addColumn(int index, String columnName){
