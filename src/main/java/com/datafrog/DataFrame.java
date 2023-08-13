@@ -4,9 +4,9 @@ import com.opencsv.CSVWriter;
 import lombok.Getter;
 import lombok.Setter;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.*;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 
@@ -33,9 +33,12 @@ public class DataFrame {
 
     public void addColumn(String columnName) {
         headers.add(columnName);
+    public void addColumn(int index, String columnName, @NotNull ArrayList<Object> data){
+        headers.add(index, columnName);
+        int i = 0;
         // ToDo procurar forma mais eficiente de preencher esses dados
-        for (int i = 0; i < dataFrame.size(); i++) {
-            dataFrame.get(i).add(null);
+        for (ArrayList<Object> objects : dataFrame) {
+            objects.add(index,data.get(i));
         }
         // ToDo lidar com casos em que é utilizado a mesma variável para criar colunas -> Evitar que ao editar uma linha outras sejam editadas ao mesmo tempo
     }
