@@ -64,4 +64,20 @@ public class DataFrame {
         dataFrame.remove(index);
     }
 
+    // ToDo melhorar visualizacao dos dados
+    public void print(){
+        // ToDo verificar qual logger usar
+        System.out.println("Showing only the first 10 registers");
+        // ToDo printar menos colunas
+        System.out.print("| ");
+        this.headers.forEach(header -> System.out.print(header + " | "));
+        System.out.println();
+
+        for (int i = 0; i < 10 && i < this.dataFrame.size(); i++) {
+            System.out.print("| ");
+            this.dataFrame.get(i).forEach(rowColumn -> System.out.print(rowColumn + " | "));
+            System.out.println();
+        }
+    }
+
 }
