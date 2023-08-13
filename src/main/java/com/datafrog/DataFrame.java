@@ -80,4 +80,34 @@ public class DataFrame {
         }
     }
 
+    // ToDo String deve gerar o CSV com ""?
+    // ToDo está dando erro para exportar outros formatos de dados
+    public void exportToCsv(File file){
+            // first create file object for file placed at location
+            // specified by filepath
+        try {
+            // create FileWriter object with file as parameter
+            FileWriter outputfile = new FileWriter(file);
+
+            // create CSVWriter object filewriter object as parameter
+            CSVWriter writer = new CSVWriter(outputfile);
+
+            // adding header to csv
+            String[] header = headers.toArray(new String[0]);
+            writer.writeNext(header);
+
+            for (int i = 0; i < dataFrame.size(); i++){
+                String[] data = dataFrame.get(i).toArray(new String[0]);
+                writer.writeNext(data);
+            }
+
+            // closing writer connection
+            writer.close();
+        }
+        catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
 }
