@@ -51,4 +51,13 @@ public class DataFrame {
         }
     }
 
+    public void addRow(@NotNull ArrayList<Object> row) throws Exception{
+        if(row.size() != this.headers.size()) {
+            // ToDo Criar uma exception mais especifica
+            throw new ArrayIndexOutOfBoundsException();
+        }
+        // ToDo testar se for usado a mesma variavel para criar colunas da row se da problema
+        dataFrame.add((ArrayList<Object>) row.clone());
+    }
+
 }
