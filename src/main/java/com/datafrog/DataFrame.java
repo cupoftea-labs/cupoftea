@@ -31,6 +31,18 @@ public class DataFrame {
         this.headers = new ArrayList<>();
     }
 
+    public void moveColumn (int inicialIndex, int finalIndex){
+        String columnName = this.headers.get(inicialIndex);
+        this.headers.remove(inicialIndex);
+        this.headers.add(finalIndex, columnName);
+        for (ArrayList<Object> dataRow: dataFrame) {
+            Object data = dataRow.get(inicialIndex);
+            dataRow.remove(inicialIndex);
+            dataRow.add(finalIndex, data);
+        }
+    }
+
+
     // The column will be created in the last position
     // The column will be set with value null
     public void addColumn(String columnName) {
