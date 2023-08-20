@@ -67,7 +67,11 @@ public class DataFrame {
         addColumn(index,columnName,dataArray);
     }
 
-    public void addColumn(int index, String columnName, @NotNull ArrayList<Object> data){
+    public void addColumn(int index, String columnName, @Nullable ArrayList<Object> data){
+        if (data == null) {
+            addColumn(index, columnName, (Object) data);
+            return;
+        }
         headers.add(index, columnName);
         int i = 0;
         // ToDo procurar forma mais eficiente de preencher esses dados
