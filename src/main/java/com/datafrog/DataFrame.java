@@ -32,6 +32,23 @@ public class DataFrame {
         this.headers = new ArrayList<>();
     }
 
+
+    public void moveColumn (String columnName, int finalIndex){
+        int columnIndex = headers.indexOf(columnName);
+        this.moveColumn(columnIndex, finalIndex);
+    }
+    
+    public void moveColumn (int inicialIndex, int finalIndex){
+        String columnName = this.headers.get(inicialIndex);
+        this.headers.remove(inicialIndex);
+        this.headers.add(finalIndex, columnName);
+        for (ArrayList<Object> dataRow: dataFrame) {
+            Object data = dataRow.get(inicialIndex);
+            dataRow.remove(inicialIndex);
+            dataRow.add(finalIndex, data);
+        }
+    }
+
     public void renameColumn (String oldName, String newName) {
         int index = this.headers.indexOf(oldName);
         renameColumn(index, newName);
@@ -47,6 +64,7 @@ public class DataFrame {
         });
     }
 
+
     // The column will be created in the last position
     // The column will be set with value null
     public void addColumn(String columnName) {
@@ -54,7 +72,6 @@ public class DataFrame {
         addColumn(index, columnName);
     }
 
-    // ToDo passar null sem cast esta dando erro
     public void addColumn(int index, String columnName){
         addColumn(index, columnName, (Object) null);
     }
