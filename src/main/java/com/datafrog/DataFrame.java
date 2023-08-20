@@ -9,6 +9,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 
 public class DataFrame {
@@ -31,6 +32,7 @@ public class DataFrame {
         this.headers = new ArrayList<>();
     }
 
+
     public void moveColumn (String columnName, int finalIndex){
         int columnIndex = headers.indexOf(columnName);
         this.moveColumn(columnIndex, finalIndex);
@@ -47,6 +49,21 @@ public class DataFrame {
         }
     }
 
+    public void renameColumn (String oldName, String newName) {
+        int index = this.headers.indexOf(oldName);
+        renameColumn(index, newName);
+    }
+
+    public void renameColumn (int index, String newName) {
+        this.headers.set(index, newName);
+    }
+
+    public void renameColumn (HashMap<String,String> name){
+        name.forEach((key, value) -> {
+            this.renameColumn(key, value);
+        });
+    }
+
 
     // The column will be created in the last position
     // The column will be set with value null
@@ -55,7 +72,6 @@ public class DataFrame {
         addColumn(index, columnName);
     }
 
-    // ToDo passar null sem cast esta dando erro
     public void addColumn(int index, String columnName){
         addColumn(index, columnName, (Object) null);
     }
@@ -68,7 +84,11 @@ public class DataFrame {
         addColumn(index,columnName,dataArray);
     }
 
-    public void addColumn(int index, String columnName, @NotNull ArrayList<Object> data){
+    public void addColumn(int index, String columnName, @Nullable ArrayList<Object> data){
+        if (data == null) {
+            addColumn(index, columnName, (Object) data);
+            return;
+        }
         headers.add(index, columnName);
         int i = 0;
         // ToDo procurar forma mais eficiente de preencher esses dados
@@ -144,11 +164,12 @@ public class DataFrame {
             System.out.print('\u2502'+" ");
 
             this.dataFrame.get(i).forEach((rowColumn) -> {
-                int length = ((String)rowColumn).length();
+                String rowData = rowColumn == null ? "null" : (String)rowColumn;
+                int length = rowData.length();
                 int spaces = 21 - length ;
                 if(spaces <= 0){
                     spaces = 1;
-                    rowColumn = ((String) rowColumn).substring(0,17) + "...";
+                    rowColumn = rowData.substring(0,17) + "...";
                 }
                 String space = " ".repeat(spaces);
                 System.out.print(rowColumn + space + '\u2502'+" ");
