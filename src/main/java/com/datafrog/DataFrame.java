@@ -31,6 +31,11 @@ public class DataFrame {
         this.headers = new ArrayList<>();
     }
 
+    public void moveColumn (String columnName, int finalIndex){
+        int columnIndex = headers.indexOf(columnName);
+        this.moveColumn(columnIndex, finalIndex);
+    }
+    
     public void moveColumn (int inicialIndex, int finalIndex){
         String columnName = this.headers.get(inicialIndex);
         this.headers.remove(inicialIndex);
