@@ -147,11 +147,12 @@ public class DataFrame {
             System.out.print('\u2502'+" ");
 
             this.dataFrame.get(i).forEach((rowColumn) -> {
-                int length = ((String)rowColumn).length();
+                String rowData = rowColumn == null ? "null" : (String)rowColumn;
+                int length = rowData.length();
                 int spaces = 21 - length ;
                 if(spaces <= 0){
                     spaces = 1;
-                    rowColumn = ((String) rowColumn).substring(0,17) + "...";
+                    rowColumn = rowData.substring(0,17) + "...";
                 }
                 String space = " ".repeat(spaces);
                 System.out.print(rowColumn + space + '\u2502'+" ");
