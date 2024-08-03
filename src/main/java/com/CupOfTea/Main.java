@@ -1,19 +1,24 @@
-package com.datafrog;
+package com.CupOfTea;
 
 import java.io.File;
-import java.util.*;
 
 public class Main {
     public static void main(String[] args) throws Exception {
 
         DataFrame df = new DataFrame();
-        File file = new File("I:\\Users\\filip\\DataFrog\\csv_sample.csv");
-        df.importFromCsv(file, true);
-        df.print();
-        df.addColumn(1,"carro", 1);
-        df.print();
+        // File file = new File("csv_sample.csv");
+        // df.importFromCsv(file, true);
+        // df.print();
+        // df.addColumn(1,"carro", "Civic");
+        // df.print();
 
-        File file_export = new File("I:\\Users\\filip\\DataFrog\\csv_sample2.csv");
+        File file = new File("parquet_file.parquet");
+        df.importFromParquet(file);
+
+        df.print();
+        df.addColumn(1,"carro", "Civic");
+        df.print();
+        File file_export = new File("result.csv");
         df.exportToCsv(file_export);
 
 //        ArrayList<String> headers = new ArrayList<>();
