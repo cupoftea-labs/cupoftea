@@ -2,24 +2,60 @@ package com.CupOfTea;
 
 import java.io.File;
 
+import org.eclipse.jetty.util.ajax.JSON;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 public class Main {
     public static void main(String[] args) throws Exception {
 
         DataFrame df = new DataFrame();
+
+        // JsonObject json;
+
+        String jsonString = """
+            [
+                {
+                    "car": "Mustang",
+                    "year": 2019,
+                    "color": "white"
+                },
+                {
+                    "car": "fusca",
+                    "year": 1970,
+                    "color": "blue"
+                },
+                {
+                    "car": "brasilia",
+                    "year": 1972,
+                    "color": "yellow"
+                }
+            ]
+        """;
+
+        df.importFromJson(jsonString);
+        
+        df.print();
+
+        df.moveColumn(0, 2);
+
+        df.print();
+
         // File file = new File("csv_sample.csv");
         // df.importFromCsv(file, true);
         // df.print();
         // df.addColumn(1,"carro", "Civic");
         // df.print();
 
-        File file = new File("parquet_file.parquet");
-        df.importFromParquet(file);
+        // File file2 = new File("parquet_file2.parquet");
+        // df.exportToParquet(file2);
+        // df.importFromParquet(file2);
 
-        df.print();
-        df.addColumn(1,"carro", "Civic");
-        df.print();
-        File file_export = new File("result.csv");
-        df.exportToCsv(file_export);
+        // df.print();
+        // df.addColumn(1,"carro", "Civic");
+        // df.print();
+        // File file_export = new File("result.csv");
+        // df.exportToCsv(file_export);
 
 //        ArrayList<String> headers = new ArrayList<>();
 //        headers.add("a");
