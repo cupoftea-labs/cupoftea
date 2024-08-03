@@ -1,8 +1,17 @@
-package com.datafrog;
+package com.CupOfTea;
 
 import com.opencsv.CSVWriter;
 import lombok.Getter;
 import lombok.Setter;
+
+import org.apache.parquet.io.InputFile;
+import org.apache.hadoop.fs.Path;
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -10,6 +19,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 
 public class DataFrame {
@@ -77,8 +87,8 @@ public class DataFrame {
     }
 
     public void addColumn(int index, String columnName, @Nullable Object data){
-        ArrayList<Object> dataArray = new ArrayList<Object>();
-        for (int i = 0; i< dataFrame.size(); i++){
+        ArrayList<Object> dataArray = new ArrayList<>();
+        for (@SuppressWarnings("unused") var row : dataFrame) {
             dataArray.add(data);
         }
         addColumn(index,columnName,dataArray);
@@ -164,7 +174,7 @@ public class DataFrame {
             System.out.print('\u2502'+" ");
 
             this.dataFrame.get(i).forEach((rowColumn) -> {
-                String rowData = rowColumn == null ? "null" : (String)rowColumn;
+                String rowData = rowColumn == null ? "null" : rowColumn.toString();
                 int length = rowData.length();
                 int spaces = 21 - length ;
                 if(spaces <= 0){
@@ -201,9 +211,14 @@ public class DataFrame {
             String[] header = headers.toArray(new String[0]);
             writer.writeNext(header);
 
-            for (int i = 0; i < dataFrame.size(); i++){
-                String[] data = dataFrame.get(i).toArray(new String[0]);
-                writer.writeNext(data);
+            for (ArrayList<Object> data :  dataFrame){
+                ArrayList<String> dataArr = (ArrayList<String>) data.stream()
+                                                .map((i -> i.toString()))
+                                                .collect(Collectors.toList())
+                                                ;
+
+                String[] dataStr = dataArr.toArray(new String[0]);
+                writer.writeNext(dataStr);
             }
 
             // closing writer connection
@@ -234,5 +249,54 @@ public class DataFrame {
             throw new RuntimeException(e);
         }
     }
+
+    public void importFromParquet(File file) throws IOException{
+        Path path = new Path(file.toString());
+        Configuration conf = new Configuration();
+        InputFile iptf = HadoopInputFile.fromPath(path, conf);
+
+        try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(iptf).build()) {
+            GenericRecord record;
+            while ((record = reader.read()) != null) {
+                // The Schema.Type enum in Avro defines several types including:
+                // NULL
+                // BOOLEAN
+                // INT
+                // LONG
+                // FLOAT
+                // DOUBLE
+                // BYTES
+                // STRING
+                // RECORD
+                // ENUM
+                // ARRAY
+                // MAP
+                // UNION -> Pode ser de um ou vários tipos, equivalente ao Object do Java
+                // FIXED
+                
+                Boolean setHeaders = true;
+
+                headers = new ArrayList<>();
+                ArrayList<Object> values = new ArrayList<>();
+                Schema schema = record.getSchema();
+                for (Schema.Field field : schema.getFields()) {
+                    if(setHeaders){
+                        headers.add(field.name());
+                    }
+                    // Schema fieldSchema = field.schema();
+                    // String fieldType = fieldSchema.getType().getName();
+                    values.add(record.get(field.name()));
+                }
+                setHeaders = false;
+                dataFrame.add(values);
+
+            }
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+
+    
 
 }
