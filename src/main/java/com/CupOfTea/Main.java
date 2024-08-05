@@ -13,27 +13,29 @@ public class Main {
 
         // JsonObject json;
 
-        String jsonString = """
-            [
-                {
-                    "car": "Mustang",
-                    "year": 2019,
-                    "color": "white"
-                },
-                {
-                    "car": "fusca",
-                    "year": 1970,
-                    "color": "blue"
-                },
-                {
-                    "car": "brasilia",
-                    "year": 1972,
-                    "color": "yellow"
-                }
-            ]
-        """;
+        // String jsonString = """
+        //     [
+        //         {
+        //             "car": "Mustang",
+        //             "year": 2019,
+        //             "color": "white"
+        //         },
+        //         {
+        //             "car": "fusca",
+        //             "year": 1970,
+        //             "color": "blue"
+        //         },
+        //         {
+        //             "car": "brasilia",
+        //             "year": 1972,
+        //             "color": "yellow"
+        //         }
+        //     ]
+        // """;
 
-        df.importFromJson(jsonString);
+        File file = new File("jsonArray.json");
+
+        df.importFromJson(file);
         
         df.print();
 

@@ -25,7 +25,11 @@ import org.jetbrains.annotations.Nullable;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -350,8 +354,10 @@ public class DataFrame {
         this.importFromJson(new JSONArray(json));
     }
 
-    public void importFromJson(File file){
-
+    public void importFromJson(File file) throws IOException{
+            String jsonText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            JSONArray jsonArray = new JSONArray(jsonText);
+            this.importFromJson(jsonArray);
     }
 
     public void importFromJson(JSONArray json){
