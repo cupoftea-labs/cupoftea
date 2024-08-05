@@ -1,6 +1,7 @@
 package com.CupOfTea;
 
 import com.opencsv.CSVWriter;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -21,8 +22,14 @@ import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -341,6 +348,30 @@ public class DataFrame {
             e.printStackTrace();
         }
 
+    }
+
+    public void importFromJson(String json){
+        this.importFromJson(new JSONArray(json));
+    }
+
+    public void importFromJson(File file) throws IOException{
+            String jsonText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            JSONArray jsonArray = new JSONArray(jsonText);
+            this.importFromJson(jsonArray);
+    }
+
+    public void importFromJson(JSONArray json){
+        for (var key : (json.getJSONObject(0)).keySet()){
+            headers.add(key);
+        }
+        for(int i = 0; i < json.length(); i++){
+            ArrayList<Object> values = new ArrayList<>();
+            for(var column : headers){
+                var jsonObj = json.getJSONObject(i);
+                values.add(jsonObj.get(column));
+            }
+            dataFrame.add(values);
+        }
     }
 
 }

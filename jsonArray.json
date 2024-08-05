@@ -1,0 +1,22 @@
+[
+    {
+        "car": "Mustang",
+        "year": 2019,
+        "color": "white"
+    },
+    {
+        "car": "fusca",
+        "year": 1970,
+        "color": "blue"
+    },
+    {
+        "car": "brasilia",
+        "year": 1972,
+        "color": "yellow"
+    },
+    {
+        "car": "bugatti veyron",
+        "year": 2008,
+        "color": "red"
+    }
+]
