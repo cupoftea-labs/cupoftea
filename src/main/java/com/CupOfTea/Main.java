@@ -2,10 +2,6 @@ package com.CupOfTea;
 
 import java.io.File;
 
-import org.eclipse.jetty.util.ajax.JSON;
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 public class Main {
     public static void main(String[] args) throws Exception {
 
@@ -33,10 +29,10 @@ public class Main {
         //     ]
         // """;
 
-        File file = new File("jsonArray.json");
+        File file = new File("yaml.yaml");
 
-        df.importFromJson(file);
-        
+        df.importFromYaml(file);
+
         df.print();
 
         df.moveColumn(0, 2);
