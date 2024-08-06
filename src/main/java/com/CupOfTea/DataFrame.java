@@ -1,39 +1,41 @@
 package com.CupOfTea;
 
-import com.opencsv.CSVWriter;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 
-import lombok.Getter;
-import lombok.Setter;
-
-import org.apache.parquet.io.InputFile;
-import org.apache.hadoop.fs.Path;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.avro.SchemaBuilder.FieldAssembler;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.avro.AvroParquetWriter;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
+import org.apache.parquet.io.InputFile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.json.JSONArray;
-import org.json.JSONObject;
+import org.yaml.snakeyaml.Yaml;
 
+import com.opencsv.CSVWriter;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.stream.Collectors;
+import lombok.Getter;
+import lombok.Setter;
 
 
 public class DataFrame {
@@ -372,6 +374,30 @@ public class DataFrame {
             }
             dataFrame.add(values);
         }
+    }
+
+    public void importFromYaml(String yamlText){
+        Yaml yaml = new Yaml();
+        Iterable<Object> list = yaml.loadAll(yamlText);
+
+        for(var element: list){
+            ArrayList<HashMap<String, Object>> array = (ArrayList<HashMap<String, Object>>) element;
+            for (var key : (array.get(0)).keySet()){
+                headers.add(key);
+            }
+            for(var map : array){
+                ArrayList<Object> values = new ArrayList<>();
+                for(var key : map.keySet()){
+                    values.add(map.get(key));
+                }
+                dataFrame.add(values);
+            }
+        }
+    }
+
+    public void importFromYaml(File file) throws IOException{
+        String yamlText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+        this.importFromYaml(yamlText);
     }
 
 }
