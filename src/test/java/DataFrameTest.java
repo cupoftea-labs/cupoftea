@@ -2,14 +2,14 @@ import junit.framework.TestCase;
 
 import java.util.ArrayList;
 
-import com.CupOfTea.DataFrame;
+import com.CupOfTea.CupOfTea;
 
 public class DataFrameTest extends TestCase {
 
     public void testAddColumn(){
         String column = "Coluna 1";
 
-        DataFrame df = new DataFrame();
+        CupOfTea df = new CupOfTea();
         df.addColumn(column);
 
         ArrayList<String> espected = new ArrayList<>();
