@@ -47,6 +47,7 @@ public abstract class IDataFrame {
     public abstract ArrayList<String> getHeaders();
     public abstract IDataFrame filter(IFilter filter) throws Exception;
     public abstract IDataFrame update(HashMap<String, Object> updateColumns) throws Exception;
+    public abstract IDataFrame orderBy(Orderer... orderer) throws Exception;
 
     public Integer size(){
         return dataFrame.size();

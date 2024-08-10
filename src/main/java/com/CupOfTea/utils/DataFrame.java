@@ -8,6 +8,7 @@ import org.jetbrains.annotations.Nullable;
 
 import com.CupOfTea.utils.interfaces.IDataFrame;
 import com.CupOfTea.utils.interfaces.IFilter;
+import com.CupOfTea.utils.interfaces.Orderer;
 
 public class DataFrame extends IDataFrame {
 
@@ -166,6 +167,20 @@ public class DataFrame extends IDataFrame {
                     row.set(i, updateColumns.get(this.headers.get(i)));
                 }
             }  
+        }
+
+        return this;
+    }
+
+    @Override
+    public IDataFrame orderBy(Orderer... orderer) throws Exception {
+        int index = this.headers.indexOf(orderer[0].column());
+        
+
+        if(dataFrame.get(0).get(index) instanceof Integer) {
+            this.dataFrame.sort((a, b) -> orderer[0].type().value * ((Integer)a.get(index) - (Integer)b.get(index)));
+        } else {
+            throw new Exception("Not Supported data type for ordering");
         }
 
         return this;
