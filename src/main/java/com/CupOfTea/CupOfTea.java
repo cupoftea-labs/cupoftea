@@ -27,6 +27,7 @@ import com.CupOfTea.utils.Printer;
 import com.CupOfTea.utils.DataFrame;
 import com.CupOfTea.utils.interfaces.IDataFrame;
 import com.CupOfTea.utils.interfaces.IFilter;
+import com.CupOfTea.utils.interfaces.Orderer;
 
 
 public class CupOfTea {
@@ -118,6 +119,11 @@ public class CupOfTea {
 
     public CupOfTea update(HashMap<String, Object> updateColumns) throws Exception {
         return new CupOfTea(this.dataFrame.update(updateColumns));
+    }
+
+    public CupOfTea orderBy(Orderer... orderer) throws Exception{
+        this.dataFrame.orderBy(orderer);
+        return this;
     }
     
     public void print(){

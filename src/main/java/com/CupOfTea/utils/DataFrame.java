@@ -1,13 +1,17 @@
 package com.CupOfTea.utils;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.CupOfTea.utils.interfaces.IDataFrame;
 import com.CupOfTea.utils.interfaces.IFilter;
+import com.CupOfTea.utils.interfaces.Orderer;
 
 public class DataFrame extends IDataFrame {
 
@@ -168,6 +172,31 @@ public class DataFrame extends IDataFrame {
             }  
         }
 
+        return this;
+    }
+
+    @Override
+    public IDataFrame orderBy(Orderer... orderer) throws Exception {
+        this.dataFrame.sort((a, b) -> {
+                int result = 0;
+                for(var order : orderer) {
+                    int index = this.headers.indexOf(order.column());
+                    if(dataFrame.get(0).get(index) instanceof Integer) {
+
+                        result = order.type().value * ((Integer)a.get(index) - (Integer)b.get(index));
+
+                    } else if (dataFrame.get(0).get(index) instanceof String) {
+
+                        result = order.type().value * ((String) a.get(index)).compareTo((String)b.get(index));
+
+                    }
+                    if (result != 0) {
+                        return result;
+                    }
+                }
+                return result;
+            }
+        );
         return this;
     }
 
