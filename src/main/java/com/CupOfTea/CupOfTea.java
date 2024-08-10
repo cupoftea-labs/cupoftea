@@ -26,6 +26,7 @@ import com.CupOfTea.importers.interfaces.IYamlImporter;
 import com.CupOfTea.utils.Printer;
 import com.CupOfTea.utils.DataFrame;
 import com.CupOfTea.utils.interfaces.IDataFrame;
+import com.CupOfTea.utils.interfaces.IFilter;
 
 
 public class CupOfTea {
@@ -45,6 +46,10 @@ public class CupOfTea {
 
     public CupOfTea() {
         this.dataFrame = new DataFrame();
+    }
+
+    private CupOfTea(IDataFrame dataFrame){
+        this.dataFrame = dataFrame;
     }
 
     public ArrayList<Object> getRow(int index){
@@ -107,6 +112,13 @@ public class CupOfTea {
         this.dataFrame.removeRow(index);
     }
 
+    public CupOfTea filter(IFilter filter) throws Exception{
+        return new CupOfTea(this.dataFrame.filter(filter));
+    }
+
+    public CupOfTea update(HashMap<String, Object> updateColumns) throws Exception {
+        return new CupOfTea(this.dataFrame.update(updateColumns));
+    }
     
     public void print(){
         
