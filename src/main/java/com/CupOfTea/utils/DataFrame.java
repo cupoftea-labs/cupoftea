@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.CupOfTea.utils.interfaces.IDataFrame;
+import com.CupOfTea.utils.interfaces.IFilter;
 
 public class DataFrame extends IDataFrame {
 
@@ -116,6 +117,15 @@ public class DataFrame extends IDataFrame {
         dataFrame.add((ArrayList<Object>) row.clone());
     }
 
+    private void addRowWithoutCloning(@NotNull ArrayList<Object> row) throws Exception {
+        if(row.size() != this.headers.size()) {
+            // ToDo Criar uma exception mais especifica
+            throw new ArrayIndexOutOfBoundsException();
+        }
+        // ToDo testar se for usado a mesma variavel para criar colunas da row se da problema
+        dataFrame.add(row);
+    }
+
     @Override
     public void removeRow(int index) {
         dataFrame.remove(index);
@@ -124,6 +134,41 @@ public class DataFrame extends IDataFrame {
     @Override
     public ArrayList<String> getHeaders() {
         return this.headers;
+    }
+
+    @Override
+    public IDataFrame filter(IFilter filter) throws Exception {
+
+        DataFrame filteredDF = new DataFrame();
+
+        filteredDF.setHeaders(this.headers);
+
+        for(var row : dataFrame){
+
+            HashMap<String, Object> map = new HashMap<>();
+            for(int i = 0; i < this.headers.size(); i++){
+                map.put(this.headers.get(i), row.get(i));
+            }
+
+            if(filter.filter(map)){
+                filteredDF.addRowWithoutCloning(row);
+            }
+        }
+
+        return filteredDF;
+    }
+
+    @Override
+    public IDataFrame update(HashMap<String, Object> updateColumns) throws Exception {
+        for(var row : dataFrame){
+            for(int i = 0; i < this.headers.size(); i++){
+                if (updateColumns.containsKey(this.headers.get(i))){
+                    row.set(i, updateColumns.get(this.headers.get(i)));
+                }
+            }  
+        }
+
+        return this;
     }
 
 }
