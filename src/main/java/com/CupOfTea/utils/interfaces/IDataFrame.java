@@ -31,19 +31,19 @@ public abstract class IDataFrame {
         
     }
 
-    public abstract void moveColumn(String columnName, int finalIndex);
-    public abstract void moveColumn(int inicialIndex, int finalIndex);
-    public abstract void renameColumn(String oldName, String newName);
-    public abstract void renameColumn(int index, String newName);
-    public abstract void renameColumn(HashMap<String,String> name);
-    public abstract void addColumn(String columnName);
-    public abstract void addColumn(int index, String columnName);
-    public abstract void addColumn(int index, String columnName, @Nullable Object data);
-    public abstract void addColumn(int index, String columnName, @Nullable ArrayList<Object> data);
-    public abstract void removeColumn(String columnName);
-    public abstract void removeColumn(int index);
-    public abstract void addRow(@NotNull ArrayList<Object> row) throws Exception;
-    public abstract void removeRow(int index);
+    public abstract IDataFrame moveColumn(String columnName, int finalIndex);
+    public abstract IDataFrame moveColumn(int inicialIndex, int finalIndex);
+    public abstract IDataFrame renameColumn(String oldName, String newName);
+    public abstract IDataFrame renameColumn(int index, String newName);
+    public abstract IDataFrame renameColumn(HashMap<String,String> name);
+    public abstract IDataFrame addColumn(String columnName);
+    public abstract IDataFrame addColumn(int index, String columnName);
+    public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data);
+    public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data);
+    public abstract IDataFrame removeColumn(String columnName);
+    public abstract IDataFrame removeColumn(int index);
+    public abstract IDataFrame addRow(@NotNull ArrayList<Object> row) throws Exception;
+    public abstract IDataFrame removeRow(int index);
     public abstract ArrayList<String> getHeaders();
     public abstract IDataFrame filter(IFilter filter) throws Exception;
     public abstract IDataFrame update(HashMap<String, Object> updateColumns) throws Exception;

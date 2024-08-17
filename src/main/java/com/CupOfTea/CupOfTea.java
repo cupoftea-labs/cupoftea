@@ -53,6 +53,14 @@ public class CupOfTea {
         this.dataFrame = dataFrame;
     }
 
+    public ArrayList<String> getHeaders(){
+        return this.dataFrame.getHeaders();
+    }
+
+    public Integer size(){
+        return this.dataFrame.size();
+    }
+
     public ArrayList<Object> getRow(int index){
         return this.dataFrame.getDataFrame().get(index);
     }
@@ -61,56 +69,69 @@ public class CupOfTea {
         return this.dataFrame.getRows();
     }
 
-    public void moveColumn (String columnName, int finalIndex){
+    public CupOfTea moveColumn (String columnName, int finalIndex){
         this.dataFrame.moveColumn(columnName, finalIndex);
+        return this;
     }
     
-    public void moveColumn (int inicialIndex, int finalIndex){
+    public CupOfTea moveColumn (int inicialIndex, int finalIndex){
         this.dataFrame.moveColumn(inicialIndex, finalIndex);
+        return this;
     }
 
-    public void renameColumn (String oldName, String newName) {
+    public CupOfTea renameColumn (String oldName, String newName) {
         this.dataFrame.renameColumn(oldName, newName);
+        return this;
     }
 
-    public void renameColumn (int index, String newName) {
+    public CupOfTea renameColumn (int index, String newName) {
         this.dataFrame.renameColumn(index, newName);
+        return this;
     }
 
-    public void renameColumn (HashMap<String,String> name){
+    public CupOfTea renameColumn (HashMap<String,String> name){
         this.dataFrame.renameColumn(name);
+        return this;
     }
     
-    public void addColumn(String columnName) {
+    public CupOfTea addColumn(String columnName) {
         this.dataFrame.addColumn(columnName);
+        return this;
     }
 
-    public void addColumn(int index, String columnName){
+    public CupOfTea addColumn(int index, String columnName){
         this.dataFrame.addColumn(index, columnName);
+        return this;
     }
 
-    public void addColumn(int index, String columnName, @Nullable Object data){
+    public CupOfTea addColumn(int index, String columnName, @Nullable Object data){
         this.dataFrame.addColumn(index, columnName, data);
+        return this;
     }
 
-    public void addColumn(int index, String columnName, @Nullable ArrayList<Object> data){
+    public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data){
         this.dataFrame.addColumn(index, columnName, data);
+        return this;
     }
 
-    public void removeColumn(String columnName) {
+    public CupOfTea removeColumn(String columnName) {
         this.dataFrame.removeColumn(columnName);
+        return this;
     }
 
-    public void removeColumn(int index) {
+    public CupOfTea removeColumn(int index) {
         this.dataFrame.removeColumn(index);
+        return this;
     }
 
-    public void addRow(@NotNull ArrayList<Object> row) throws Exception{
+    public CupOfTea addRow(@NotNull ArrayList<Object> row) throws Exception{
         this.dataFrame.addRow(row);
+        return this;
     }
 
-    public void removeRow(int index){
+    public CupOfTea removeRow(int index){
         this.dataFrame.removeRow(index);
+        return this;
     }
 
     public CupOfTea filter(IFilter filter) throws Exception{
@@ -126,66 +147,76 @@ public class CupOfTea {
         return this;
     }
     
-    public void print(){
+    public CupOfTea print(){
         
         Printer printer = new Printer(this);
         printer.print();
+        return this;
 
     }
 
     
-    public void exportToCsv(File file){
+    public CupOfTea exportToCsv(File file){
 
         csvExporter = new CSVExporter(this);
         csvExporter.exportToCsv(file);
+        return this;
 
     }
 
     
-    public void importFromCsv(File file, boolean hasHeaders) throws Exception {
+    public CupOfTea importFromCsv(File file, boolean hasHeaders) throws Exception {
 
         csvImporter = new CSVImporter(this);
         csvImporter.importFromCsv(file, hasHeaders);
+        return this;
 
     }
 
-    public void importFromParquet(File file) throws Exception {
+    public CupOfTea importFromParquet(File file) throws Exception {
 
         parquetImporter = new ParquetImporter(this);
         parquetImporter.importFromParquet(file);
+        return this;
 
     }
 
-    public void exportToParquet(File file) {       
+    public CupOfTea exportToParquet(File file) {       
         
         parquetExporter = new ParquetExporter(this);
         parquetExporter.exportToParquet(file);
+        return this;
 
     }
 
-    public void importFromJson(String json) {
+    public CupOfTea importFromJson(String json) {
+
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json);
+        return this;
+
     }
 
     /**
      * @param file
      * @throws IOException
      */
-    public void importFromJson(File file) throws IOException{
+    public CupOfTea importFromJson(File file) throws IOException{
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file);
+        return this;
 
     }
 
     /**
      * @param json
      */
-    public void importFromJson(JSONArray json){
+    public CupOfTea importFromJson(JSONArray json){
         
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json);
+        return this;
 
     }
 
@@ -193,10 +224,11 @@ public class CupOfTea {
      * @param yamlText
      * @throws Exception 
      */
-    public void importFromYaml(String yamlText) throws Exception{
+    public CupOfTea importFromYaml(String yamlText) throws Exception{
         
         yamlImporter = new YamlImporter(this);
         yamlImporter.importFromYaml(yamlText);
+        return this;
  
     }
 
@@ -204,23 +236,19 @@ public class CupOfTea {
      * @param file
      * @throws Exception 
      */
-    public void importFromYaml(File file) throws Exception{
+    public CupOfTea importFromYaml(File file) throws Exception{
         
         yamlImporter = new YamlImporter(this);
         yamlImporter.importFromYaml(file);
+        return this;
 
     }
 
-    public ArrayList<String> getHeaders(){
-        return this.dataFrame.getHeaders();
-    }
+    
 
-    public Integer size(){
-        return this.dataFrame.size();
-    }
-
-	public void setHeaders(ArrayList<String> arrayList) {
+	public CupOfTea setHeaders(ArrayList<String> arrayList) {
 		this.dataFrame.setHeaders(arrayList);
+        return this;
 	}
 
 }
