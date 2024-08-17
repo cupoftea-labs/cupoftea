@@ -1,10 +1,7 @@
 package com.CupOfTea.utils;
 
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -20,13 +17,14 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public void moveColumn(String columnName, int finalIndex) {
+    public IDataFrame moveColumn(String columnName, int finalIndex) {
         int columnIndex = headers.indexOf(columnName);
         this.moveColumn(columnIndex, finalIndex);
+        return this;
     }
 
     @Override
-    public void moveColumn(int inicialIndex, int finalIndex) {
+    public IDataFrame moveColumn(int inicialIndex, int finalIndex) {
         String columnName = this.headers.get(inicialIndex);
         this.headers.remove(inicialIndex);
         this.headers.add(finalIndex, columnName);
@@ -35,24 +33,28 @@ public class DataFrame extends IDataFrame {
             dataRow.remove(inicialIndex);
             dataRow.add(finalIndex, data);
         }
+        return this;
     }
 
     @Override
-    public void renameColumn(String oldName, String newName) {
+    public IDataFrame renameColumn(String oldName, String newName) {
         int index = this.headers.indexOf(oldName);
         renameColumn(index, newName);
+        return this;
     }
 
     @Override
-    public void renameColumn(int index, String newName) {
+    public IDataFrame renameColumn(int index, String newName) {
         this.headers.set(index, newName);
+        return this;
     }
 
     @Override
-    public void renameColumn(HashMap<String, String> name) {
+    public IDataFrame renameColumn(HashMap<String, String> name) {
         name.forEach((key, value) -> {
             this.renameColumn(key, value);
         });
+        return this;
     }
 
     /*
@@ -60,30 +62,33 @@ public class DataFrame extends IDataFrame {
      * The column will be created in the last position with null value
      */
     @Override
-    public void addColumn(String columnName) {
+    public IDataFrame addColumn(String columnName) {
         int index = headers.size();
         addColumn(index, columnName);
+        return this;
     }
 
     @Override
-    public void addColumn(int index, String columnName) {
+    public IDataFrame addColumn(int index, String columnName) {
         addColumn(index, columnName, (Object) null);
+        return this;
     }
 
     @Override
-    public void addColumn(int index, String columnName, @Nullable Object data) {
+    public IDataFrame addColumn(int index, String columnName, @Nullable Object data) {
         ArrayList<Object> dataArray = new ArrayList<>();
         for (@SuppressWarnings("unused") var row : dataFrame) {
             dataArray.add(data);
         }
         addColumn(index,columnName,dataArray);
+        return this;
     }
 
     @Override
-    public void addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
+    public IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
         if (data == null) {
             addColumn(index, columnName, (Object) data);
-            return;
+            return this;
         }
         headers.add(index, columnName);
         int i = 0;
@@ -92,33 +97,37 @@ public class DataFrame extends IDataFrame {
             objects.add(index,data.get(i));
         }
         // ToDo lidar com casos em que é utilizado a mesma variável para criar colunas -> Evitar que ao editar uma linha outras sejam editadas ao mesmo tempo
+        return this;
     }
 
     @Override
-    public void removeColumn(String columnName) {
+    public IDataFrame removeColumn(String columnName) {
         // ToDo lidar com colunas com mesmo nome? ou remover apenas a primeira que aparece
         // ToDo Tratar caso nao exista a coluna
         int columnIndex = headers.indexOf(columnName);
         removeColumn(columnIndex);
+        return this;
     }
 
     @Override
-    public void removeColumn(int index) {
+    public IDataFrame removeColumn(int index) {
         // ToDo tratar out of bond?
         headers.remove(index);
         for (int i = 0; i < dataFrame.size(); i++) {
             dataFrame.get(i).remove(index);
         }
+        return this;
     }
 
     @Override
-    public void addRow(@NotNull ArrayList<Object> row) throws Exception {
+    public IDataFrame addRow(@NotNull ArrayList<Object> row) throws Exception {
         if(row.size() != this.headers.size()) {
             // ToDo Criar uma exception mais especifica
             throw new ArrayIndexOutOfBoundsException();
         }
         // ToDo testar se for usado a mesma variavel para criar colunas da row se da problema
         dataFrame.add((ArrayList<Object>) row.clone());
+        return this;
     }
 
     private void addRowWithoutCloning(@NotNull ArrayList<Object> row) throws Exception {
@@ -131,8 +140,9 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public void removeRow(int index) {
+    public IDataFrame removeRow(int index) {
         dataFrame.remove(index);
+        return this;
     }
 
     @Override
