@@ -6,7 +6,7 @@ import com.CupOfTea.CupOfTea;
 
 public class DataFrameTest extends TestCase {
 
-    public void testAddColumn(){
+    public void testAddColumn() throws Exception{
         String column = "Coluna 1";
 
         CupOfTea df = new CupOfTea();

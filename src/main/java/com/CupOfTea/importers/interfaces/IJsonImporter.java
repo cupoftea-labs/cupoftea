@@ -7,8 +7,8 @@ import org.json.JSONArray;
 
 public interface IJsonImporter {
 
-    public void importFromJson(File file) throws IOException;
-    public void importFromJson(String json);
-    public void importFromJson(JSONArray json);
+    public void importFromJson(File file) throws IOException, Exception;
+    public void importFromJson(String json) throws Exception;
+    public void importFromJson(JSONArray json) throws Exception;
 
 }
