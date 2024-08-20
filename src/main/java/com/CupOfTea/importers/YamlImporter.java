@@ -36,12 +36,8 @@ public class YamlImporter implements IYamlImporter {
             for (var key : (array.get(0)).keySet()){
                 this.dataFrame.addColumn(key);
             }
-            for(var map : array){
-                ArrayList<Object> values = new ArrayList<>();
-                for(var key : map.keySet()){
-                    values.add(map.get(key));
-                }
-                this.dataFrame.addRow(values);
+            for(var row : array){
+                this.dataFrame.addRow(row);
             }
         }
     }

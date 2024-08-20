@@ -21,12 +21,12 @@ public abstract class IDataFrame {
     // ToDo liberar o setter?
     // ToDo Usar Generics
     @Getter
-    protected ArrayList<ArrayList<Object>> dataFrame;
+    protected ArrayList<HashMap<String, Object>> rows;
 
     public IDataFrame(){
         // ToDo lidar com o limite de memoria do Java com (sun.misc.Unsafe class)
         // https://blogs.oracle.com/javamagazine/post/the-unsafe-class-unsafe-at-any-speed
-        this.dataFrame = new ArrayList<>();
+        this.rows = new ArrayList<>();
         this.headers = new ArrayList<>();
         
     }
@@ -36,13 +36,13 @@ public abstract class IDataFrame {
     public abstract IDataFrame renameColumn(String oldName, String newName);
     public abstract IDataFrame renameColumn(int index, String newName);
     public abstract IDataFrame renameColumn(HashMap<String,String> name);
-    public abstract IDataFrame addColumn(String columnName);
-    public abstract IDataFrame addColumn(int index, String columnName);
-    public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data);
-    public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data);
+    public abstract IDataFrame addColumn(String columnName) throws Exception;
+    public abstract IDataFrame addColumn(int index, String columnName) throws Exception;
+    public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception;
+    public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception;
     public abstract IDataFrame removeColumn(String columnName);
     public abstract IDataFrame removeColumn(int index);
-    public abstract IDataFrame addRow(@NotNull ArrayList<Object> row) throws Exception;
+    public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception;
     public abstract IDataFrame removeRow(int index);
     public abstract ArrayList<String> getHeaders();
     public abstract IDataFrame filter(IFilter filter) throws Exception;
@@ -50,12 +50,9 @@ public abstract class IDataFrame {
     public abstract IDataFrame orderBy(Orderer... orderer) throws Exception;
 
     public Integer size(){
-        return dataFrame.size();
+        return this.rows.size();
     }
 
-    public ArrayList<ArrayList<Object>> getRows(){
-        return this.dataFrame;
-    }
 
     public void setHeaders(ArrayList<String> headers){
         this.headers = headers;

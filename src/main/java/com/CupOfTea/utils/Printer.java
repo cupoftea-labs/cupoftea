@@ -59,7 +59,8 @@ public class Printer implements IPrinter {
         for (int i = 0; i < 10 && i < dataFrame.size(); i++) {
             System.out.print('\u2502'+" ");
 
-            this.dataFrame.getRow(i).forEach((rowColumn) -> {
+            for (var columnName : this.dataFrame.getHeaders()){
+                Object rowColumn = this.dataFrame.getRow(i).get(columnName);
                 String rowData = rowColumn == null ? "null" : rowColumn.toString();
                 int length = rowData.length();
                 int spaces = 21 - length ;
@@ -69,7 +70,8 @@ public class Printer implements IPrinter {
                 }
                 String space = " ".repeat(spaces);
                 System.out.print(rowColumn + space + '\u2502'+" ");
-            });
+            }
+            
             System.out.println();
         }
         System.out.print('\u2514');

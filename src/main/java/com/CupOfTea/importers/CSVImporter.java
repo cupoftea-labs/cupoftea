@@ -6,6 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.importers.interfaces.ICSVImporter;
@@ -32,7 +33,11 @@ public class CSVImporter implements ICSVImporter {
             }
             while ((line = br.readLine()) != null) {
                 Object[] values = line.split(",");
-                this.dataFrame.addRow(new ArrayList<>(Arrays.asList(values)));
+                HashMap<String, Object> row = new HashMap<>();
+                for(int i = 0; i < this.dataFrame.getHeaders().size(); i++){
+                    row.put(this.dataFrame.getHeaders().get(i), values[i]);
+                }
+                this.dataFrame.addRow(row);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);

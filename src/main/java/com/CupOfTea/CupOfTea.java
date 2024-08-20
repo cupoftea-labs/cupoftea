@@ -1,7 +1,6 @@
 package com.CupOfTea;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -61,11 +60,11 @@ public class CupOfTea {
         return this.dataFrame.size();
     }
 
-    public ArrayList<Object> getRow(int index){
-        return this.dataFrame.getDataFrame().get(index);
+    public HashMap<String, Object> getRow(int index){
+        return this.dataFrame.getRows().get(index);
     }
 
-    public ArrayList<ArrayList<Object>> getRows(){
+    public ArrayList<HashMap<String, Object>> getRows(){
         return this.dataFrame.getRows();
     }
 
@@ -94,22 +93,22 @@ public class CupOfTea {
         return this;
     }
     
-    public CupOfTea addColumn(String columnName) {
+    public CupOfTea addColumn(String columnName) throws Exception {
         this.dataFrame.addColumn(columnName);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName){
+    public CupOfTea addColumn(int index, String columnName) throws Exception{
         this.dataFrame.addColumn(index, columnName);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, @Nullable Object data){
+    public CupOfTea addColumn(int index, String columnName, @Nullable Object data) throws Exception{
         this.dataFrame.addColumn(index, columnName, data);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data){
+    public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception{
         this.dataFrame.addColumn(index, columnName, data);
         return this;
     }
@@ -124,7 +123,7 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea addRow(@NotNull ArrayList<Object> row) throws Exception{
+    public CupOfTea addRow(@NotNull HashMap<String, Object> row) throws Exception{
         this.dataFrame.addRow(row);
         return this;
     }
@@ -181,7 +180,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea exportToParquet(File file) {       
+    public CupOfTea exportToParquet(File file) throws Exception { 
         
         parquetExporter = new ParquetExporter(this);
         parquetExporter.exportToParquet(file);
@@ -189,7 +188,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromJson(String json) {
+    public CupOfTea importFromJson(String json) throws Exception {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json);
@@ -199,9 +198,9 @@ public class CupOfTea {
 
     /**
      * @param file
-     * @throws IOException
+     * @throws Exception 
      */
-    public CupOfTea importFromJson(File file) throws IOException{
+    public CupOfTea importFromJson(File file) throws Exception{
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file);
@@ -211,8 +210,9 @@ public class CupOfTea {
 
     /**
      * @param json
+     * @throws Exception 
      */
-    public CupOfTea importFromJson(JSONArray json){
+    public CupOfTea importFromJson(JSONArray json) throws Exception{
         
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json);
@@ -244,7 +244,6 @@ public class CupOfTea {
 
     }
 
-    
 
 	public CupOfTea setHeaders(ArrayList<String> arrayList) {
 		this.dataFrame.setHeaders(arrayList);

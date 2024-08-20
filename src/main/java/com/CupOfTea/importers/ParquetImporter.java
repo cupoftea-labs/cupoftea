@@ -3,6 +3,7 @@ package com.CupOfTea.importers;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericRecord;
@@ -34,6 +35,7 @@ public class ParquetImporter implements IParquetImporter {
 
         try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(iptf).build()) {
             GenericRecord record;
+            Boolean setHeaders = true;
             while ((record = reader.read()) != null) {
                 // The Schema.Type enum in Avro defines several types including:
                 // NULL
@@ -51,12 +53,8 @@ public class ParquetImporter implements IParquetImporter {
                 // UNION -> Pode ser de um ou vários tipos, equivalente ao Object do Java
                 // FIXED
                 
-                Boolean setHeaders = true;
-                
                 ArrayList<String> headers = new ArrayList<>();
-
-                this.dataFrame.setHeaders(headers);
-                ArrayList<Object> values = new ArrayList<>();
+                HashMap<String, Object> row = new HashMap<>();
                 Schema schema = record.getSchema();
                 for (Schema.Field field : schema.getFields()) {
                     if(setHeaders){
@@ -64,15 +62,15 @@ public class ParquetImporter implements IParquetImporter {
                     }
                     Schema fieldSchema = field.schema();
                     String fieldType = fieldSchema.getType().getName();
-                    values.add(record.get(field.name()));
+                    row.put(field.name(), record.get(field.name()).toString());
                 }
-                setHeaders = false;
-                this.dataFrame.addRow(values);
+                if(setHeaders){
+                    this.dataFrame.setHeaders(headers);
+                    setHeaders = false;
+                }
+                this.dataFrame.addRow(row);
 
             }
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
         }
     }
 

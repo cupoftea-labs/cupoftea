@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 import com.CupOfTea.CupOfTea;
@@ -30,13 +31,13 @@ public class CSVExporter implements ICSVExporter {
             String[] header = this.dataFrame.getHeaders().toArray(new String[0]);
             writer.writeNext(header);
 
-            for (ArrayList<Object> data :  this.dataFrame.getRows()){
-                ArrayList<String> dataArr = (ArrayList<String>) data.stream()
-                                                .map((i -> i.toString()))
+            for (HashMap<String, Object> data :  this.dataFrame.getRows()){
+                ArrayList<String> dataArr = (ArrayList<String>) this.dataFrame.getHeaders().stream()
+                                                .map((i -> data.get(i).toString()))
                                                 .collect(Collectors.toList())
                                                 ;
 
-                String[] dataStr = dataArr.toArray(new String[0]);
+                String[] dataStr = dataArr.toArray(String[]::new);
                 writer.writeNext(dataStr);
             }
 

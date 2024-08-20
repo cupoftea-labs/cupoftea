@@ -2,6 +2,7 @@ package com.CupOfTea.utils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -25,14 +26,10 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame moveColumn(int inicialIndex, int finalIndex) {
+        // A Ordem da Coluna é definida pela ordem dos headers
         String columnName = this.headers.get(inicialIndex);
         this.headers.remove(inicialIndex);
         this.headers.add(finalIndex, columnName);
-        for (ArrayList<Object> dataRow: dataFrame) {
-            Object data = dataRow.get(inicialIndex);
-            dataRow.remove(inicialIndex);
-            dataRow.add(finalIndex, data);
-        }
         return this;
     }
 
@@ -45,7 +42,14 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame renameColumn(int index, String newName) {
+        String oldName = this.headers.get(index);
         this.headers.set(index, newName);
+        for(var row : this.getRows()){
+            row.put(newName, row.get(oldName));
+            row.remove(oldName);
+        }
+
+        // this.getRows().stream().forEach(i -> i.replace(oldName, newName));
         return this;
     }
 
@@ -62,86 +66,81 @@ public class DataFrame extends IDataFrame {
      * The column will be created in the last position with null value
      */
     @Override
-    public IDataFrame addColumn(String columnName) {
+    public IDataFrame addColumn(String columnName) throws Exception {
         int index = headers.size();
-        addColumn(index, columnName);
+        this.addColumn(index, columnName);
         return this;
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName) {
-        addColumn(index, columnName, (Object) null);
+    public IDataFrame addColumn(int index, String columnName) throws Exception {
+        this.addColumn(index, columnName, (Object) null);
         return this;
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, @Nullable Object data) {
+    public IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception {
         ArrayList<Object> dataArray = new ArrayList<>();
-        for (@SuppressWarnings("unused") var row : dataFrame) {
+        for (@SuppressWarnings("unused") var row : this.rows) {
             dataArray.add(data);
         }
-        addColumn(index,columnName,dataArray);
+        this.addColumn(index,columnName,dataArray);
         return this;
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
-        if (data == null) {
-            addColumn(index, columnName, (Object) data);
-            return this;
-        }
+    public IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception {
+
+        if (data == null) return this.addColumn(index, columnName, (Object) data);
+        if (data.size() != this.size()) throw new ArrayIndexOutOfBoundsException();
+
         headers.add(index, columnName);
         int i = 0;
-        // ToDo procurar forma mais eficiente de preencher esses dados
-        for (ArrayList<Object> objects : dataFrame) {
-            objects.add(index,data.get(i));
+        for (HashMap<String, Object> row : this.rows) {
+            row.put(columnName, data.get(i));
+            i++;
         }
-        // ToDo lidar com casos em que é utilizado a mesma variável para criar colunas -> Evitar que ao editar uma linha outras sejam editadas ao mesmo tempo
         return this;
     }
 
     @Override
     public IDataFrame removeColumn(String columnName) {
-        // ToDo lidar com colunas com mesmo nome? ou remover apenas a primeira que aparece
         // ToDo Tratar caso nao exista a coluna
         int columnIndex = headers.indexOf(columnName);
-        removeColumn(columnIndex);
+        this.headers.remove(columnIndex);
+
+        // Do it in a new thread for performance improvement?
+        for(var row : this.rows) {
+            row.remove(columnName);
+        }
+
         return this;
     }
 
     @Override
     public IDataFrame removeColumn(int index) {
         // ToDo tratar out of bond?
-        headers.remove(index);
-        for (int i = 0; i < dataFrame.size(); i++) {
-            dataFrame.get(i).remove(index);
-        }
-        return this;
+        String columnName = this.headers.get(index);
+        return this.removeColumn(columnName);
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public IDataFrame addRow(@NotNull ArrayList<Object> row) throws Exception {
-        if(row.size() != this.headers.size()) {
-            // ToDo Criar uma exception mais especifica
-            throw new ArrayIndexOutOfBoundsException();
-        }
-        // ToDo testar se for usado a mesma variavel para criar colunas da row se da problema
-        dataFrame.add((ArrayList<Object>) row.clone());
-        return this;
+    public IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception {
+        // ToDo Verificar se todas as colunas batem com as colunas do header
+        return this.addRow(row, true);
     }
 
-    private void addRowWithoutCloning(@NotNull ArrayList<Object> row) throws Exception {
-        if(row.size() != this.headers.size()) {
-            // ToDo Criar uma exception mais especifica
-            throw new ArrayIndexOutOfBoundsException();
-        }
-        // ToDo testar se for usado a mesma variavel para criar colunas da row se da problema
-        dataFrame.add(row);
+    private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) throws Exception {
+        // ToDo Verificar se todas as colunas batem com as colunas do header
+        if (clone) rows.add((HashMap<String, Object>) row.clone());
+        else rows.add(row);
+        return this;
     }
 
     @Override
     public IDataFrame removeRow(int index) {
-        dataFrame.remove(index);
+        rows.remove(index);
         return this;
     }
 
@@ -157,15 +156,9 @@ public class DataFrame extends IDataFrame {
 
         filteredDF.setHeaders(this.headers);
 
-        for(var row : dataFrame){
-
-            HashMap<String, Object> map = new HashMap<>();
-            for(int i = 0; i < this.headers.size(); i++){
-                map.put(this.headers.get(i), row.get(i));
-            }
-
-            if(filter.filter(map)){
-                filteredDF.addRowWithoutCloning(row);
+        for(var row : this.rows){
+            if(filter.filter(row)){
+                filteredDF.addRow(row, false);
             }
         }
 
@@ -174,12 +167,8 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame update(HashMap<String, Object> updateColumns) throws Exception {
-        for(var row : dataFrame){
-            for(int i = 0; i < this.headers.size(); i++){
-                if (updateColumns.containsKey(this.headers.get(i))){
-                    row.set(i, updateColumns.get(this.headers.get(i)));
-                }
-            }  
+        for(var row : this.rows){
+            row.putAll(updateColumns);
         }
 
         return this;
@@ -187,17 +176,16 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame orderBy(Orderer... orderer) throws Exception {
-        this.dataFrame.sort((a, b) -> {
+        this.rows.sort((a, b) -> {
                 int result = 0;
                 for(var order : orderer) {
-                    int index = this.headers.indexOf(order.column());
-                    if(dataFrame.get(0).get(index) instanceof Integer) {
+                    if(rows.get(0).get(order.column()) instanceof Integer) {
 
-                        result = order.type().value * ((Integer)a.get(index) - (Integer)b.get(index));
+                        result = order.type().value * ((Integer)a.get(order.column()) - (Integer)b.get(order.column()));
 
-                    } else if (dataFrame.get(0).get(index) instanceof String) {
+                    } else if (rows.get(0).get(order.column()) instanceof String) {
 
-                        result = order.type().value * ((String) a.get(index)).compareTo((String)b.get(index));
+                        result = order.type().value * ((String) a.get(order.column())).compareTo((String)b.get(order.column()));
 
                     }
                     if (result != 0) {

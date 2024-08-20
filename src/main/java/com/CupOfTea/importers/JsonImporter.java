@@ -5,7 +5,9 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashMap;
 
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
 
 import com.CupOfTea.CupOfTea;
@@ -20,37 +22,29 @@ public class JsonImporter implements IJsonImporter {
     }
 
     @Override
-    public void importFromJson(File file) throws IOException {
+    public void importFromJson(File file) throws Exception {
         String jsonText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
         JSONArray jsonArray = new JSONArray(jsonText);
         this.importFromJson(jsonArray);
     }
 
     @Override
-    public void importFromJson(String json) {
+    public void importFromJson(String json) throws Exception {
         this.importFromJson(new JSONArray(json));
     }
 
     @Override
-    public void importFromJson(JSONArray json) {
+    public void importFromJson(JSONArray json) throws Exception {
         for (var key : (json.getJSONObject(0)).keySet()){
             this.dataFrame.addColumn(key);
         }
         for(int i = 0; i < json.length(); i++){
-            ArrayList<Object> values = new ArrayList<>();
-            for(var column : this.dataFrame.getHeaders()){
-                var jsonObj = json.getJSONObject(i);
-                values.add(jsonObj.get(column));
-            }
-            try {
-                this.dataFrame.addRow(values);
-            } catch (Exception e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+            var jsonObj = json.getJSONObject(i).toMap();
+            this.dataFrame.addRow((HashMap<String, Object>) jsonObj);
+          
         }
     }
-
+ 
 
 
 }
