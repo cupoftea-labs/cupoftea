@@ -3,7 +3,7 @@ package com.CupOfTea.utils;
 import java.util.ArrayList;
 
 import com.CupOfTea.CupOfTea;
-import com.CupOfTea.utils.interfaces.IDataFrame;
+import com.CupOfTea.table.Column;
 import com.CupOfTea.utils.interfaces.IPrinter;
 
 public class Printer implements IPrinter {
@@ -30,7 +30,7 @@ public class Printer implements IPrinter {
         System.out.print('\u250C');
         System.out.print(String.valueOf('\u2500').repeat((22)));
 
-        ArrayList<String> headers = this.dataFrame.getHeaders();
+        ArrayList<Column> headers = this.dataFrame.getHeaders();
 
         for(int i = 0; i < headers.size() - 1; i++) {
             System.out.print('\u252C');
@@ -39,14 +39,15 @@ public class Printer implements IPrinter {
         System.out.println('\u2510');
         System.out.print('\u2502' + " ");
         headers.forEach((header) -> {
-            int length = header.length();
+            String headerName = header.columnName();
+            int length = header.columnName().length();
             int spaces = 21 - length ;
             if(spaces <= 0){
                 spaces = 1;
-                header = header.substring(0,17) + "...";
+                headerName = header.columnName().substring(0,17) + "...";
             }
             String space = " ".repeat(spaces);
-            System.out.print(header + space + '\u2502' + " ");
+            System.out.print(headerName + space + '\u2502' + " ");
         });
         System.out.println();
         System.out.print('\u251C');
@@ -59,8 +60,8 @@ public class Printer implements IPrinter {
         for (int i = 0; i < 10 && i < dataFrame.size(); i++) {
             System.out.print('\u2502'+" ");
 
-            for (var columnName : this.dataFrame.getHeaders()){
-                Object rowColumn = this.dataFrame.getRow(i).get(columnName);
+            for (var column : this.dataFrame.getHeaders()){
+                Object rowColumn = this.dataFrame.getRow(i).get(column.columnName());
                 String rowData = rowColumn == null ? "null" : rowColumn.toString();
                 int length = rowData.length();
                 int spaces = 21 - length ;

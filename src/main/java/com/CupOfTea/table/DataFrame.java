@@ -1,13 +1,12 @@
-package com.CupOfTea.utils;
+package com.CupOfTea.table;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import com.CupOfTea.utils.interfaces.IDataFrame;
+import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
@@ -19,7 +18,7 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame moveColumn(String columnName, int finalIndex) {
-        int columnIndex = headers.indexOf(columnName);
+        int columnIndex = headers.indexOf(new Column(columnName));
         this.moveColumn(columnIndex, finalIndex);
         return this;
     }
@@ -27,29 +26,28 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame moveColumn(int inicialIndex, int finalIndex) {
         // A Ordem da Coluna é definida pela ordem dos headers
-        String columnName = this.headers.get(inicialIndex);
+        String columnName = this.headers.get(inicialIndex).columnName();
         this.headers.remove(inicialIndex);
-        this.headers.add(finalIndex, columnName);
+        this.headers.add(finalIndex, new Column(columnName));
         return this;
     }
 
     @Override
     public IDataFrame renameColumn(String oldName, String newName) {
-        int index = this.headers.indexOf(oldName);
+        int index = this.headers.indexOf(new Column(oldName));
         renameColumn(index, newName);
         return this;
     }
 
     @Override
     public IDataFrame renameColumn(int index, String newName) {
-        String oldName = this.headers.get(index);
-        this.headers.set(index, newName);
+        String oldName = this.headers.get(index).columnName();
+        this.headers.set(index, new Column(newName));
         for(var row : this.getRows()){
             row.put(newName, row.get(oldName));
             row.remove(oldName);
         }
 
-        // this.getRows().stream().forEach(i -> i.replace(oldName, newName));
         return this;
     }
 
@@ -94,7 +92,7 @@ public class DataFrame extends IDataFrame {
         if (data == null) return this.addColumn(index, columnName, (Object) data);
         if (data.size() != this.size()) throw new ArrayIndexOutOfBoundsException();
 
-        headers.add(index, columnName);
+        headers.add(index, new Column(columnName));
         int i = 0;
         for (HashMap<String, Object> row : this.rows) {
             row.put(columnName, data.get(i));
@@ -106,7 +104,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame removeColumn(String columnName) {
         // ToDo Tratar caso nao exista a coluna
-        int columnIndex = headers.indexOf(columnName);
+        int columnIndex = headers.indexOf(new Column(columnName));
         this.headers.remove(columnIndex);
 
         // Do it in a new thread for performance improvement?
@@ -120,7 +118,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame removeColumn(int index) {
         // ToDo tratar out of bond?
-        String columnName = this.headers.get(index);
+        String columnName = this.headers.get(index).columnName();
         return this.removeColumn(columnName);
     }
 
@@ -145,7 +143,7 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public ArrayList<String> getHeaders() {
+    public ArrayList<Column> getHeaders() {
         return this.headers;
     }
 
@@ -154,7 +152,7 @@ public class DataFrame extends IDataFrame {
 
         DataFrame filteredDF = new DataFrame();
 
-        filteredDF.setHeaders(this.headers);
+        // filteredDF.setHeaders(this.headers);
 
         for(var row : this.rows){
             if(filter.filter(row)){

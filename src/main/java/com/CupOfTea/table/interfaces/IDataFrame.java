@@ -1,4 +1,4 @@
-package com.CupOfTea.utils.interfaces;
+package com.CupOfTea.table.interfaces;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -6,6 +6,10 @@ import java.util.HashMap;
 import javax.annotation.Nullable;
 
 import org.jetbrains.annotations.NotNull;
+
+import com.CupOfTea.table.Column;
+import com.CupOfTea.utils.interfaces.IFilter;
+import com.CupOfTea.utils.interfaces.Orderer;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -15,7 +19,7 @@ public abstract class IDataFrame {
     // ToDo ajustar tamanho dos headers para ter o mesmo numero de colunas que o body
     // ToDo Criar classe do tipo Header?
     @Getter @Setter
-    protected ArrayList<String> headers;
+    protected ArrayList<Column> headers;
     // ToDo tratar casos que as linhas tem diferentes quantidades de colunas
     // ToDo ? uma coluna pode ter diferentes tipos de dados ?
     // ToDo liberar o setter?
@@ -44,7 +48,7 @@ public abstract class IDataFrame {
     public abstract IDataFrame removeColumn(int index);
     public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception;
     public abstract IDataFrame removeRow(int index);
-    public abstract ArrayList<String> getHeaders();
+    public abstract ArrayList<Column> getHeaders();
     public abstract IDataFrame filter(IFilter filter) throws Exception;
     public abstract IDataFrame update(HashMap<String, Object> updateColumns) throws Exception;
     public abstract IDataFrame orderBy(Orderer... orderer) throws Exception;
@@ -54,7 +58,7 @@ public abstract class IDataFrame {
     }
 
 
-    public void setHeaders(ArrayList<String> headers){
+    public void setHeaders(ArrayList<Column> headers){
         this.headers = headers;
     }
 }

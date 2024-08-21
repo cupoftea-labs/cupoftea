@@ -19,6 +19,7 @@ import org.apache.parquet.hadoop.util.HadoopOutputFile;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exporters.interfaces.IParquetExporter;
+import com.CupOfTea.table.Column;
 
 
 public class ParquetExporter implements IParquetExporter {
@@ -36,10 +37,10 @@ public class ParquetExporter implements IParquetExporter {
                                     .namespace("com.CupOfTea") // Todo ver melhor forma de definir namespace
                                     .fields();
 
-        ArrayList<String> headers = this.dataFrame.getHeaders();
+        ArrayList<Column> headers = this.dataFrame.getHeaders();
 
-        for (String header : headers){
-            assembler.requiredString(header);
+        for (Column header : headers){
+            assembler.requiredString(header.columnName());
         }
 
         Schema schema = (Schema) assembler.endRecord();
@@ -58,7 +59,7 @@ public class ParquetExporter implements IParquetExporter {
             for (HashMap<String, Object> data :  this.dataFrame.getRows()){
                 GenericRecord record = new GenericData.Record(schema);
                 for (int i = 0; i < data.size(); i++){
-                    String header = headers.get(i);
+                    String header = headers.get(i).columnName();
                     record.put(header, data.get(header).toString());
                 }
                 writer.write(record);

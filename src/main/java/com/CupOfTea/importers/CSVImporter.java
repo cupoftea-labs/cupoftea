@@ -35,7 +35,7 @@ public class CSVImporter implements ICSVImporter {
                 Object[] values = line.split(",");
                 HashMap<String, Object> row = new HashMap<>();
                 for(int i = 0; i < this.dataFrame.getHeaders().size(); i++){
-                    row.put(this.dataFrame.getHeaders().get(i), values[i]);
+                    row.put(this.dataFrame.getHeaders().get(i).columnName(), values[i]);
                 }
                 this.dataFrame.addRow(row);
             }
