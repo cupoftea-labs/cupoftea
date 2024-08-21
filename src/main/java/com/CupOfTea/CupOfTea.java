@@ -3,6 +3,7 @@ package com.CupOfTea;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -22,9 +23,10 @@ import com.CupOfTea.importers.interfaces.ICSVImporter;
 import com.CupOfTea.importers.interfaces.IJsonImporter;
 import com.CupOfTea.importers.interfaces.IParquetImporter;
 import com.CupOfTea.importers.interfaces.IYamlImporter;
+import com.CupOfTea.table.Column;
+import com.CupOfTea.table.DataFrame;
+import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.Printer;
-import com.CupOfTea.utils.DataFrame;
-import com.CupOfTea.utils.interfaces.IDataFrame;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
@@ -52,7 +54,7 @@ public class CupOfTea {
         this.dataFrame = dataFrame;
     }
 
-    public ArrayList<String> getHeaders(){
+    public ArrayList<Column> getHeaders(){
         return this.dataFrame.getHeaders();
     }
 
@@ -246,7 +248,8 @@ public class CupOfTea {
 
 
 	public CupOfTea setHeaders(ArrayList<String> arrayList) {
-		this.dataFrame.setHeaders(arrayList);
+        ArrayList<Column> columns = (ArrayList<Column>) arrayList.stream().map(column -> new Column(column)).collect(Collectors.toList());
+		this.dataFrame.setHeaders(columns);
         return this;
 	}
 
