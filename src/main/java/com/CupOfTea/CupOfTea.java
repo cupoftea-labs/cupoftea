@@ -16,6 +16,7 @@ import com.CupOfTea.exporters.interfaces.IJsonExporter;
 import com.CupOfTea.exporters.interfaces.IParquetExporter;
 import com.CupOfTea.exporters.interfaces.IYamlExporter;
 import com.CupOfTea.importers.CSVImporter;
+import com.CupOfTea.importers.ExcelImporter;
 import com.CupOfTea.importers.JsonImporter;
 import com.CupOfTea.importers.ParquetImporter;
 import com.CupOfTea.importers.YamlImporter;
@@ -170,6 +171,14 @@ public class CupOfTea {
 
         csvImporter = new CSVImporter(this);
         csvImporter.importFromCsv(file, hasHeaders);
+        return this;
+
+    }
+
+    public CupOfTea importFromExcel(File file, boolean hasHeaders) throws Exception {
+
+        ExcelImporter excelImporter = new ExcelImporter(this);
+        excelImporter.importFromExcel(file, hasHeaders);
         return this;
 
     }
