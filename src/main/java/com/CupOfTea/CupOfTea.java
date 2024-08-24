@@ -1,6 +1,7 @@
 package com.CupOfTea;
 
 import java.io.File;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.stream.Collectors;
@@ -17,10 +18,12 @@ import com.CupOfTea.exporters.interfaces.IParquetExporter;
 import com.CupOfTea.exporters.interfaces.IYamlExporter;
 import com.CupOfTea.importers.CSVImporter;
 import com.CupOfTea.importers.ExcelImporter;
+import com.CupOfTea.importers.HTMLImporter;
 import com.CupOfTea.importers.JsonImporter;
 import com.CupOfTea.importers.ParquetImporter;
 import com.CupOfTea.importers.YamlImporter;
 import com.CupOfTea.importers.interfaces.ICSVImporter;
+import com.CupOfTea.importers.interfaces.IHTMLImporter;
 import com.CupOfTea.importers.interfaces.IJsonImporter;
 import com.CupOfTea.importers.interfaces.IParquetImporter;
 import com.CupOfTea.importers.interfaces.IYamlImporter;
@@ -45,6 +48,7 @@ public class CupOfTea {
     private IJsonImporter jsonImporter;
     private IParquetImporter parquetImporter;
     private IYamlImporter yamlImporter;
+    private IHTMLImporter htmlImporter;
 
 
     public CupOfTea() {
@@ -215,6 +219,22 @@ public class CupOfTea {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file);
+        return this;
+
+    }
+
+    public CupOfTea importFromHtml(File file) throws Exception{
+
+        htmlImporter = new HTMLImporter(this);
+        htmlImporter.importFromHtml(file);
+        return this;
+
+    }
+
+    public CupOfTea importFromHtml(URL url) throws Exception {
+
+        htmlImporter = new HTMLImporter(this);
+        htmlImporter.importFromHtml(url);
         return this;
 
     }
