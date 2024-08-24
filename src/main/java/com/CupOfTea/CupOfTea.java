@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.json.JSONArray;
+import org.w3c.dom.Document;
 
 import com.CupOfTea.exporters.CSVExporter;
 import com.CupOfTea.exporters.ParquetExporter;
@@ -21,11 +22,13 @@ import com.CupOfTea.importers.ExcelImporter;
 import com.CupOfTea.importers.HTMLImporter;
 import com.CupOfTea.importers.JsonImporter;
 import com.CupOfTea.importers.ParquetImporter;
+import com.CupOfTea.importers.XmlImporter;
 import com.CupOfTea.importers.YamlImporter;
 import com.CupOfTea.importers.interfaces.ICSVImporter;
 import com.CupOfTea.importers.interfaces.IHTMLImporter;
 import com.CupOfTea.importers.interfaces.IJsonImporter;
 import com.CupOfTea.importers.interfaces.IParquetImporter;
+import com.CupOfTea.importers.interfaces.IXmlImporter;
 import com.CupOfTea.importers.interfaces.IYamlImporter;
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.DataFrame;
@@ -49,6 +52,7 @@ public class CupOfTea {
     private IParquetImporter parquetImporter;
     private IYamlImporter yamlImporter;
     private IHTMLImporter htmlImporter;
+    private IXmlImporter xmlImporter;
 
 
     public CupOfTea() {
@@ -219,6 +223,30 @@ public class CupOfTea {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file);
+        return this;
+
+    }
+
+    public CupOfTea importFromXml(File file) throws Exception{
+
+        xmlImporter = new XmlImporter(this);
+        xmlImporter.importFromXml(file);
+        return this;
+
+    }
+
+    public CupOfTea importFromXml(String xml) throws Exception{
+
+        xmlImporter = new XmlImporter(this);
+        xmlImporter.importFromXml(xml);
+        return this;
+
+    }
+
+    public CupOfTea importFromXml(Document doc) throws Exception{
+
+        xmlImporter = new XmlImporter(this);
+        xmlImporter.importFromXml(doc);
         return this;
 
     }
