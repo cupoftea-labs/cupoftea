@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8" /><script type="text/javascript">(window.NREUM||(NREUM={})).init={privacy:{cookies_enabled:true},ajax:{deny_list:["bam.nr-data.net"]},distributed_tracing:{enabled:true}};(window.NREUM||(NREUM={})).loader_config={agentID:"601406626",accountID:"4092055",trustKey:"4092055",xpid:"UAYOU1ZWDRAFUVVaBAYEU1I=",licenseKey:"NRJS-738ffbb5f3e3aa7db21",applicationID:"554837356"};;/*! For license information please see nr-loader-spa-1.261.2.min.js.LICENSE.txt */
+(()=>{var e,t,r={2983:(e,t,r)=>{"use strict";r.d(t,{D0:()=>v,gD:()=>y,Vp:()=>s,oC:()=>x,fr:()=>_,jD:()=>C,hR:()=>T,xN:()=>b,x1:()=>c,aN:()=>A,V:()=>j});var n=r(384),i=r(7864);const o={beacon:n.NT.beacon,errorBeacon:n.NT.errorBeacon,licenseKey:void 0,applicationID:void 0,sa:void 0,queueTime:void 0,applicationTime:void 0,ttGuid:void 0,user:void 0,account:void 0,product:void 0,extra:void 0,jsAttributes:{},userAttributes:void 0,atts:void 0,transactionName:void 0,tNamePlain:void 0},a={};function s(e){if(!e)throw new Error("All info objects require an agent identifier!");if(!a[e])throw new Error("Info for ".concat(e," was never set"));return a[e]}function c(e,t){if(!e)throw new Error("All info objects require an agent identifier!");a[e]=(0,i.a)(t,o);const r=(0,n.nY)(e);r&&(r.info=a[e])}var u=r(993);const d=e=>{if(!e||"string"!=typeof e)return!1;try{document.createDocumentFragment().querySelector(e)}catch{return!1}return!0};var l=r(2614),f=r(944);const h="[data-nr-mask]",g=()=>{const e={mask_selector:"*",block_selector:"[data-nr-block]",mask_input_options:{color:!1,date:!1,"datetime-local":!1,email:!1,month:!1,number:!1,range:!1,search:!1,tel:!1,text:!1,time:!1,url:!1,week:!1,textarea:!1,select:!1,password:!0}};return{ajax:{deny_list:void 0,block_internal:!0,enabled:!0,harvestTimeSeconds:10,autoStart:!0},distributed_tracing:{enabled:void 0,exclude_newrelic_header:void 0,cors_use_newrelic_header:void 0,cors_use_tracecontext_headers:void 0,allowed_origins:void 0},feature_flags:[],harvest:{tooManyRequestsDelay:60},jserrors:{enabled:!0,harvestTimeSeconds:10,autoStart:!0},logging:{enabled:!0,harvestTimeSeconds:10,autoStart:!0,level:u.p_.INFO},metrics:{enabled:!0,autoStart:!0},obfuscate:void 0,page_action:{enabled:!0,harvestTimeSeconds:30,autoStart:!0},page_view_event:{enabled:!0,autoStart:!0},page_view_timing:{enabled:!0,harvestTimeSeconds:30,long_task:!1,autoStart:!0},privacy:{cookies_enabled:!0},proxy:{assets:void 0,beacon:void 0},session:{expiresMs:l.wk,inactiveMs:l.BB},session_replay:{autoStart:!0,enabled:!1,harvestTimeSeconds:60,preload:!1,sampling_rate:10,error_sampling_rate:100,collect_fonts:!1,inline_images:!1,inline_stylesheet:!0,mask_all_inputs:!0,get mask_text_selector(){return e.mask_selector},set mask_text_selector(t){d(t)?e.mask_selector="".concat(t,",").concat(h):""===t||null===t?e.mask_selector=h:(0,f.R)("An invalid session_replay.mask_selector was provided. '*' will be used.",t)},get block_class(){return"nr-block"},get ignore_class(){return"nr-ignore"},get mask_text_class(){return"nr-mask"},get block_selector(){return e.block_selector},set block_selector(t){d(t)?e.block_selector+=",".concat(t):""!==t&&(0,f.R)("An invalid session_replay.block_selector was provided and will not be used",t)},get mask_input_options(){return e.mask_input_options},set mask_input_options(t){t&&"object"==typeof t?e.mask_input_options={...t,password:!0}:(0,f.R)("An invalid session_replay.mask_input_option was provided and will not be used",t)}},session_trace:{enabled:!0,harvestTimeSeconds:10,autoStart:!0},soft_navigations:{enabled:!0,harvestTimeSeconds:10,autoStart:!0},spa:{enabled:!0,harvestTimeSeconds:10,autoStart:!0},ssl:void 0}},p={},m="All configuration objects require an agent identifier!";function v(e){if(!e)throw new Error(m);if(!p[e])throw new Error("Configuration for ".concat(e," was never set"));return p[e]}function b(e,t){if(!e)throw new Error(m);p[e]=(0,i.a)(t,g());const r=(0,n.nY)(e);r&&(r.init=p[e])}function y(e,t){if(!e)throw new Error(m);var r=v(e);if(r){for(var n=t.split("."),i=0;i<n.length-1;i++)if("object"!=typeof(r=r[n[i]]))return;r=r[n[n.length-1]]}return r}const w={accountID:void 0,trustKey:void 0,agentID:void 0,licenseKey:void 0,applicationID:void 0,xpid:void 0},R={};function x(e){if(!e)throw new Error("All loader-config objects require an agent identifier!");if(!R[e])throw new Error("LoaderConfig for ".concat(e," was never set"));return R[e]}function A(e,t){if(!e)throw new Error("All loader-config objects require an agent identifier!");R[e]=(0,i.a)(t,w);const r=(0,n.nY)(e);r&&(r.loader_config=R[e])}const T=(0,n.dV)().o;var E=r(6154),S=r(9324);const N={buildEnv:S.F3,distMethod:S.Xs,version:S.xv,originTime:E.WN},O={customTransaction:void 0,disabled:!1,isolatedBacklog:!1,loaderType:void 0,maxBytes:3e4,onerror:void 0,origin:""+E.gm.location,ptid:void 0,releaseIds:{},appMetadata:{},session:void 0,denyList:void 0,harvestCount:0,timeKeeper:void 0},I={};function _(e){if(!e)throw new Error("All runtime objects require an agent identifier!");if(!I[e])throw new Error("Runtime for ".concat(e," was never set"));return I[e]}function j(e,t){if(!e)throw new Error("All runtime objects require an agent identifier!");I[e]={...(0,i.a)(t,O),...N};const r=(0,n.nY)(e);r&&(r.runtime=I[e])}function C(e){return function(e){try{const t=s(e);return!!t.licenseKey&&!!t.errorBeacon&&!!t.applicationID}catch(e){return!1}}(e)}},7864:(e,t,r)=>{"use strict";r.d(t,{a:()=>i});var n=r(944);function i(e,t){try{if(!e||"object"!=typeof e)return(0,n.R)("Setting a Configurable requires an object as input");if(!t||"object"!=typeof t)return(0,n.R)("Setting a Configurable requires a model to set its initial properties");const r=Object.create(Object.getPrototypeOf(t),Object.getOwnPropertyDescriptors(t)),o=0===Object.keys(r).length?e:r;for(let a in o)if(void 0!==e[a])try{if(null===e[a]){r[a]=null;continue}Array.isArray(e[a])&&Array.isArray(t[a])?r[a]=Array.from(new Set([...e[a],...t[a]])):"object"==typeof e[a]&&"object"==typeof t[a]?r[a]=i(e[a],t[a]):r[a]=e[a]}catch(e){(0,n.R)("An error occurred while setting a property of a Configurable",e)}return r}catch(e){(0,n.R)("An error occured while setting a Configurable",e)}}},9324:(e,t,r)=>{"use strict";r.d(t,{F3:()=>i,Xs:()=>o,Yq:()=>a,xv:()=>n});const n="1.261.2",i="PROD",o="CDN",a="2.0.0-alpha.12"},6154:(e,t,r)=>{"use strict";r.d(t,{A4:()=>s,OF:()=>d,RI:()=>i,Vr:()=>g,WN:()=>p,bv:()=>o,gm:()=>a,lR:()=>f,lT:()=>h,m:()=>u,mw:()=>c,sb:()=>l});var n=r(1863);const i="undefined"!=typeof window&&!!window.document,o="undefined"!=typeof WorkerGlobalScope&&("undefined"!=typeof self&&self instanceof WorkerGlobalScope&&self.navigator instanceof WorkerNavigator||"undefined"!=typeof globalThis&&globalThis instanceof WorkerGlobalScope&&globalThis.navigator instanceof WorkerNavigator),a=i?window:"undefined"!=typeof WorkerGlobalScope&&("undefined"!=typeof self&&self instanceof WorkerGlobalScope&&self||"undefined"!=typeof globalThis&&globalThis instanceof WorkerGlobalScope&&globalThis),s="complete"===a?.document?.readyState,c=Boolean("hidden"===a?.document?.visibilityState),u=""+a?.location,d=/iPad|iPhone|iPod/.test(a.navigator?.userAgent),l=d&&"undefined"==typeof SharedWorker,f=(()=>{const e=a.navigator?.userAgent?.match(/Firefox[/\s](\d+\.\d+)/);return Array.isArray(e)&&e.length>=2?+e[1]:0})(),h=Boolean(i&&window.document.documentMode),g=!!a.navigator?.sendBeacon,p=Date.now()-(0,n.t)()},4777:(e,t,r)=>{"use strict";r.d(t,{J:()=>o});var n=r(944);const i={agentIdentifier:"",ee:void 0};class o{constructor(e){try{if("object"!=typeof e)return(0,n.R)("shared context requires an object as input");this.sharedContext={},Object.assign(this.sharedContext,i),Object.entries(e).forEach((e=>{let[t,r]=e;Object.keys(i).includes(t)&&(this.sharedContext[t]=r)}))}catch(e){(0,n.R)("An error occurred while setting SharedContext",e)}}}},7295:(e,t,r)=>{"use strict";r.d(t,{Xv:()=>a,gX:()=>i,iW:()=>o});var n=[];function i(e){if(!e||o(e))return!1;if(0===n.length)return!0;for(var t=0;t<n.length;t++){var r=n[t];if("*"===r.hostname)return!1;if(s(r.hostname,e.hostname)&&c(r.pathname,e.pathname))return!1}return!0}function o(e){return void 0===e.hostname}function a(e){if(n=[],e&&e.length)for(var t=0;t<e.length;t++){let r=e[t];if(!r)continue;0===r.indexOf("http://")?r=r.substring(7):0===r.indexOf("https://")&&(r=r.substring(8));const i=r.indexOf("/");let o,a;i>0?(o=r.substring(0,i),a=r.substring(i)):(o=r,a="");let[s]=o.split(":");n.push({hostname:s,pathname:a})}}function s(e,t){return!(e.length>t.length)&&t.indexOf(e)===t.length-e.length}function c(e,t){return 0===e.indexOf("/")&&(e=e.substring(1)),0===t.indexOf("/")&&(t=t.substring(1)),""===e||e===t}},1687:(e,t,r)=>{"use strict";r.d(t,{Ak:()=>c,Ze:()=>l,x3:()=>u});var n=r(7836),i=r(1478),o=r(3606),a=r(860);const s={};function c(e,t){const r={staged:!1,priority:a.P[t]||0};d(e),s[e].get(t)||s[e].set(t,r)}function u(e,t){d(e),s[e].get(t)&&s[e].delete(t),s[e].size&&f(e)}function d(e){if(!e)throw new Error("agentIdentifier required");s[e]||(s[e]=new Map)}function l(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:"",t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:"feature",r=arguments.length>2&&void 0!==arguments[2]&&arguments[2];if(d(e),!e||!s[e].get(t)||r)return h(e,t);s[e].get(t).staged=!0,f(e)}function f(e){const t=Array.from(s[e]);t.every((e=>{let[t,r]=e;return r.staged}))&&(t.sort(((e,t)=>e[1].priority-t[1].priority)),t.forEach((t=>{let[r]=t;s[e].delete(r),h(e,r)})))}function h(e,t){const r=e?n.ee.get(e):n.ee,a=o.i.handlers;if(r.backlog&&a){var s=r.backlog[t],c=a[t];if(c){for(var u=0;s&&u<s.length;++u)g(s[u],c);(0,i.$)(c,(function(e,t){(0,i.$)(t,(function(t,r){r[0].on(e,r[1])}))}))}r.isolatedBacklog||delete a[t],r.backlog[t]=null,r.emit("drain-"+t,[])}}function g(e,t){var r=e[1];(0,i.$)(t[r],(function(t,r){var n=e[0];if(r[0]===n){var i=r[1],o=e[3],a=e[2];i.apply(o,a)}}))}},7836:(e,t,r)=>{"use strict";r.d(t,{P:()=>c,ee:()=>u});var n=r(384),i=r(8990),o=r(2983),a=r(2646),s=r(5607);const c="nr@context:".concat(s.W),u=function e(t,r){var n={},s={},d={},l=!1;try{l=16===r.length&&(0,o.fr)(r).isolatedBacklog}catch(e){}var f={on:g,addEventListener:g,removeEventListener:function(e,t){var r=n[e];if(!r)return;for(var i=0;i<r.length;i++)r[i]===t&&r.splice(i,1)},emit:function(e,r,n,i,o){!1!==o&&(o=!0);if(u.aborted&&!i)return;t&&o&&t.emit(e,r,n);for(var a=h(n),c=p(e),d=c.length,l=0;l<d;l++)c[l].apply(a,r);var g=v()[s[e]];g&&g.push([f,e,r,a]);return a},get:m,listeners:p,context:h,buffer:function(e,t){const r=v();if(t=t||"feature",f.aborted)return;Object.entries(e||{}).forEach((e=>{let[n,i]=e;s[i]=t,t in r||(r[t]=[])}))},abort:function(){f._aborted=!0,Object.keys(f.backlog).forEach((e=>{delete f.backlog[e]}))},isBuffering:function(e){return!!v()[s[e]]},debugId:r,backlog:l?{}:t&&"object"==typeof t.backlog?t.backlog:{},isolatedBacklog:l};return Object.defineProperty(f,"aborted",{get:()=>{let e=f._aborted||!1;return e||(t&&(e=t.aborted),e)}}),f;function h(e){return e&&e instanceof a.y?e:e?(0,i.I)(e,c,(()=>new a.y(c))):new a.y(c)}function g(e,t){n[e]=p(e).concat(t)}function p(e){return n[e]||[]}function m(t){return d[t]=d[t]||e(f,t)}function v(){return f.backlog}}(void 0,"globalEE"),d=(0,n.Zm)();d.ee||(d.ee=u)},2646:(e,t,r)=>{"use strict";r.d(t,{y:()=>n});class n{constructor(e){this.contextId=e}}},9908:(e,t,r)=>{"use strict";r.d(t,{d:()=>n,p:()=>i});var n=r(7836).ee.get("handle");function i(e,t,r,i,o){o?(o.buffer([e],i),o.emit(e,t,r)):(n.buffer([e],i),n.emit(e,t,r))}},3606:(e,t,r)=>{"use strict";r.d(t,{i:()=>o});var n=r(9908);o.on=a;var i=o.handlers={};function o(e,t,r,o){a(o||n.d,i,e,t,r)}function a(e,t,r,i,o){o||(o="feature"),e||(e=n.d);var a=t[o]=t[o]||{};(a[r]=a[r]||[]).push([e,i])}},3878:(e,t,r)=>{"use strict";r.d(t,{DD:()=>c,jT:()=>a,sp:()=>s});var n=r(6154);let i=!1,o=!1;try{const e={get passive(){return i=!0,!1},get signal(){return o=!0,!1}};n.gm.addEventListener("test",null,e),n.gm.removeEventListener("test",null,e)}catch(e){}function a(e,t){return i||o?{capture:!!e,passive:i,signal:t}:!!e}function s(e,t){let r=arguments.length>2&&void 0!==arguments[2]&&arguments[2],n=arguments.length>3?arguments[3]:void 0;window.addEventListener(e,t,a(r,n))}function c(e,t){let r=arguments.length>2&&void 0!==arguments[2]&&arguments[2],n=arguments.length>3?arguments[3]:void 0;document.addEventListener(e,t,a(r,n))}},5607:(e,t,r)=>{"use strict";r.d(t,{W:()=>n});const n=(0,r(9566).bz)()},9566:(e,t,r)=>{"use strict";r.d(t,{LA:()=>s,ZF:()=>c,bz:()=>a,el:()=>u});var n=r(6154);const i="xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";function o(e,t){return e?15&e[t]:16*Math.random()|0}function a(){const e=n.gm?.crypto||n.gm?.msCrypto;let t,r=0;return e&&e.getRandomValues&&(t=e.getRandomValues(new Uint8Array(30))),i.split("").map((e=>"x"===e?o(t,r++).toString(16):"y"===e?(3&o()|8).toString(16):e)).join("")}function s(e){const t=n.gm?.crypto||n.gm?.msCrypto;let r,i=0;t&&t.getRandomValues&&(r=t.getRandomValues(new Uint8Array(e)));const a=[];for(var s=0;s<e;s++)a.push(o(r,i++).toString(16));return a.join("")}function c(){return s(16)}function u(){return s(32)}},2614:(e,t,r)=>{"use strict";r.d(t,{BB:()=>a,H3:()=>n,g:()=>u,iL:()=>c,tS:()=>s,uh:()=>i,wk:()=>o});const n="NRBA",i="SESSION",o=144e5,a=18e5,s={STARTED:"session-started",PAUSE:"session-pause",RESET:"session-reset",RESUME:"session-resume",UPDATE:"session-update"},c={SAME_TAB:"same-tab",CROSS_TAB:"cross-tab"},u={OFF:0,FULL:1,ERROR:2}},1863:(e,t,r)=>{"use strict";function n(){return Math.floor(performance.now())}r.d(t,{t:()=>n})},7485:(e,t,r)=>{"use strict";r.d(t,{D:()=>i});var n=r(6154);function i(e){if(0===(e||"").indexOf("data:"))return{protocol:"data"};try{const t=new URL(e,location.href),r={port:t.port,hostname:t.hostname,pathname:t.pathname,search:t.search,protocol:t.protocol.slice(0,t.protocol.indexOf(":")),sameOrigin:t.protocol===n.gm?.location?.protocol&&t.host===n.gm?.location?.host};return r.port&&""!==r.port||("http:"===t.protocol&&(r.port="80"),"https:"===t.protocol&&(r.port="443")),r.pathname&&""!==r.pathname?r.pathname.startsWith("/")||(r.pathname="/".concat(r.pathname)):r.pathname="/",r}catch(e){return{}}}},944:(e,t,r)=>{"use strict";function n(e,t){"function"==typeof console.warn&&(console.warn("New Relic: ".concat(e)),t&&console.warn(t))}r.d(t,{R:()=>n})},5284:(e,t,r)=>{"use strict";r.d(t,{t:()=>c,B:()=>s});var n=r(7836),i=r(6154);const o="newrelic";const a=new Set,s={};function c(e,t){const r=n.ee.get(t);s[t]??={},e&&"object"==typeof e&&(a.has(t)||(r.emit("rumresp",[e]),s[t]=e,a.add(t),function(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};try{i.gm.dispatchEvent(new CustomEvent(o,{detail:e}))}catch(e){}}({loaded:!0})))}},8990:(e,t,r)=>{"use strict";r.d(t,{I:()=>i});var n=Object.prototype.hasOwnProperty;function i(e,t,r){if(n.call(e,t))return e[t];var i=r();if(Object.defineProperty&&Object.keys)try{return Object.defineProperty(e,t,{value:i,writable:!0,enumerable:!1}),i}catch(e){}return e[t]=i,i}},6389:(e,t,r)=>{"use strict";function n(e){var t=this;let r=arguments.length>1&&void 0!==arguments[1]?arguments[1]:500,n=arguments.length>2&&void 0!==arguments[2]?arguments[2]:{};const i=n?.leading||!1;let o;return function(){for(var n=arguments.length,a=new Array(n),s=0;s<n;s++)a[s]=arguments[s];i&&void 0===o&&(e.apply(t,a),o=setTimeout((()=>{o=clearTimeout(o)}),r)),i||(clearTimeout(o),o=setTimeout((()=>{e.apply(t,a)}),r))}}function i(e){var t=this;let r=!1;return function(){if(!r){r=!0;for(var n=arguments.length,i=new Array(n),o=0;o<n;o++)i[o]=arguments[o];e.apply(t,i)}}}r.d(t,{J:()=>i,s:()=>n})},1478:(e,t,r)=>{"use strict";r.d(t,{$:()=>n});const n=(e,t)=>Object.entries(e||{}).map((e=>{let[r,n]=e;return t(r,n)}))},3304:(e,t,r)=>{"use strict";r.d(t,{A:()=>o});var n=r(7836);const i=()=>{const e=new WeakSet;return(t,r)=>{if("object"==typeof r&&null!==r){if(e.has(r))return;e.add(r)}return r}};function o(e){try{return JSON.stringify(e,i())}catch(e){try{n.ee.emit("internal-error",[e])}catch(e){}}}},5289:(e,t,r)=>{"use strict";r.d(t,{GG:()=>o,sB:()=>a});var n=r(3878);function i(){return"undefined"==typeof document||"complete"===document.readyState}function o(e,t){if(i())return e();(0,n.sp)("load",e,t)}function a(e){if(i())return e();(0,n.DD)("DOMContentLoaded",e)}},384:(e,t,r)=>{"use strict";r.d(t,{NT:()=>o,US:()=>d,Zm:()=>a,bQ:()=>c,dV:()=>s,nY:()=>u,pV:()=>l});var n=r(6154),i=r(1863);const o={beacon:"bam.nr-data.net",errorBeacon:"bam.nr-data.net"};function a(){return n.gm.NREUM||(n.gm.NREUM={}),void 0===n.gm.newrelic&&(n.gm.newrelic=n.gm.NREUM),n.gm.NREUM}function s(){let e=a();return e.o||(e.o={ST:n.gm.setTimeout,SI:n.gm.setImmediate,CT:n.gm.clearTimeout,XHR:n.gm.XMLHttpRequest,REQ:n.gm.Request,EV:n.gm.Event,PR:n.gm.Promise,MO:n.gm.MutationObserver,FETCH:n.gm.fetch}),e}function c(e,t){let r=a();r.initializedAgents??={},t.initializedAt={ms:(0,i.t)(),date:new Date},r.initializedAgents[e]=t}function u(e){let t=a();return t.initializedAgents?.[e]}function d(e,t){a()[e]=t}function l(){return function(){let e=a();const t=e.info||{};e.info={beacon:o.beacon,errorBeacon:o.errorBeacon,...t}}(),function(){let e=a();const t=e.init||{};e.init={...t}}(),s(),function(){let e=a();const t=e.loader_config||{};e.loader_config={...t}}(),a()}},2843:(e,t,r)=>{"use strict";r.d(t,{u:()=>i});var n=r(3878);function i(e){let t=arguments.length>1&&void 0!==arguments[1]&&arguments[1],r=arguments.length>2?arguments[2]:void 0,i=arguments.length>3?arguments[3]:void 0;(0,n.DD)("visibilitychange",(function(){if(t)return void("hidden"===document.visibilityState&&e());e(document.visibilityState)}),r,i)}},8941:(e,t,r)=>{"use strict";r.d(t,{um:()=>f,NZ:()=>R,vC:()=>T,Ri:()=>O,Ak:()=>_,o8:()=>C,MO:()=>K,bX:()=>V});var n=r(7836),i=r(3434),o=r(8990),a=r(6154);const s={},c=a.gm.XMLHttpRequest,u="addEventListener",d="removeEventListener",l="nr@wrapped:".concat(n.P);function f(e){var t=function(e){return(e||n.ee).get("events")}(e);if(s[t.debugId]++)return t;s[t.debugId]=1;var r=(0,i.YM)(t,!0);function f(e){r.inPlace(e,[u,d],"-",g)}function g(e,t){return e[1]}return"getPrototypeOf"in Object&&(a.RI&&h(document,f),h(a.gm,f),h(c.prototype,f)),t.on(u+"-start",(function(e,t){var n=e[1];if(null!==n&&("function"==typeof n||"object"==typeof n)){var i=(0,o.I)(n,l,(function(){var e={object:function(){if("function"!=typeof n.handleEvent)return;return n.handleEvent.apply(n,arguments)},function:n}[typeof n];return e?r(e,"fn-",null,e.name||"anonymous"):n}));this.wrapped=e[1]=i}})),t.on(d+"-start",(function(e){e[1]=this.wrapped||e[1]})),t}function h(e,t){let r=e;for(;"object"==typeof r&&!Object.prototype.hasOwnProperty.call(r,u);)r=Object.getPrototypeOf(r);for(var n=arguments.length,i=new Array(n>2?n-2:0),o=2;o<n;o++)i[o-2]=arguments[o];r&&t(r,...i)}var g="fetch-",p=g+"body-",m=["arrayBuffer","blob","json","text","formData"],v=a.gm.Request,b=a.gm.Response,y="prototype";const w={};function R(e){const t=function(e){return(e||n.ee).get("fetch")}(e);if(!(v&&b&&a.gm.fetch))return t;if(w[t.debugId]++)return t;function r(e,r,i){var o=e[r];"function"==typeof o&&(e[r]=function(){var e,r=[...arguments],a={};t.emit(i+"before-start",[r],a),a[n.P]&&a[n.P].dt&&(e=a[n.P].dt);var s=o.apply(this,r);return t.emit(i+"start",[r,e],s),s.then((function(e){return t.emit(i+"end",[null,e],s),e}),(function(e){throw t.emit(i+"end",[e],s),e}))})}return w[t.debugId]=1,m.forEach((e=>{r(v[y],e,p),r(b[y],e,p)})),r(a.gm,"fetch",g),t.on(g+"end",(function(e,r){var n=this;if(r){var i=r.headers.get("content-length");null!==i&&(n.rxSize=i),t.emit(g+"done",[null,r],n)}else t.emit(g+"done",[e],n)})),t}const x={},A=["pushState","replaceState"];function T(e){const t=function(e){return(e||n.ee).get("history")}(e);return!a.RI||x[t.debugId]++||(x[t.debugId]=1,(0,i.YM)(t).inPlace(window.history,A,"-")),t}var E=r(3878);const S={},N=["appendChild","insertBefore","replaceChild"];function O(e){const t=function(e){return(e||n.ee).get("jsonp")}(e);if(!a.RI||S[t.debugId])return t;S[t.debugId]=!0;var r=(0,i.YM)(t),o=/[?&](?:callback|cb)=([^&#]+)/,s=/(.*)\.([^.]+)/,c=/^(\w+)(\.|$)(.*)$/;function u(e,t){if(!e)return t;const r=e.match(c),n=r[1];return u(r[3],t[n])}return r.inPlace(Node.prototype,N,"dom-"),t.on("dom-start",(function(e){!function(e){if(!e||"string"!=typeof e.nodeName||"script"!==e.nodeName.toLowerCase())return;if("function"!=typeof e.addEventListener)return;var n=(i=e.src,a=i.match(o),a?a[1]:null);var i,a;if(!n)return;var c=function(e){var t=e.match(s);if(t&&t.length>=3)return{key:t[2],parent:u(t[1],window)};return{key:e,parent:window}}(n);if("function"!=typeof c.parent[c.key])return;var d={};function l(){t.emit("jsonp-end",[],d),e.removeEventListener("load",l,(0,E.jT)(!1)),e.removeEventListener("error",f,(0,E.jT)(!1))}function f(){t.emit("jsonp-error",[],d),t.emit("jsonp-end",[],d),e.removeEventListener("load",l,(0,E.jT)(!1)),e.removeEventListener("error",f,(0,E.jT)(!1))}r.inPlace(c.parent,[c.key],"cb-",d),e.addEventListener("load",l,(0,E.jT)(!1)),e.addEventListener("error",f,(0,E.jT)(!1)),t.emit("new-jsonp",[e.src],d)}(e[0])})),t}const I={};function _(e){const t=function(e){return(e||n.ee).get("mutation")}(e);if(!a.RI||I[t.debugId])return t;I[t.debugId]=!0;var r=(0,i.YM)(t),o=a.gm.MutationObserver;return o&&(window.MutationObserver=function(e){return this instanceof o?new o(r(e,"fn-")):o.apply(this,arguments)},MutationObserver.prototype=o.prototype),t}const j={};function C(e){const t=function(e){return(e||n.ee).get("promise")}(e);if(j[t.debugId])return t;j[t.debugId]=!0;var r=t.context,o=(0,i.YM)(t),s=a.gm.Promise;return s&&function(){function e(r){var n=t.context(),i=o(r,"executor-",n,null,!1);const a=Reflect.construct(s,[i],e);return t.context(a).getCtx=function(){return n},a}a.gm.Promise=e,Object.defineProperty(e,"name",{value:"Promise"}),e.toString=function(){return s.toString()},Object.setPrototypeOf(e,s),["all","race"].forEach((function(r){const n=s[r];e[r]=function(e){let i=!1;[...e||[]].forEach((e=>{this.resolve(e).then(a("all"===r),a(!1))}));const o=n.apply(this,arguments);return o;function a(e){return function(){t.emit("propagate",[null,!i],o,!1,!1),i=i||!e}}}})),["resolve","reject"].forEach((function(r){const n=s[r];e[r]=function(e){const r=n.apply(this,arguments);return e!==r&&t.emit("propagate",[e,!0],r,!1,!1),r}})),e.prototype=s.prototype;const n=s.prototype.then;s.prototype.then=function(){var e=this,i=r(e);i.promise=e;for(var a=arguments.length,s=new Array(a),c=0;c<a;c++)s[c]=arguments[c];s[0]=o(s[0],"cb-",i,null,!1),s[1]=o(s[1],"cb-",i,null,!1);const u=n.apply(this,s);return i.nextPromise=u,t.emit("propagate",[e,!0],u,!1,!1),u},s.prototype.then[i.Jt]=n,t.on("executor-start",(function(e){e[0]=o(e[0],"resolve-",this,null,!1),e[1]=o(e[1],"resolve-",this,null,!1)})),t.on("executor-err",(function(e,t,r){e[1](r)})),t.on("cb-end",(function(e,r,n){t.emit("propagate",[n,!0],this.nextPromise,!1,!1)})),t.on("propagate",(function(e,r,n){this.getCtx&&!r||(this.getCtx=function(){if(e instanceof Promise)var r=t.context(e);return r&&r.getCtx?r.getCtx():this})}))}(),t}const P={},k="setTimeout",L="setInterval",D="clearTimeout",H="-start",M="-",U=[k,"setImmediate",L,D,"clearImmediate"];function K(e){const t=function(e){return(e||n.ee).get("timer")}(e);if(P[t.debugId]++)return t;P[t.debugId]=1;var r=(0,i.YM)(t);return r.inPlace(a.gm,U.slice(0,2),k+M),r.inPlace(a.gm,U.slice(2,3),L+M),r.inPlace(a.gm,U.slice(3),D+M),t.on(L+H,(function(e,t,n){e[0]=r(e[0],"fn-",null,n)})),t.on(k+H,(function(e,t,n){this.method=n,this.timerDuration=isNaN(e[1])?0:+e[1],e[0]=r(e[0],"fn-",this,n)})),t}var F=r(944);const B={},G=["open","send"];function V(e){var t=e||n.ee;const r=function(e){return(e||n.ee).get("xhr")}(t);if(B[r.debugId]++)return r;B[r.debugId]=1,f(t);var o=(0,i.YM)(r),s=a.gm.XMLHttpRequest,c=a.gm.MutationObserver,u=a.gm.Promise,d=a.gm.setInterval,l="readystatechange",h=["onload","onerror","onabort","onloadstart","onloadend","onprogress","ontimeout"],g=[],p=a.gm.XMLHttpRequest=function(e){const t=new s(e),n=r.context(t);try{r.emit("new-xhr",[t],n),t.addEventListener(l,(i=n,function(){var e=this;e.readyState>3&&!i.resolved&&(i.resolved=!0,r.emit("xhr-resolved",[],e)),o.inPlace(e,h,"fn-",R)}),(0,E.jT)(!1))}catch(e){(0,F.R)("An error occurred while intercepting XHR",e);try{r.emit("internal-error",[e])}catch(e){}}var i;return t};function m(e,t){o.inPlace(t,["onreadystatechange"],"fn-",R)}if(function(e,t){for(var r in e)t[r]=e[r]}(s,p),p.prototype=s.prototype,o.inPlace(p.prototype,G,"-xhr-",R),r.on("send-xhr-start",(function(e,t){m(e,t),function(e){g.push(e),c&&(v?v.then(w):d?d(w):(b=-b,y.data=b))}(t)})),r.on("open-xhr-start",m),c){var v=u&&u.resolve();if(!d&&!u){var b=1,y=document.createTextNode(b);new c(w).observe(y,{characterData:!0})}}else t.on("fn-end",(function(e){e[0]&&e[0].type===l||w()}));function w(){for(var e=0;e<g.length;e++)m(0,g[e]);g.length&&(g=[])}function R(e,t){return t}return r}},3434:(e,t,r)=>{"use strict";r.d(t,{Jt:()=>o,YM:()=>c});var n=r(7836),i=r(5607);const o="nr@original:".concat(i.W);var a=Object.prototype.hasOwnProperty,s=!1;function c(e,t){return e||(e=n.ee),r.inPlace=function(e,t,n,i,o){n||(n="");const a="-"===n.charAt(0);for(let s=0;s<t.length;s++){const c=t[s],u=e[c];d(u)||(e[c]=r(u,a?c+n:n,i,c,o))}},r.flag=o,r;function r(t,r,n,s,c){return d(t)?t:(r||(r=""),nrWrapper[o]=t,function(e,t,r){if(Object.defineProperty&&Object.keys)try{return Object.keys(e).forEach((function(r){Object.defineProperty(t,r,{get:function(){return e[r]},set:function(t){return e[r]=t,t}})})),t}catch(e){u([e],r)}for(var n in e)a.call(e,n)&&(t[n]=e[n])}(t,nrWrapper,e),nrWrapper);function nrWrapper(){var o,a,d,l;try{a=this,o=[...arguments],d="function"==typeof n?n(o,a):n||{}}catch(t){u([t,"",[o,a,s],d],e)}i(r+"start",[o,a,s],d,c);try{return l=t.apply(a,o)}catch(e){throw i(r+"err",[o,a,e],d,c),e}finally{i(r+"end",[o,a,l],d,c)}}}function i(r,n,i,o){if(!s||t){var a=s;s=!0;try{e.emit(r,n,i,t,o)}catch(t){u([t,r,n,i],e)}s=a}}}function u(e,t){t||(t=n.ee);try{t.emit("internal-error",e)}catch(e){}}function d(e){return!(e&&"function"==typeof e&&e.apply&&!e[o])}},9300:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K.ajax},6774:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K.jserrors},993:(e,t,r)=>{"use strict";r.d(t,{ET:()=>o,It:()=>s,TZ:()=>a,YY:()=>u,bu:()=>c,p_:()=>i,zk:()=>d});var n=r(860);const i={ERROR:"ERROR",WARN:"WARN",INFO:"INFO",DEBUG:"DEBUG",TRACE:"TRACE"},o="log",a=n.K.logging,s=1e6,c="failed to wrap logger: ",u="invalid log level: ",d="ignored log: "},3785:(e,t,r)=>{"use strict";r.d(t,{R:()=>d,b:()=>l});var n=r(9908),i=r(1863),o=r(944),a=r(3304),s=r(860),c=r(3969),u=r(993);function d(e,t){let r=arguments.length>2&&void 0!==arguments[2]?arguments[2]:{},d=arguments.length>3&&void 0!==arguments[3]?arguments[3]:u.p_.INFO;try{if("string"!=typeof t){const e=(0,a.A)(t);t=e&&"{}"!==e?e:String(t)}}catch(e){return void(0,o.R)("could not cast log message to string",t)}(0,n.p)(c.xV,["API/logging/".concat(d.toLowerCase(),"/called")],void 0,s.K.metrics,e),(0,n.p)(u.ET,[(0,i.t)(),t,r,d],void 0,s.K.logging,e)}function l(e){return"string"==typeof e&&Object.values(u.p_).some((t=>t.toUpperCase()===e.toUpperCase()))}},3969:(e,t,r)=>{"use strict";r.d(t,{TZ:()=>n,XG:()=>s,rs:()=>i,xV:()=>a,z_:()=>o});const n=r(860).K.metrics,i="sm",o="cm",a="storeSupportabilityMetrics",s="storeEventMetrics"},8166:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K.pageAction},6630:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K.pageViewEvent},782:(e,t,r)=>{"use strict";r.d(t,{T:()=>n});const n=r(860).K.pageViewTiming},6344:(e,t,r)=>{"use strict";r.d(t,{BB:()=>f,G4:()=>o,It:()=>c,No:()=>u,Qb:()=>h,TZ:()=>i,Ug:()=>a,_s:()=>s,bc:()=>l,yP:()=>d});var n=r(2614);const i=r(860).K.sessionReplay,o={RECORD:"recordReplay",PAUSE:"pauseReplay",REPLAY_RUNNING:"replayRunning",ERROR_DURING_REPLAY:"errorDuringReplay"},a=.12,s={DomContentLoaded:0,Load:1,FullSnapshot:2,IncrementalSnapshot:3,Meta:4,Custom:5},c=1e6,u=64e3,d={[n.g.ERROR]:15e3,[n.g.FULL]:3e5,[n.g.OFF]:0},l={RESET:{message:"Session was reset",sm:"Reset"},IMPORT:{message:"Recorder failed to import",sm:"Import"},TOO_MANY:{message:"429: Too Many Requests",sm:"Too-Many"},TOO_BIG:{message:"Payload was too large",sm:"Too-Big"},CROSS_TAB:{message:"Session Entity was set to OFF on another tab",sm:"Cross-Tab"},ENTITLEMENTS:{message:"Session Replay is not allowed and will not be started",sm:"Entitlement"}},f=5e3,h={API:"api"}},5270:(e,t,r)=>{"use strict";r.d(t,{Aw:()=>s,CT:()=>c,SR:()=>a});var n=r(2983),i=r(7767),o=r(6154);function a(e){return!!n.hR.MO&&(0,i.V)(e)&&!0===(0,n.gD)(e,"session_trace.enabled")}function s(e){return!0===(0,n.gD)(e,"session_replay.preload")&&a(e)}function c(e,t){const r=t.correctAbsoluteTimestamp(e);return{originalTimestamp:e,correctedTimestamp:r,timestampDiff:e-r,originTime:o.WN,correctedOriginTime:t.correctedOriginTime,originTimeDiff:Math.floor(o.WN-t.correctedOriginTime)}}},3738:(e,t,r)=>{"use strict";r.d(t,{He:()=>i,Kp:()=>s,Lc:()=>u,Rz:()=>d,TZ:()=>n,bD:()=>o,d3:()=>a,jx:()=>l,uP:()=>c});const n=r(860).K.sessionTrace,i="bstResource",o="resource",a="-start",s="-end",c="fn"+a,u="fn"+s,d="pushState",l=1e3},3962:(e,t,r)=>{"use strict";r.d(t,{AM:()=>o,O2:()=>s,Qu:()=>c,TZ:()=>a,ih:()=>u,tC:()=>i});var n=r(860);const i=["click","keydown","submit"],o="api",a=n.K.softNav,s={INITIAL_PAGE_LOAD:"",ROUTE_CHANGE:1,UNSPECIFIED:2},c={INTERACTION:1,AJAX:2,CUSTOM_END:3,CUSTOM_TRACER:4},u={IP:"in progress",FIN:"finished",CAN:"cancelled"}},7378:(e,t,r)=>{"use strict";r.d(t,{$p:()=>x,BR:()=>b,Kp:()=>R,L3:()=>y,Lc:()=>c,NC:()=>o,SG:()=>d,TZ:()=>i,U6:()=>g,UT:()=>m,d3:()=>w,dT:()=>f,e5:()=>T,gx:()=>v,l9:()=>l,oW:()=>h,op:()=>p,rw:()=>u,tH:()=>E,uP:()=>s,wW:()=>A,xq:()=>a});var n=r(2983);const i=r(860).K.spa,o=["click","submit","keypress","keydown","keyup","change"],a=999,s="fn-start",c="fn-end",u="cb-start",d="api-ixn-",l="remaining",f="interaction",h="spaNode",g="jsonpNode",p="fetch-start",m="fetch-done",v="fetch-body-",b="jsonp-end",y=n.hR.ST,w="-start",R="-end",x="-body",A="cb"+R,T="jsTime",E="fetch"},4234:(e,t,r)=>{"use strict";r.d(t,{W:()=>i});var n=r(7836);class i{constructor(e,t,r){this.agentIdentifier=e,this.aggregator=t,this.ee=n.ee.get(e),this.featureName=r,this.blocked=!1}}},7767:(e,t,r)=>{"use strict";r.d(t,{V:()=>o});var n=r(2983),i=r(6154);const o=e=>i.RI&&!0===(0,n.gD)(e,"privacy.cookies_enabled")},425:(e,t,r)=>{"use strict";r.d(t,{j:()=>O});var n=r(860),i=r(2983),o=r(9908),a=r(7836),s=r(1687),c=r(5289),u=r(6154),d=r(944),l=r(3969),f=r(384),h=r(6344);const g=["setErrorHandler","finished","addToTrace","addRelease","addPageAction","setCurrentRouteName","setPageViewName","setCustomAttribute","interaction","noticeError","setUserId","setApplicationVersion","start",h.G4.RECORD,h.G4.PAUSE,"log","wrapLogger"],p=["setErrorHandler","finished","addToTrace","addRelease"];var m=r(1863),v=r(2614),b=r(993),y=r(3785),w=r(2646),R=r(3434);function x(e,t,r,n){const i=function(e){return(e||a.ee).get("logger")}(e),o=(0,R.YM)(i),s=new w.y(a.P);return s.level=n.level,s.customAttributes=n.customAttributes,o.inPlace(t,[r],"wrap-logger-",s),i}function A(){const e=(0,f.pV)();g.forEach((t=>{e[t]=function(){for(var r=arguments.length,n=new Array(r),i=0;i<r;i++)n[i]=arguments[i];return function(t){for(var r=arguments.length,n=new Array(r>1?r-1:0),i=1;i<r;i++)n[i-1]=arguments[i];let o=[];return Object.values(e.initializedAgents).forEach((e=>{e.exposed&&e.api[t]&&o.push(e.api[t](...n))})),o.length>1?o:o[0]}(t,...n)}}))}const T={};var E=r(5284);const S=e=>{const t=e.startsWith("http");e+="/",r.p=t?e:"https://"+e};let N=!1;function O(e){let t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{},g=arguments.length>2?arguments[2]:void 0,w=arguments.length>3?arguments[3]:void 0,{init:R,info:O,loader_config:I,runtime:_={loaderType:g},exposed:j=!0}=t;const C=(0,f.pV)();O||(R=C.init,O=C.info,I=C.loader_config),(0,i.xN)(e.agentIdentifier,R||{}),(0,i.aN)(e.agentIdentifier,I||{}),O.jsAttributes??={},u.bv&&(O.jsAttributes.isWorker=!0),(0,i.x1)(e.agentIdentifier,O);const P=(0,i.D0)(e.agentIdentifier),k=[O.beacon,O.errorBeacon];N||(P.proxy.assets&&(S(P.proxy.assets),k.push(P.proxy.assets)),P.proxy.beacon&&k.push(P.proxy.beacon),A(),(0,f.US)("activatedFeatures",E.B),e.runSoftNavOverSpa&&=!0===P.soft_navigations.enabled&&P.feature_flags.includes("soft_nav")),_.denyList=[...P.ajax.deny_list||[],...P.ajax.block_internal?k:[]],_.ptid=e.agentIdentifier,(0,i.V)(e.agentIdentifier,_),void 0===e.api&&(e.api=function(e,t){let f=arguments.length>2&&void 0!==arguments[2]&&arguments[2];t||(0,s.Ak)(e,"api");const g={};var w=a.ee.get(e),R=w.get("tracer");T[e]=v.g.OFF,w.on(h.G4.REPLAY_RUNNING,(t=>{T[e]=t}));var A="api-",E=A+"ixn-";function S(t,r,n,o){const a=(0,i.Vp)(e);return null===r?delete a.jsAttributes[t]:(0,i.x1)(e,{...a,jsAttributes:{...a.jsAttributes,[t]:r}}),I(A,n,!0,o||null===r?"session":void 0)(t,r)}function N(){}g.log=function(e){let{customAttributes:t={},level:r=b.p_.INFO}=arguments.length>1&&void 0!==arguments[1]?arguments[1]:{};return t&&"object"==typeof t||(t={}),"string"==typeof e&&e?(0,y.b)(r)?e.length>b.It?(0,d.R)(b.zk+"> "+b.It+" bytes: ",e.slice(0,25)+"..."):void(0,y.R)(w,e,t,r.toUpperCase()):(0,d.R)(b.YY+r,b.p_):(0,d.R)(b.zk+"invalid message")},g.wrapLogger=function(e,t){let{customAttributes:r={},level:n=b.p_.INFO}=arguments.length>2&&void 0!==arguments[2]?arguments[2]:{};return r&&"object"==typeof r||(r={}),"object"==typeof e&&e&&"string"==typeof t&&t&&"function"==typeof e[t]&&"object"==typeof r?(0,y.b)(n)?void x(w,e,t,{customAttributes:r,level:n.toUpperCase()}):(0,d.R)(b.bu+b.YY+n,b.p_):(0,d.R)(b.bu+"invalid argument(s)")},p.forEach((e=>{g[e]=I(A,e,!0,"api")})),g.addPageAction=I(A,"addPageAction",!0,n.K.pageAction),g.setPageViewName=function(t,r){if("string"==typeof t)return"/"!==t.charAt(0)&&(t="/"+t),(0,i.fr)(e).customTransaction=(r||"http://custom.transaction")+t,I(A,"setPageViewName",!0)()},g.setCustomAttribute=function(e,t){let r=arguments.length>2&&void 0!==arguments[2]&&arguments[2];if("string"==typeof e){if(["string","number","boolean"].includes(typeof t)||null===t)return S(e,t,"setCustomAttribute",r);(0,d.R)("Failed to execute setCustomAttribute.\nNon-null value must be a string, number or boolean type, but a type of <".concat(typeof t,"> was provided."))}else(0,d.R)("Failed to execute setCustomAttribute.\nName must be a string type, but a type of <".concat(typeof e,"> was provided."))},g.setUserId=function(e){if("string"==typeof e||null===e)return S("enduser.id",e,"setUserId",!0);(0,d.R)("Failed to execute setUserId.\nNon-null value must be a string type, but a type of <".concat(typeof e,"> was provided."))},g.setApplicationVersion=function(e){if("string"==typeof e||null===e)return S("application.version",e,"setApplicationVersion",!1);(0,d.R)("Failed to execute setApplicationVersion. Expected <String | null>, but got <".concat(typeof e,">."))},g.start=()=>{try{(0,o.p)(l.xV,["API/start/called"],void 0,n.K.metrics,w),w.emit("manual-start-all")}catch(e){(0,d.R)("An unexpected issue occurred",e)}},g[h.G4.RECORD]=function(){(0,o.p)(l.xV,["API/recordReplay/called"],void 0,n.K.metrics,w),(0,o.p)(h.G4.RECORD,[],void 0,n.K.sessionReplay,w)},g[h.G4.PAUSE]=function(){(0,o.p)(l.xV,["API/pauseReplay/called"],void 0,n.K.metrics,w),(0,o.p)(h.G4.PAUSE,[],void 0,n.K.sessionReplay,w)},g.interaction=function(e){return(new N).get("object"==typeof e?e:{})};const O=N.prototype={createTracer:function(e,t){var r={},i=this,a="function"==typeof t;return(0,o.p)(l.xV,["API/createTracer/called"],void 0,n.K.metrics,w),f||(0,o.p)(E+"tracer",[(0,m.t)(),e,r],i,n.K.spa,w),function(){if(R.emit((a?"":"no-")+"fn-start",[(0,m.t)(),i,a],r),a)try{return t.apply(this,arguments)}catch(e){const t="string"==typeof e?new Error(e):e;throw R.emit("fn-err",[arguments,this,t],r),t}finally{R.emit("fn-end",[(0,m.t)()],r)}}}};function I(e,t,r,i){return function(){return(0,o.p)(l.xV,["API/"+t+"/called"],void 0,n.K.metrics,w),i&&(0,o.p)(e+t,[(0,m.t)(),...arguments],r?null:this,i,w),r?void 0:this}}function _(){r.e(478).then(r.bind(r,8778)).then((t=>{let{setAPI:r}=t;r(e),(0,s.Ze)(e,"api")})).catch((e=>{(0,d.R)("Downloading runtime APIs failed...",e),w.abort()}))}return["actionText","setName","setAttribute","save","ignore","onEnd","getContext","end","get"].forEach((e=>{O[e]=I(E,e,void 0,f?n.K.softNav:n.K.spa)})),g.setCurrentRouteName=f?I(E,"routeName",void 0,n.K.softNav):I(A,"routeName",!0,n.K.spa),g.noticeError=function(t,r){"string"==typeof t&&(t=new Error(t)),(0,o.p)(l.xV,["API/noticeError/called"],void 0,n.K.metrics,w),(0,o.p)("err",[t,(0,m.t)(),!1,r,!!T[e]],void 0,n.K.jserrors,w)},u.RI?(0,c.GG)((()=>_()),!0):_(),g}(e.agentIdentifier,w,e.runSoftNavOverSpa)),void 0===e.exposed&&(e.exposed=j),N=!0}},8374:(e,t,r)=>{r.nc=(()=>{try{return document?.currentScript?.nonce}catch(e){}return""})()},860:(e,t,r)=>{"use strict";r.d(t,{K:()=>n,P:()=>i});const n={ajax:"ajax",jserrors:"jserrors",logging:"logging",metrics:"metrics",pageAction:"page_action",pageViewEvent:"page_view_event",pageViewTiming:"page_view_timing",sessionReplay:"session_replay",sessionTrace:"session_trace",softNav:"soft_navigations",spa:"spa"},i={[n.pageViewEvent]:1,[n.pageViewTiming]:2,[n.metrics]:3,[n.jserrors]:4,[n.spa]:5,[n.ajax]:6,[n.sessionTrace]:7,[n.pageAction]:8,[n.softNav]:9,[n.sessionReplay]:10,[n.logging]:11}}},n={};function i(e){var t=n[e];if(void 0!==t)return t.exports;var o=n[e]={exports:{}};return r[e](o,o.exports,i),o.exports}i.m=r,i.d=(e,t)=>{for(var r in t)i.o(t,r)&&!i.o(e,r)&&Object.defineProperty(e,r,{enumerable:!0,get:t[r]})},i.f={},i.e=e=>Promise.all(Object.keys(i.f).reduce(((t,r)=>(i.f[r](e,t),t)),[])),i.u=e=>({212:"nr-spa-compressor",249:"nr-spa-recorder",478:"nr-spa"}[e]+"-1.261.2.min.js"),i.o=(e,t)=>Object.prototype.hasOwnProperty.call(e,t),e={},t="NRBA-1.261.2.PROD:",i.l=(r,n,o,a)=>{if(e[r])e[r].push(n);else{var s,c;if(void 0!==o)for(var u=document.getElementsByTagName("script"),d=0;d<u.length;d++){var l=u[d];if(l.getAttribute("src")==r||l.getAttribute("data-webpack")==t+o){s=l;break}}if(!s){c=!0;var f={478:"sha512-fiDZje/7IxGZaS0825q38B2noQZCaNcjPRN3SjYeTCzdLUUTlHS370XiQcBt1Ruwo0uFl2jAfqA0Gq6S7o5L1w==",249:"sha512-SBXIGuPCZS4j1UIx2CFta2gf7qIDOpK6JUnpRi1sqEjgdRBrhPG5V09QZ02PgPiU7xeMkm8UgZEMa3/SIbVJsw==",212:"sha512-wt8P4aA9g0CzAgRM0r8bK5sLCNKNoPhaMtEKct4wJU6TeWDl9zqHOHD+Fk4QpLIlpQqrR3N6ccxoP75H+mMPzg=="};(s=document.createElement("script")).charset="utf-8",s.timeout=120,i.nc&&s.setAttribute("nonce",i.nc),s.setAttribute("data-webpack",t+o),s.src=r,0!==s.src.indexOf(window.location.origin+"/")&&(s.crossOrigin="anonymous"),f[a]&&(s.integrity=f[a])}e[r]=[n];var h=(t,n)=>{s.onerror=s.onload=null,clearTimeout(g);var i=e[r];if(delete e[r],s.parentNode&&s.parentNode.removeChild(s),i&&i.forEach((e=>e(n))),t)return t(n)},g=setTimeout(h.bind(null,void 0,{type:"timeout",target:s}),12e4);s.onerror=h.bind(null,s.onerror),s.onload=h.bind(null,s.onload),c&&document.head.appendChild(s)}},i.r=e=>{"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},i.p="https://js-agent.newrelic.com/",(()=>{var e={38:0,788:0};i.f.j=(t,r)=>{var n=i.o(e,t)?e[t]:void 0;if(0!==n)if(n)r.push(n[2]);else{var o=new Promise(((r,i)=>n=e[t]=[r,i]));r.push(n[2]=o);var a=i.p+i.u(t),s=new Error;i.l(a,(r=>{if(i.o(e,t)&&(0!==(n=e[t])&&(e[t]=void 0),n)){var o=r&&("load"===r.type?"missing":r.type),a=r&&r.target&&r.target.src;s.message="Loading chunk "+t+" failed.\n("+o+": "+a+")",s.name="ChunkLoadError",s.type=o,s.request=a,n[1](s)}}),"chunk-"+t,t)}};var t=(t,r)=>{var n,o,[a,s,c]=r,u=0;if(a.some((t=>0!==e[t]))){for(n in s)i.o(s,n)&&(i.m[n]=s[n]);if(c)c(i)}for(t&&t(r);u<a.length;u++)o=a[u],i.o(e,o)&&e[o]&&e[o][0](),e[o]=0},r=self["webpackChunk:NRBA-1.261.2.PROD"]=self["webpackChunk:NRBA-1.261.2.PROD"]||[];r.forEach(t.bind(null,0)),r.push=t.bind(null,r.push.bind(r))})(),(()=>{"use strict";i(8374);var e=i(944),t=i(6344),r=i(9566),n=i(7836);class o{agentIdentifier;constructor(){let e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:(0,r.LA)(16);this.agentIdentifier=e,this.ee=n.ee.get(e)}#e(t){for(var r=arguments.length,n=new Array(r>1?r-1:0),i=1;i<r;i++)n[i-1]=arguments[i];if("function"==typeof this.api?.[t])return this.api[t](...n);(0,e.R)("Call to agent api ".concat(t," failed. The API is not currently initialized."))}addPageAction(e,t){return this.#e("addPageAction",e,t)}setPageViewName(e,t){return this.#e("setPageViewName",e,t)}setCustomAttribute(e,t,r){return this.#e("setCustomAttribute",e,t,r)}noticeError(e,t){return this.#e("noticeError",e,t)}setUserId(e){return this.#e("setUserId",e)}setApplicationVersion(e){return this.#e("setApplicationVersion",e)}setErrorHandler(e){return this.#e("setErrorHandler",e)}finished(e){return this.#e("finished",e)}addRelease(e,t){return this.#e("addRelease",e,t)}start(e){return this.#e("start",e)}recordReplay(){return this.#e(t.G4.RECORD)}pauseReplay(){return this.#e(t.G4.PAUSE)}addToTrace(e){return this.#e("addToTrace",e)}setCurrentRouteName(e){return this.#e("setCurrentRouteName",e)}interaction(){return this.#e("interaction")}log(e,t){return this.#e("logInfo",e,t)}wrapLogger(e,t,r){return this.#e("wrapLogger",e,t,r)}}var a=i(860),s=i(2983);const c=Object.values(a.K);function u(e){const t={};return c.forEach((r=>{t[r]=function(e,t){return!0===(0,s.gD)(t,"".concat(e,".enabled"))}(r,e)})),t}var d=i(425);var l=i(1687),f=i(4234),h=i(5289),g=i(6154),p=i(5270),m=i(7767),v=i(6389);class b extends f.W{constructor(e,t,r){let n=!(arguments.length>3&&void 0!==arguments[3])||arguments[3];super(e,t,r),this.auto=n,this.abortHandler=void 0,this.featAggregate=void 0,this.onAggregateImported=void 0,!1===(0,s.gD)(this.agentIdentifier,"".concat(this.featureName,".autoStart"))&&(this.auto=!1),this.auto?(0,l.Ak)(e,r):this.ee.on("manual-start-all",(0,v.J)((()=>{(0,l.Ak)(this.agentIdentifier,this.featureName),this.auto=!0,this.importAggregator()})))}importAggregator(){let t,r=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{};if(this.featAggregate||!this.auto)return;this.onAggregateImported=new Promise((e=>{t=e}));const n=async()=>{let n;try{if((0,m.V)(this.agentIdentifier)){const{setupAgentSession:e}=await i.e(478).then(i.bind(i,6526));n=e(this.agentIdentifier)}}catch(t){(0,e.R)("A problem occurred when starting up session manager. This page will not start or extend any session.",t),this.ee.emit("internal-error",[t]),this.featureName===a.K.sessionReplay&&this.abortHandler?.()}try{if(!this.#t(this.featureName,n))return(0,l.Ze)(this.agentIdentifier,this.featureName),void t(!1);const{lazyFeatureLoader:e}=await i.e(478).then(i.bind(i,6103)),{Aggregate:o}=await e(this.featureName,"aggregate");this.featAggregate=new o(this.agentIdentifier,this.aggregator,r),t(!0)}catch(r){(0,e.R)("Downloading and initializing ".concat(this.featureName," failed..."),r),this.abortHandler?.(),(0,l.Ze)(this.agentIdentifier,this.featureName,!0),t(!1),this.ee&&this.ee.abort()}};g.RI?(0,h.GG)((()=>n()),!0):n()}#t(e,t){switch(e){case a.K.sessionReplay:return(0,p.SR)(this.agentIdentifier)&&!!t;case a.K.sessionTrace:return!!t;default:return!0}}}var y=i(6630);class w extends b{static featureName=y.T;constructor(e,t){let r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,t,y.T,r),this.importAggregator()}}var R=i(4777),x=i(1478);class A extends R.J{constructor(e){super(e),this.aggregatedData={}}store(e,t,r,n,i){var o=this.getBucket(e,t,r,i);return o.metrics=function(e,t){t||(t={count:0});return t.count+=1,(0,x.$)(e,(function(e,r){t[e]=T(r,t[e])})),t}(n,o.metrics),o}merge(e,t,r,n,i){var o=this.getBucket(e,t,n,i);if(o.metrics){var a=o.metrics;a.count+=r.count,(0,x.$)(r,(function(e,t){if("count"!==e){var n=a[e],i=r[e];i&&!i.c?a[e]=T(i.t,n):a[e]=function(e,t){if(!t)return e;t.c||(t=E(t.t));return t.min=Math.min(e.min,t.min),t.max=Math.max(e.max,t.max),t.t+=e.t,t.sos+=e.sos,t.c+=e.c,t}(i,a[e])}}))}else o.metrics=r}storeMetric(e,t,r,n){var i=this.getBucket(e,t,r);return i.stats=T(n,i.stats),i}getBucket(e,t,r,n){this.aggregatedData[e]||(this.aggregatedData[e]={});var i=this.aggregatedData[e][t];return i||(i=this.aggregatedData[e][t]={params:r||{}},n&&(i.custom=n)),i}get(e,t){return t?this.aggregatedData[e]&&this.aggregatedData[e][t]:this.aggregatedData[e]}take(e){for(var t={},r="",n=!1,i=0;i<e.length;i++)t[r=e[i]]=Object.values(this.aggregatedData[r]||{}),t[r].length&&(n=!0),delete this.aggregatedData[r];return n?t:null}}function T(e,t){return null==e?function(e){e?e.c++:e={c:1};return e}(t):t?(t.c||(t=E(t.t)),t.c+=1,t.t+=e,t.sos+=e*e,e>t.max&&(t.max=e),e<t.min&&(t.min=e),t):{t:e}}function E(e){return{t:e,min:e,max:e,sos:e*e,c:1}}var S=i(384),N=i(3304);var O=i(9908),I=i(2843),_=i(3878),j=i(782),C=i(1863);class P extends b{static featureName=j.T;constructor(e,t){let r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,t,j.T,r),g.RI&&((0,I.u)((()=>(0,O.p)("docHidden",[(0,C.t)()],void 0,j.T,this.ee)),!0),(0,_.sp)("pagehide",(()=>(0,O.p)("winPagehide",[(0,C.t)()],void 0,j.T,this.ee))),this.importAggregator())}}var k=i(3969);class L extends b{static featureName=k.TZ;constructor(e,t){let r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,t,k.TZ,r),this.importAggregator()}}var D=i(6774);class H{constructor(e,t,r,n,i){this.name="UncaughtError",this.message="string"==typeof e?e:(0,N.A)(e),this.sourceURL=t,this.line=r,this.column=n,this.__newrelic=i}}function M(e){return F(e)?e:new H(void 0!==e?.message?e.message:e,e?.filename||e?.sourceURL,e?.lineno||e?.line,e?.colno||e?.col,e?.__newrelic)}function U(e){let t="Unhandled Promise Rejection";if(F(e?.reason))try{return e.reason.message=t+": "+e.reason.message,M(e.reason)}catch(t){return M(e.reason)}if(void 0===e.reason)return M(t);const r=M(e.reason);return r.message=t+": "+r?.message,r}function K(e){if(e.error instanceof SyntaxError&&!/:\d+$/.test(e.error.stack?.trim())){const t=new H(e.message,e.filename,e.lineno,e.colno,e.error.__newrelic);return t.name=SyntaxError.name,t}return F(e.error)?e.error:M(e)}function F(e){return e instanceof Error&&!!e.stack}class B extends b{static featureName=D.T;#r=!1;constructor(e,r){let n=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,r,D.T,n);try{this.removeOnAbort=new AbortController}catch(e){}this.ee.on("internal-error",(e=>{this.abortHandler&&(0,O.p)("ierr",[M(e),(0,C.t)(),!0,{},this.#r],void 0,this.featureName,this.ee)})),this.ee.on(t.G4.REPLAY_RUNNING,(e=>{this.#r=e})),g.gm.addEventListener("unhandledrejection",(e=>{this.abortHandler&&(0,O.p)("err",[U(e),(0,C.t)(),!1,{unhandledPromiseRejection:1},this.#r],void 0,this.featureName,this.ee)}),(0,_.jT)(!1,this.removeOnAbort?.signal)),g.gm.addEventListener("error",(e=>{this.abortHandler&&(0,O.p)("err",[K(e),(0,C.t)(),!1,{},this.#r],void 0,this.featureName,this.ee)}),(0,_.jT)(!1,this.removeOnAbort?.signal)),this.abortHandler=this.#n,this.importAggregator()}#n(){this.removeOnAbort?.abort(),this.abortHandler=void 0}}var G=i(8990);let V=1;const z="nr@id";function W(e){const t=typeof e;return!e||"object"!==t&&"function"!==t?-1:e===g.gm?0:(0,G.I)(e,z,(function(){return V++}))}function q(e){if("string"==typeof e&&e.length)return e.length;if("object"==typeof e){if("undefined"!=typeof ArrayBuffer&&e instanceof ArrayBuffer&&e.byteLength)return e.byteLength;if("undefined"!=typeof Blob&&e instanceof Blob&&e.size)return e.size;if(!("undefined"!=typeof FormData&&e instanceof FormData))try{return(0,N.A)(e).length}catch(e){return}}}var Y=i(8941),Z=i(7485);class X{constructor(e){this.agentIdentifier=e}generateTracePayload(e){if(!this.shouldGenerateTrace(e))return null;var t=(0,s.oC)(this.agentIdentifier);if(!t)return null;var n=(t.accountID||"").toString()||null,i=(t.agentID||"").toString()||null,o=(t.trustKey||"").toString()||null;if(!n||!i)return null;var a=(0,r.ZF)(),c=(0,r.el)(),u=Date.now(),d={spanId:a,traceId:c,timestamp:u};return(e.sameOrigin||this.isAllowedOrigin(e)&&this.useTraceContextHeadersForCors())&&(d.traceContextParentHeader=this.generateTraceContextParentHeader(a,c),d.traceContextStateHeader=this.generateTraceContextStateHeader(a,u,n,i,o)),(e.sameOrigin&&!this.excludeNewrelicHeader()||!e.sameOrigin&&this.isAllowedOrigin(e)&&this.useNewrelicHeaderForCors())&&(d.newrelicHeader=this.generateTraceHeader(a,c,u,n,i,o)),d}generateTraceContextParentHeader(e,t){return"00-"+t+"-"+e+"-01"}generateTraceContextStateHeader(e,t,r,n,i){return i+"@nr=0-1-"+r+"-"+n+"-"+e+"----"+t}generateTraceHeader(e,t,r,n,i,o){if(!("function"==typeof g.gm?.btoa))return null;var a={v:[0,1],d:{ty:"Browser",ac:n,ap:i,id:e,tr:t,ti:r}};return o&&n!==o&&(a.d.tk=o),btoa((0,N.A)(a))}shouldGenerateTrace(e){return this.isDtEnabled()&&this.isAllowedOrigin(e)}isAllowedOrigin(e){var t=!1,r={};if((0,s.gD)(this.agentIdentifier,"distributed_tracing")&&(r=(0,s.D0)(this.agentIdentifier).distributed_tracing),e.sameOrigin)t=!0;else if(r.allowed_origins instanceof Array)for(var n=0;n<r.allowed_origins.length;n++){var i=(0,Z.D)(r.allowed_origins[n]);if(e.hostname===i.hostname&&e.protocol===i.protocol&&e.port===i.port){t=!0;break}}return t}isDtEnabled(){var e=(0,s.gD)(this.agentIdentifier,"distributed_tracing");return!!e&&!!e.enabled}excludeNewrelicHeader(){var e=(0,s.gD)(this.agentIdentifier,"distributed_tracing");return!!e&&!!e.exclude_newrelic_header}useNewrelicHeaderForCors(){var e=(0,s.gD)(this.agentIdentifier,"distributed_tracing");return!!e&&!1!==e.cors_use_newrelic_header}useTraceContextHeadersForCors(){var e=(0,s.gD)(this.agentIdentifier,"distributed_tracing");return!!e&&!!e.cors_use_tracecontext_headers}}var J=i(9300),Q=i(7295),ee=["load","error","abort","timeout"],te=ee.length,re=s.hR.REQ,ne=s.hR.XHR;class ie extends b{static featureName=J.T;constructor(e,t){let r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,t,J.T,r),this.dt=new X(e),this.handler=(e,t,r,n)=>(0,O.p)(e,t,r,n,this.ee);try{const e={xmlhttprequest:"xhr",fetch:"fetch",beacon:"beacon"};g.gm?.performance?.getEntriesByType("resource").forEach((t=>{if(t.initiatorType in e&&0!==t.responseStatus){const r={status:t.responseStatus},n={rxSize:t.transferSize,duration:Math.floor(t.duration),cbTime:0};oe(r,t.name),this.handler("xhr",[r,n,t.startTime,t.responseEnd,e[t.initiatorType]],void 0,a.K.ajax)}}))}catch(e){}(0,Y.NZ)(this.ee),(0,Y.bX)(this.ee),function(e,t,r,n){function i(e){var t=this;t.totalCbs=0,t.called=0,t.cbTime=0,t.end=x,t.ended=!1,t.xhrGuids={},t.lastSize=null,t.loadCaptureCalled=!1,t.params=this.params||{},t.metrics=this.metrics||{},e.addEventListener("load",(function(r){A(t,e)}),(0,_.jT)(!1)),g.lR||e.addEventListener("progress",(function(e){t.lastSize=e.loaded}),(0,_.jT)(!1))}function o(e){this.params={method:e[0]},oe(this,e[1]),this.metrics={}}function c(t,r){var i=(0,s.oC)(e);i.xpid&&this.sameOrigin&&r.setRequestHeader("X-NewRelic-ID",i.xpid);var o=n.generateTracePayload(this.parsedOrigin);if(o){var a=!1;o.newrelicHeader&&(r.setRequestHeader("newrelic",o.newrelicHeader),a=!0),o.traceContextParentHeader&&(r.setRequestHeader("traceparent",o.traceContextParentHeader),o.traceContextStateHeader&&r.setRequestHeader("tracestate",o.traceContextStateHeader),a=!0),a&&(this.dt=o)}}function u(e,r){var n=this.metrics,i=e[0],o=this;if(n&&i){var a=q(i);a&&(n.txSize=a)}this.startTime=(0,C.t)(),this.body=i,this.listener=function(e){try{"abort"!==e.type||o.loadCaptureCalled||(o.params.aborted=!0),("load"!==e.type||o.called===o.totalCbs&&(o.onloadCalled||"function"!=typeof r.onload)&&"function"==typeof o.end)&&o.end(r)}catch(e){try{t.emit("internal-error",[e])}catch(e){}}};for(var s=0;s<te;s++)r.addEventListener(ee[s],this.listener,(0,_.jT)(!1))}function d(e,t,r){this.cbTime+=e,t?this.onloadCalled=!0:this.called+=1,this.called!==this.totalCbs||!this.onloadCalled&&"function"==typeof r.onload||"function"!=typeof this.end||this.end(r)}function l(e,t){var r=""+W(e)+!!t;this.xhrGuids&&!this.xhrGuids[r]&&(this.xhrGuids[r]=!0,this.totalCbs+=1)}function f(e,t){var r=""+W(e)+!!t;this.xhrGuids&&this.xhrGuids[r]&&(delete this.xhrGuids[r],this.totalCbs-=1)}function h(){this.endTime=(0,C.t)()}function p(e,r){r instanceof ne&&"load"===e[0]&&t.emit("xhr-load-added",[e[1],e[2]],r)}function m(e,r){r instanceof ne&&"load"===e[0]&&t.emit("xhr-load-removed",[e[1],e[2]],r)}function v(e,t,r){t instanceof ne&&("onload"===r&&(this.onload=!0),("load"===(e[0]&&e[0].type)||this.onload)&&(this.xhrCbStart=(0,C.t)()))}function b(e,r){this.xhrCbStart&&t.emit("xhr-cb-time",[(0,C.t)()-this.xhrCbStart,this.onload,r],r)}function y(e){var t,r=e[1]||{};if("string"==typeof e[0]?0===(t=e[0]).length&&g.RI&&(t=""+g.gm.location.href):e[0]&&e[0].url?t=e[0].url:g.gm?.URL&&e[0]&&e[0]instanceof URL?t=e[0].href:"function"==typeof e[0].toString&&(t=e[0].toString()),"string"==typeof t&&0!==t.length){t&&(this.parsedOrigin=(0,Z.D)(t),this.sameOrigin=this.parsedOrigin.sameOrigin);var i=n.generateTracePayload(this.parsedOrigin);if(i&&(i.newrelicHeader||i.traceContextParentHeader))if(e[0]&&e[0].headers)s(e[0].headers,i)&&(this.dt=i);else{var o={};for(var a in r)o[a]=r[a];o.headers=new Headers(r.headers||{}),s(o.headers,i)&&(this.dt=i),e.length>1?e[1]=o:e.push(o)}}function s(e,t){var r=!1;return t.newrelicHeader&&(e.set("newrelic",t.newrelicHeader),r=!0),t.traceContextParentHeader&&(e.set("traceparent",t.traceContextParentHeader),t.traceContextStateHeader&&e.set("tracestate",t.traceContextStateHeader),r=!0),r}}function w(e,t){this.params={},this.metrics={},this.startTime=(0,C.t)(),this.dt=t,e.length>=1&&(this.target=e[0]),e.length>=2&&(this.opts=e[1]);var r,n=this.opts||{},i=this.target;"string"==typeof i?r=i:"object"==typeof i&&i instanceof re?r=i.url:g.gm?.URL&&"object"==typeof i&&i instanceof URL&&(r=i.href),oe(this,r);var o=(""+(i&&i instanceof re&&i.method||n.method||"GET")).toUpperCase();this.params.method=o,this.body=n.body,this.txSize=q(n.body)||0}function R(e,t){if(this.endTime=(0,C.t)(),this.params||(this.params={}),(0,Q.iW)(this.params))return;let n;this.params.status=t?t.status:0,"string"==typeof this.rxSize&&this.rxSize.length>0&&(n=+this.rxSize);const i={txSize:this.txSize,rxSize:n,duration:(0,C.t)()-this.startTime};r("xhr",[this.params,i,this.startTime,this.endTime,"fetch"],this,a.K.ajax)}function x(e){const t=this.params,n=this.metrics;if(!this.ended){this.ended=!0;for(let t=0;t<te;t++)e.removeEventListener(ee[t],this.listener,!1);t.aborted||(0,Q.iW)(t)||(n.duration=(0,C.t)()-this.startTime,this.loadCaptureCalled||4!==e.readyState?null==t.status&&(t.status=0):A(this,e),n.cbTime=this.cbTime,r("xhr",[t,n,this.startTime,this.endTime,"xhr"],this,a.K.ajax))}}function A(e,r){e.params.status=r.status;var n=function(e,t){var r=e.responseType;return"json"===r&&null!==t?t:"arraybuffer"===r||"blob"===r||"json"===r?q(e.response):"text"===r||""===r||void 0===r?q(e.responseText):void 0}(r,e.lastSize);if(n&&(e.metrics.rxSize=n),e.sameOrigin){var i=r.getResponseHeader("X-NewRelic-App-Data");i&&((0,O.p)(k.rs,["Ajax/CrossApplicationTracing/Header/Seen"],void 0,a.K.metrics,t),e.params.cat=i.split(", ").pop())}e.loadCaptureCalled=!0}t.on("new-xhr",i),t.on("open-xhr-start",o),t.on("open-xhr-end",c),t.on("send-xhr-start",u),t.on("xhr-cb-time",d),t.on("xhr-load-added",l),t.on("xhr-load-removed",f),t.on("xhr-resolved",h),t.on("addEventListener-end",p),t.on("removeEventListener-end",m),t.on("fn-end",b),t.on("fetch-before-start",y),t.on("fetch-start",w),t.on("fn-start",v),t.on("fetch-done",R)}(e,this.ee,this.handler,this.dt),this.importAggregator()}}function oe(e,t){var r=(0,Z.D)(t),n=e.params||e;n.hostname=r.hostname,n.port=r.port,n.protocol=r.protocol,n.host=r.hostname+":"+r.port,n.pathname=r.pathname,e.parsedOrigin=r,e.sameOrigin=r.sameOrigin}var ae=i(3738);const{He:se,bD:ce,d3:ue,Kp:de,TZ:le,Lc:fe,uP:he,Rz:ge}=ae;var pe=i(2614);class me extends b{static featureName=t.TZ;#i;constructor(e,r){let n,i=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,r,t.TZ,i),this.replayRunning=!1;try{n=JSON.parse(localStorage.getItem("".concat(pe.H3,"_").concat(pe.uh)))}catch(e){}(0,p.SR)(e)&&this.ee.on(t.G4.RECORD,(()=>this.#o())),this.#a(n)?(this.#i=n?.sessionReplayMode,this.#s()):this.importAggregator(),this.ee.on("err",(e=>{this.replayRunning&&(this.errorNoticed=!0,(0,O.p)(t.G4.ERROR_DURING_REPLAY,[e],void 0,this.featureName,this.ee))})),this.ee.on(t.G4.REPLAY_RUNNING,(e=>{this.replayRunning=e}))}#a(e){return e&&(e.sessionReplayMode===pe.g.FULL||e.sessionReplayMode===pe.g.ERROR)||(0,p.Aw)(this.agentIdentifier)}#c=!1;async#s(e){if(!this.#c){this.#c=!0;try{const{Recorder:t}=await Promise.all([i.e(478),i.e(249)]).then(i.bind(i,2496));this.recorder??=new t({mode:this.#i,agentIdentifier:this.agentIdentifier,trigger:e,ee:this.ee}),this.recorder.startRecording(),this.abortHandler=this.recorder.stopRecording}catch(e){}this.importAggregator({recorder:this.recorder,errorNoticed:this.errorNoticed})}}#o(){this.featAggregate?this.featAggregate.mode!==pe.g.FULL&&this.featAggregate.initializeRecording(pe.g.FULL,!0):(this.#i=pe.g.FULL,this.#s(t.Qb.API),this.recorder&&this.recorder.parent.mode!==pe.g.FULL&&(this.recorder.parent.mode=pe.g.FULL,this.recorder.stopRecording(),this.recorder.startRecording(),this.abortHandler=this.recorder.stopRecording))}}var ve=i(3962);class be extends b{static featureName=ve.TZ;constructor(e,t){let r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];if(super(e,t,ve.TZ,r),!g.RI||!s.hR.MO)return;const n=(0,Y.vC)(this.ee),i=(0,Y.um)(this.ee),o=()=>(0,O.p)("newURL",[(0,C.t)(),""+window.location],void 0,this.featureName,this.ee);n.on("pushState-end",o),n.on("replaceState-end",o);try{this.removeOnAbort=new AbortController}catch(e){}(0,_.sp)("popstate",(e=>(0,O.p)("newURL",[e.timeStamp,""+window.location],void 0,this.featureName,this.ee)),!0,this.removeOnAbort?.signal);let a=!1;const c=new s.hR.MO(((e,t)=>{a||(a=!0,requestAnimationFrame((()=>{(0,O.p)("newDom",[(0,C.t)()],void 0,this.featureName,this.ee),a=!1})))})),u=(0,v.s)((e=>{(0,O.p)("newUIEvent",[e],void 0,this.featureName,this.ee),c.observe(document.body,{attributes:!0,childList:!0,subtree:!0,characterData:!0})}),100,{leading:!0});i.on("fn-start",(e=>{let[t]=e;ve.tC.includes(t?.type)&&u(t)}));for(let e of ve.tC)document.addEventListener(e,(()=>{}));this.abortHandler=function(){this.removeOnAbort?.abort(),c.disconnect(),this.abortHandler=void 0},this.importAggregator({domObserver:c})}}var ye=i(7378);const{TZ:we,d3:Re,Kp:xe,$p:Ae,wW:Te,e5:Ee,tH:Se,uP:Ne,rw:Oe,Lc:Ie}=ye;var _e=i(8166);class je extends b{static featureName=_e.T;constructor(e,t){let r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,t,_e.T,r),this.importAggregator()}}var Ce=i(993),Pe=i(3785);class ke extends b{static featureName=Ce.TZ;constructor(e,t){let r=!(arguments.length>2&&void 0!==arguments[2])||arguments[2];super(e,t,Ce.TZ,r);const n=this.ee;this.ee.on("wrap-logger-end",(function(e){let[t]=e;const{level:r,customAttributes:i}=this;(0,Pe.R)(n,t,i,r)})),this.importAggregator()}}new class extends o{constructor(t,r){super(r),g.gm?(this.sharedAggregator=new A({agentIdentifier:this.agentIdentifier}),this.features={},(0,S.bQ)(this.agentIdentifier,this),this.desiredFeatures=new Set(t.features||[]),this.desiredFeatures.add(w),this.runSoftNavOverSpa=[...this.desiredFeatures].some((e=>e.featureName===a.K.softNav)),(0,d.j)(this,t,t.loaderType||"agent"),this.run()):(0,e.R)("Failed to initialize the agent. Could not determine the runtime environment.")}get config(){return{info:this.info,init:this.init,loader_config:this.loader_config,runtime:this.runtime}}run(){try{const t=u(this.agentIdentifier),r=[...this.desiredFeatures];r.sort(((e,t)=>a.P[e.featureName]-a.P[t.featureName])),r.forEach((r=>{if(!t[r.featureName]&&r.featureName!==a.K.pageViewEvent)return;if(this.runSoftNavOverSpa&&r.featureName===a.K.spa)return;if(!this.runSoftNavOverSpa&&r.featureName===a.K.softNav)return;const n=function(e){switch(e){case a.K.ajax:return[a.K.jserrors];case a.K.sessionTrace:return[a.K.ajax,a.K.pageViewEvent];case a.K.sessionReplay:return[a.K.sessionTrace];case a.K.pageViewTiming:return[a.K.pageViewEvent];default:return[]}}(r.featureName);n.every((e=>e in this.features))||(0,e.R)("".concat(r.featureName," is enabled but one or more dependent features has not been initialized (").concat((0,N.A)(n),"). This may cause unintended consequences or missing data...")),this.features[r.featureName]=new r(this.agentIdentifier,this.sharedAggregator)}))}catch(t){(0,e.R)("Failed to initialize all enabled instrument classes (agent aborted) -",t);for(const e in this.features)this.features[e].abortHandler?.();const r=(0,S.Zm)();delete r.initializedAgents[this.agentIdentifier]?.api,delete r.initializedAgents[this.agentIdentifier]?.features,delete this.sharedAggregator;return r.ee.get(this.agentIdentifier).abort(),!1}}}({features:[ie,w,P,class extends b{static featureName=le;constructor(e,t){super(e,t,le,!(arguments.length>2&&void 0!==arguments[2])||arguments[2]);if(!(0,m.V)(this.agentIdentifier))return void(0,l.x3)(this.agentIdentifier,this.featureName);const r=this.ee;let n;(0,Y.vC)(r),this.eventsEE=(0,Y.um)(r),this.eventsEE.on(he,(function(e,t){this.bstStart=(0,C.t)()})),this.eventsEE.on(fe,(function(e,t){(0,O.p)("bst",[e[0],t,this.bstStart,(0,C.t)()],void 0,a.K.sessionTrace,r)})),r.on(ge+ue,(function(e){this.time=(0,C.t)(),this.startPath=location.pathname+location.hash})),r.on(ge+de,(function(e){(0,O.p)("bstHist",[location.pathname+location.hash,this.startPath,this.time],void 0,a.K.sessionTrace,r)}));try{n=new PerformanceObserver((e=>{const t=e.getEntries();(0,O.p)(se,[t],void 0,a.K.sessionTrace,r)})),n.observe({type:ce,buffered:!0})}catch(e){}this.importAggregator({resourceObserver:n})}},me,L,je,B,ke,be,class extends b{static featureName=we;constructor(e,t){var r;if(super(e,t,we,!(arguments.length>2&&void 0!==arguments[2])||arguments[2]),r=this,!g.RI)return;try{this.removeOnAbort=new AbortController}catch(e){}let n,i=0;const o=this.ee.get("tracer"),a=(0,Y.Ri)(this.ee),s=(0,Y.o8)(this.ee),c=(0,Y.MO)(this.ee),u=(0,Y.bX)(this.ee),d=this.ee.get("events"),l=(0,Y.NZ)(this.ee),f=(0,Y.vC)(this.ee),h=(0,Y.Ak)(this.ee);function p(e,t){f.emit("newURL",[""+window.location,t])}function m(){i++,n=window.location.hash,this[Ne]=(0,C.t)()}function v(){i--,window.location.hash!==n&&p(0,!0);var e=(0,C.t)();this[Ee]=~~this[Ee]+e-this[Ne],this[Ie]=e}function b(e,t){e.on(t,(function(){this[t]=(0,C.t)()}))}this.ee.on(Ne,m),s.on(Oe,m),a.on(Oe,m),this.ee.on(Ie,v),s.on(Te,v),a.on(Te,v),this.ee.on("fn-err",(function(){for(var t=arguments.length,n=new Array(t),i=0;i<t;i++)n[i]=arguments[i];n[2]?.__newrelic?.[e]||(0,O.p)("function-err",[...n],void 0,r.featureName,r.ee)})),this.ee.buffer([Ne,Ie,"xhr-resolved"],this.featureName),d.buffer([Ne],this.featureName),c.buffer(["setTimeout"+xe,"clearTimeout"+Re,Ne],this.featureName),u.buffer([Ne,"new-xhr","send-xhr"+Re],this.featureName),l.buffer([Se+Re,Se+"-done",Se+Ae+Re,Se+Ae+xe],this.featureName),f.buffer(["newURL"],this.featureName),h.buffer([Ne],this.featureName),s.buffer(["propagate",Oe,Te,"executor-err","resolve"+Re],this.featureName),o.buffer([Ne,"no-"+Ne],this.featureName),a.buffer(["new-jsonp","cb-start","jsonp-error","jsonp-end"],this.featureName),b(l,Se+Re),b(l,Se+"-done"),b(a,"new-jsonp"),b(a,"jsonp-end"),b(a,"cb-start"),f.on("pushState-end",p),f.on("replaceState-end",p),window.addEventListener("hashchange",p,(0,_.jT)(!0,this.removeOnAbort?.signal)),window.addEventListener("load",p,(0,_.jT)(!0,this.removeOnAbort?.signal)),window.addEventListener("popstate",(function(){p(0,i>1)}),(0,_.jT)(!0,this.removeOnAbort?.signal)),this.abortHandler=this.#n,this.importAggregator()}#n(){this.removeOnAbort?.abort(),this.abortHandler=void 0}}],loaderType:"spa"})})()})();</script>
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<link rel="profile" href="http://gmpg.org/xfn/11" />
+	<link rel="pingback" href="https://kartodromogranjaviana.com.br/xmlrpc.php" />
+	<title>FOLHA &#8211; Kartódromo Granja Viana</title>
+<meta name='robots' content='max-image-preview:large' />
+<link rel="alternate" type="application/rss+xml" title="Feed para Kartódromo Granja Viana &raquo;" href="https://kartodromogranjaviana.com.br/feed/" />
+<link rel="alternate" type="application/rss+xml" title="Feed de comentários para Kartódromo Granja Viana &raquo;" href="https://kartodromogranjaviana.com.br/comments/feed/" />
+<script>
+window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/15.0.3\/72x72\/","ext":".png","svgUrl":"https:\/\/s.w.org\/images\/core\/emoji\/15.0.3\/svg\/","svgExt":".svg","source":{"concatemoji":"https:\/\/kartodromogranjaviana.com.br\/wp-includes\/js\/wp-emoji-release.min.js?ver=6.5.5"}};
+/*! This file is auto-generated */
+!function(i,n){var o,s,e;function c(e){try{var t={supportTests:e,timestamp:(new Date).valueOf()};sessionStorage.setItem(o,JSON.stringify(t))}catch(e){}}function p(e,t,n){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);var t=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data),r=(e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(n,0,0),new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data));return t.every(function(e,t){return e===r[t]})}function u(e,t,n){switch(t){case"flag":return n(e,"\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!n(e,"\ud83c\uddfa\ud83c\uddf3","\ud83c\uddfa\u200b\ud83c\uddf3")&&!n(e,"\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!n(e,"\ud83d\udc26\u200d\u2b1b","\ud83d\udc26\u200b\u2b1b")}return!1}function f(e,t,n){var r="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope?new OffscreenCanvas(300,150):i.createElement("canvas"),a=r.getContext("2d",{willReadFrequently:!0}),o=(a.textBaseline="top",a.font="600 32px Arial",{});return e.forEach(function(e){o[e]=t(a,e,n)}),o}function t(e){var t=i.createElement("script");t.src=e,t.defer=!0,i.head.appendChild(t)}"undefined"!=typeof Promise&&(o="wpEmojiSettingsSupports",s=["flag","emoji"],n.supports={everything:!0,everythingExceptFlag:!0},e=new Promise(function(e){i.addEventListener("DOMContentLoaded",e,{once:!0})}),new Promise(function(t){var n=function(){try{var e=JSON.parse(sessionStorage.getItem(o));if("object"==typeof e&&"number"==typeof e.timestamp&&(new Date).valueOf()<e.timestamp+604800&&"object"==typeof e.supportTests)return e.supportTests}catch(e){}return null}();if(!n){if("undefined"!=typeof Worker&&"undefined"!=typeof OffscreenCanvas&&"undefined"!=typeof URL&&URL.createObjectURL&&"undefined"!=typeof Blob)try{var e="postMessage("+f.toString()+"("+[JSON.stringify(s),u.toString(),p.toString()].join(",")+"));",r=new Blob([e],{type:"text/javascript"}),a=new Worker(URL.createObjectURL(r),{name:"wpTestEmojiSupports"});return void(a.onmessage=function(e){c(n=e.data),a.terminate(),t(n)})}catch(e){}c(n=f(s,u,p))}t(n)}).then(function(e){for(var t in e)n.supports[t]=e[t],n.supports.everything=n.supports.everything&&n.supports[t],"flag"!==t&&(n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&n.supports[t]);n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&!n.supports.flag,n.DOMReady=!1,n.readyCallback=function(){n.DOMReady=!0}}).then(function(){return e}).then(function(){var e;n.supports.everything||(n.readyCallback(),(e=n.source||{}).concatemoji?t(e.concatemoji):e.wpemoji&&e.twemoji&&(t(e.twemoji),t(e.wpemoji)))}))}((window,document),window._wpemojiSettings);
+</script>
+<link rel='stylesheet' id='twb-open-sans-css' href='https://fonts.googleapis.com/css?family=Open+Sans%3A300%2C400%2C500%2C600%2C700%2C800&#038;display=swap&#038;ver=6.5.5' media='all' />
+<link rel='stylesheet' id='twbbwg-global-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/booster/assets/css/global.css?ver=1.0.0' media='all' />
+<link rel='stylesheet' id='sbi_styles-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/instagram-feed/css/sbi-styles.min.css?ver=6.4.3' media='all' />
+<link rel='stylesheet' id='hfe-widgets-style-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/header-footer-elementor/inc/widgets-css/frontend.css?ver=1.6.36' media='all' />
+<style id='wp-emoji-styles-inline-css'>
+
+	img.wp-smiley, img.emoji {
+		display: inline !important;
+		border: none !important;
+		box-shadow: none !important;
+		height: 1em !important;
+		width: 1em !important;
+		margin: 0 0.07em !important;
+		vertical-align: -0.1em !important;
+		background: none !important;
+		padding: 0 !important;
+	}
+</style>
+<style id='classic-theme-styles-inline-css'>
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+</style>
+<style id='global-styles-inline-css'>
+body{--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgba(6,147,227,1) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgba(252,185,0,1) 0%,rgba(255,105,0,1) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgba(255,105,0,1) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgba(255, 255, 255, 1), 6px 6px rgba(0, 0, 0, 1);--wp--preset--shadow--crisp: 6px 6px 0px rgba(0, 0, 0, 1);}:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flex{display: flex;}body .is-layout-flex{flex-wrap: wrap;align-items: center;}body .is-layout-flex > *{margin: 0;}body .is-layout-grid{display: grid;}body .is-layout-grid > *{margin: 0;}:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+.wp-block-navigation a:where(:not(.wp-element-button)){color: inherit;}
+:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}
+:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}
+.wp-block-pullquote{font-size: 1.5em;line-height: 1.6;}
+</style>
+<link rel='stylesheet' id='contact-form-7-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=5.9.6' media='all' />
+<link rel='stylesheet' id='events-manager-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/events-manager/includes/css/events-manager.min.css?ver=6.4.9' media='all' />
+<link rel='stylesheet' id='bwg_fonts-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/css/bwg-fonts/fonts.css?ver=0.0.1' media='all' />
+<link rel='stylesheet' id='sumoselect-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/css/sumoselect.min.css?ver=3.4.6' media='all' />
+<link rel='stylesheet' id='mCustomScrollbar-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/css/jquery.mCustomScrollbar.min.css?ver=3.1.5' media='all' />
+<link rel='stylesheet' id='bwg_frontend-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/css/styles.min.css?ver=1.8.26' media='all' />
+<link rel='stylesheet' id='theme.css-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/popup-builder/public/css/theme.css?ver=4.3.2' media='all' />
+<link rel='stylesheet' id='swpm.common-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/simple-membership/css/swpm.common.css?ver=4.4.8' media='all' />
+<link rel='stylesheet' id='table-addons-for-elementor-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/table-addons-for-elementor/public/css/table-addons-for-elementor-public.css?ver=2.1.3' media='all' />
+<link rel='stylesheet' id='hfe-style-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/header-footer-elementor/assets/css/header-footer-elementor.css?ver=1.6.36' media='all' />
+<link rel='stylesheet' id='elementor-icons-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/eicons/css/elementor-icons.min.css?ver=5.30.0' media='all' />
+<link rel='stylesheet' id='elementor-frontend-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/css/frontend.min.css?ver=3.22.3' media='all' />
+<link rel='stylesheet' id='swiper-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/swiper/v8/css/swiper.min.css?ver=8.4.5' media='all' />
+<link rel='stylesheet' id='elementor-post-22567-css' href='https://kartodromogranjaviana.com.br/wp-content/uploads/elementor/css/post-22567.css?ver=1719431070' media='all' />
+<link rel='stylesheet' id='sbistyles-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/instagram-feed/css/sbi-styles.min.css?ver=6.4.3' media='all' />
+<link rel='stylesheet' id='elementor-pro-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/pro-elements/assets/css/frontend.min.css?ver=3.22.1' media='all' />
+<link rel='stylesheet' id='elementor-global-css' href='https://kartodromogranjaviana.com.br/wp-content/uploads/elementor/css/global.css?ver=1719431087' media='all' />
+<link rel='stylesheet' id='elementor-post-8678-css' href='https://kartodromogranjaviana.com.br/wp-content/uploads/elementor/css/post-8678.css?ver=1719431409' media='all' />
+<link rel='stylesheet' id='elementor-post-31824-css' href='https://kartodromogranjaviana.com.br/wp-content/uploads/elementor/css/post-31824.css?ver=1719431089' media='all' />
+<link rel='stylesheet' id='elementor-post-31860-css' href='https://kartodromogranjaviana.com.br/wp-content/uploads/elementor/css/post-31860.css?ver=1719431089' media='all' />
+<link rel='stylesheet' id='elementor-post-31838-css' href='https://kartodromogranjaviana.com.br/wp-content/uploads/elementor/css/post-31838.css?ver=1719431090' media='all' />
+<link rel='stylesheet' id='hello-elementor-css' href='https://kartodromogranjaviana.com.br/wp-content/themes/hello-elementor/style.min.css?ver=3.1.0' media='all' />
+<link rel='stylesheet' id='hello-elementor-theme-style-css' href='https://kartodromogranjaviana.com.br/wp-content/themes/hello-elementor/theme.min.css?ver=3.1.0' media='all' />
+<link rel='stylesheet' id='hello-elementor-header-footer-css' href='https://kartodromogranjaviana.com.br/wp-content/themes/hello-elementor/header-footer.min.css?ver=3.1.0' media='all' />
+<link rel='stylesheet' id='tablepress-default-css' href='https://kartodromogranjaviana.com.br/wp-content/tablepress-combined.min.css?ver=30' media='all' />
+<link rel='stylesheet' id='eael-general-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/essential-addons-for-elementor-lite/assets/front-end/css/view/general.min.css?ver=5.9.24' media='all' />
+<link rel='stylesheet' id='wpr-text-animations-css-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/royal-elementor-addons/assets/css/lib/animations/text-animations.min.css?ver=1.3.978' media='all' />
+<link rel='stylesheet' id='wpr-addons-css-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/royal-elementor-addons/assets/css/frontend.min.css?ver=1.3.978' media='all' />
+<link rel='stylesheet' id='font-awesome-5-all-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/font-awesome/css/all.min.css?ver=5.9.24' media='all' />
+<link rel='stylesheet' id='google-fonts-1-css' href='https://fonts.googleapis.com/css?family=Montserrat%3A100%2C100italic%2C200%2C200italic%2C300%2C300italic%2C400%2C400italic%2C500%2C500italic%2C600%2C600italic%2C700%2C700italic%2C800%2C800italic%2C900%2C900italic%7COpen+Sans%3A100%2C100italic%2C200%2C200italic%2C300%2C300italic%2C400%2C400italic%2C500%2C500italic%2C600%2C600italic%2C700%2C700italic%2C800%2C800italic%2C900%2C900italic&#038;display=auto&#038;ver=6.5.5' media='all' />
+<link rel='stylesheet' id='elementor-icons-shared-0-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/font-awesome/css/fontawesome.min.css?ver=5.15.3' media='all' />
+<link rel='stylesheet' id='elementor-icons-fa-solid-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/font-awesome/css/solid.min.css?ver=5.15.3' media='all' />
+<link rel='stylesheet' id='elementor-icons-fa-regular-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/font-awesome/css/regular.min.css?ver=5.15.3' media='all' />
+<link rel='stylesheet' id='elementor-icons-fa-brands-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/font-awesome/css/brands.min.css?ver=5.15.3' media='all' />
+<link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin><!--n2css--><script data-cfasync="false" src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/jquery.min.js?ver=3.7.1" id="jquery-core-js"></script>
+<script data-cfasync="false" src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1" id="jquery-migrate-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/booster/assets/js/circle-progress.js?ver=1.2.2" id="twbbwg-circle-js"></script>
+<script id="twbbwg-global-js-extra">
+var twb = {"nonce":"dd66c93ea9","ajax_url":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","plugin_url":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/photo-gallery\/booster","href":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin.php?page=twbbwg_photo-gallery"};
+var twb = {"nonce":"dd66c93ea9","ajax_url":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","plugin_url":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/photo-gallery\/booster","href":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin.php?page=twbbwg_photo-gallery"};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/booster/assets/js/global.js?ver=1.0.0" id="twbbwg-global-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/core.min.js?ver=1.13.2" id="jquery-ui-core-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/mouse.min.js?ver=1.13.2" id="jquery-ui-mouse-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/sortable.min.js?ver=1.13.2" id="jquery-ui-sortable-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/datepicker.min.js?ver=1.13.2" id="jquery-ui-datepicker-js"></script>
+<script id="jquery-ui-datepicker-js-after">
+jQuery(function(jQuery){jQuery.datepicker.setDefaults({"closeText":"Fechar","currentText":"Hoje","monthNames":["janeiro","fevereiro","mar\u00e7o","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"],"monthNamesShort":["jan","fev","mar","abr","maio","jun","jul","ago","set","out","nov","dez"],"nextText":"Seguinte","prevText":"Anterior","dayNames":["domingo","segunda-feira","ter\u00e7a-feira","quarta-feira","quinta-feira","sexta-feira","s\u00e1bado"],"dayNamesShort":["dom","seg","ter","qua","qui","sex","s\u00e1b"],"dayNamesMin":["D","S","T","Q","Q","S","S"],"dateFormat":"d \\dd\\e MM \\dd\\e yy","firstDay":0,"isRTL":false});});
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/resizable.min.js?ver=1.13.2" id="jquery-ui-resizable-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/draggable.min.js?ver=1.13.2" id="jquery-ui-draggable-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/controlgroup.min.js?ver=1.13.2" id="jquery-ui-controlgroup-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/checkboxradio.min.js?ver=1.13.2" id="jquery-ui-checkboxradio-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/button.min.js?ver=1.13.2" id="jquery-ui-button-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/jquery/ui/dialog.min.js?ver=1.13.2" id="jquery-ui-dialog-js"></script>
+<script id="events-manager-js-extra">
+var EM = {"ajaxurl":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","locationajaxurl":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php?action=locations_search","firstDay":"0","locale":"pt","dateFormat":"yy-mm-dd","ui_css":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/events-manager\/includes\/css\/jquery-ui\/build.min.css","show24hours":"1","is_ssl":"1","autocomplete_limit":"10","calendar":{"breakpoints":{"small":560,"medium":908,"large":false}},"phone":"","datepicker":{"format":"Y-m-d","locale":"pt"},"search":{"breakpoints":{"small":650,"medium":850,"full":false}},"url":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/events-manager","bookingInProgress":"Please wait while the booking is being submitted.","tickets_save":"Save Ticket","bookingajaxurl":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","bookings_export_save":"Export Bookings","bookings_settings_save":"Save Settings","booking_delete":"Are you sure you want to delete?","booking_offset":"30","bookings":{"submit_button":{"text":{"default":"Submit Booking","free":"Submit Booking","payment":"Submit Booking","processing":"Processing ..."}},"update_listener":""},"bb_full":"Sold Out","bb_book":"Book Now","bb_booking":"Booking...","bb_booked":"Booking Submitted","bb_error":"Booking Error. Try again?","bb_cancel":"Cancel","bb_canceling":"Canceling...","bb_cancelled":"Cancelled","bb_cancel_error":"Cancellation Error. Try again?","txt_search":"Search","txt_searching":"Searching...","txt_loading":"Loading...","event_detach_warning":"Are you sure you want to detach this event? By doing so, this event will be independent of the recurring set of events.","delete_recurrence_warning":"Are you sure you want to delete all recurrences of this event? All events will be moved to trash.","disable_bookings_warning":"Are you sure you want to disable bookings? If you do this and save, you will lose all previous bookings. If you wish to prevent further bookings, reduce the number of spaces available to the amount of bookings you currently have","booking_warning_cancel":"Are you sure you want to cancel your booking?"};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/events-manager/includes/js/events-manager.min.js?ver=6.4.9" id="events-manager-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/events-manager/includes/external/flatpickr/l10n/pt.min.js?ver=6.4.9" id="em-flatpickr-localization-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/js/jquery.sumoselect.min.js?ver=3.4.6" id="sumoselect-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/js/tocca.min.js?ver=2.0.9" id="bwg_mobile-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/js/jquery.mCustomScrollbar.concat.min.js?ver=3.1.5" id="mCustomScrollbar-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/js/jquery.fullscreen.min.js?ver=0.6.0" id="jquery-fullscreen-js"></script>
+<script id="bwg_frontend-js-extra">
+var bwg_objectsL10n = {"bwg_field_required":"field is required.","bwg_mail_validation":"Este n\u00e3o \u00e9 um endere\u00e7o de email v\u00e1lido. ","bwg_search_result":"N\u00e3o h\u00e1 imagens que correspondem \u00e0 sua pesquisa.","bwg_select_tag":"Select Tag","bwg_order_by":"Order By","bwg_search":"Pesquisar","bwg_show_ecommerce":"Show Ecommerce","bwg_hide_ecommerce":"Hide Ecommerce","bwg_show_comments":"Exibir Coment\u00e1rios","bwg_hide_comments":"Ocultar Coment\u00e1rios.","bwg_restore":"Restaurar","bwg_maximize":"Maximize","bwg_fullscreen":"Tela Cheia","bwg_exit_fullscreen":"Saia Tela Cheia","bwg_search_tag":"SEARCH...","bwg_tag_no_match":"No tags found","bwg_all_tags_selected":"All tags selected","bwg_tags_selected":"tags selected","play":"Play","pause":"Pausa","is_pro":"","bwg_play":"Play","bwg_pause":"Pausa","bwg_hide_info":"Ocultar informa\u00e7\u00f5es","bwg_show_info":"Mostrar info","bwg_hide_rating":"Esconder classifica\u00e7\u00e3o","bwg_show_rating":"Mostrar classifica\u00e7\u00e3o","ok":"Ok","cancel":"Cancel","select_all":"Select all","lazy_load":"0","lazy_loader":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/photo-gallery\/images\/ajax_loader.png","front_ajax":"0","bwg_tag_see_all":"see all tags","bwg_tag_see_less":"see less tags"};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/photo-gallery/js/scripts.min.js?ver=1.8.26" id="bwg_frontend-js"></script>
+<script id="Popup.js-js-before">
+var sgpbPublicUrl = "https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/popup-builder\/public\/";
+var SGPB_JS_LOCALIZATION = {"imageSupportAlertMessage":"Only image files supported","pdfSupportAlertMessage":"Only pdf files supported","areYouSure":"Are you sure?","addButtonSpinner":"L","audioSupportAlertMessage":"Only audio files supported (e.g.: mp3, wav, m4a, ogg)","publishPopupBeforeElementor":"Please, publish the popup before starting to use Elementor with it!","publishPopupBeforeDivi":"Please, publish the popup before starting to use Divi Builder with it!","closeButtonAltText":"Close"};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/popup-builder/public/js/Popup.js?ver=4.3.2" id="Popup.js-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/popup-builder/public/js/PopupConfig.js?ver=4.3.2" id="PopupConfig.js-js"></script>
+<script id="PopupBuilder.js-js-before">
+var SGPB_POPUP_PARAMS = {"popupTypeAgeRestriction":"ageRestriction","defaultThemeImages":{"1":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/popup-builder\/public\/img\/theme_1\/close.png","2":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/popup-builder\/public\/img\/theme_2\/close.png","3":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/popup-builder\/public\/img\/theme_3\/close.png","5":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/popup-builder\/public\/img\/theme_5\/close.png","6":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/popup-builder\/public\/img\/theme_6\/close.png"},"homePageUrl":"https:\/\/kartodromogranjaviana.com.br\/","isPreview":false,"convertedIdsReverse":[],"dontShowPopupExpireTime":365,"conditionalJsClasses":[],"disableAnalyticsGeneral":false};
+var SGPB_JS_PACKAGES = {"packages":{"current":1,"free":1,"silver":2,"gold":3,"platinum":4},"extensions":{"geo-targeting":false,"advanced-closing":false}};
+var SGPB_JS_PARAMS = {"ajaxUrl":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","nonce":"c78a6bf504"};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/popup-builder/public/js/PopupBuilder.js?ver=4.3.2" id="PopupBuilder.js-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/pro-elements/assets/js/page-transitions.min.js?ver=3.22.1" id="page-transitions-js"></script>
+<link rel="https://api.w.org/" href="https://kartodromogranjaviana.com.br/wp-json/" /><link rel="alternate" type="application/json" href="https://kartodromogranjaviana.com.br/wp-json/wp/v2/pages/8678" /><link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://kartodromogranjaviana.com.br/xmlrpc.php?rsd" />
+<meta name="generator" content="WordPress 6.5.5" />
+<link rel="canonical" href="https://kartodromogranjaviana.com.br/resultados/folha/" />
+<link rel='shortlink' href='https://kartodromogranjaviana.com.br/?p=8678' />
+<link rel="alternate" type="application/json+oembed" href="https://kartodromogranjaviana.com.br/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fkartodromogranjaviana.com.br%2Fresultados%2Ffolha%2F" />
+<link rel="alternate" type="text/xml+oembed" href="https://kartodromogranjaviana.com.br/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fkartodromogranjaviana.com.br%2Fresultados%2Ffolha%2F&#038;format=xml" />
+<!-- Enter your scripts here --><script type="text/javascript">
+(function(url){
+	if(/(?:Chrome\/26\.0\.1410\.63 Safari\/537\.31|WordfenceTestMonBot)/.test(navigator.userAgent)){ return; }
+	var addEvent = function(evt, handler) {
+		if (window.addEventListener) {
+			document.addEventListener(evt, handler, false);
+		} else if (window.attachEvent) {
+			document.attachEvent('on' + evt, handler);
+		}
+	};
+	var removeEvent = function(evt, handler) {
+		if (window.removeEventListener) {
+			document.removeEventListener(evt, handler, false);
+		} else if (window.detachEvent) {
+			document.detachEvent('on' + evt, handler);
+		}
+	};
+	var evts = 'contextmenu dblclick drag dragend dragenter dragleave dragover dragstart drop keydown keypress keyup mousedown mousemove mouseout mouseover mouseup mousewheel scroll'.split(' ');
+	var logHuman = function() {
+		if (window.wfLogHumanRan) { return; }
+		window.wfLogHumanRan = true;
+		var wfscr = document.createElement('script');
+		wfscr.type = 'text/javascript';
+		wfscr.async = true;
+		wfscr.src = url + '&r=' + Math.random();
+		(document.getElementsByTagName('head')[0]||document.getElementsByTagName('body')[0]).appendChild(wfscr);
+		for (var i = 0; i < evts.length; i++) {
+			removeEvent(evts[i], logHuman);
+		}
+	};
+	for (var i = 0; i < evts.length; i++) {
+		addEvent(evts[i], logHuman);
+	}
+})('//kartodromogranjaviana.com.br/?wordfence_lh=1&hid=19D3ABF2CD755D20D6D6AEB1437304C6');
+</script>		<script>
+			document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+		</script>
+				<style>
+			.no-js img.lazyload {
+				display: none;
+			}
+
+			figure.wp-block-image img.lazyloading {
+				min-width: 150px;
+			}
+
+						.lazyload, .lazyloading {
+				opacity: 0;
+			}
+
+			.lazyloaded {
+				opacity: 1;
+				transition: opacity 400ms;
+				transition-delay: 0ms;
+			}
+
+					</style>
+		<meta name="generator" content="Elementor 3.22.3; features: e_optimized_assets_loading, additional_custom_breakpoints; settings: css_print_method-external, google_font-enabled, font_display-auto">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-KC2M2NR');</script>
+<!-- End Google Tag Manager --><!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-8PEFQT5XT7"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-8PEFQT5XT7');
+</script>
+<script data-ad-client="ca-pub-2125717620353469" async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script><meta name="google-site-verification" content="_VroLAWu7g-VTi91nJDH9RLWRCLuqevS8V7BbUus67U" />
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-KC2M2NR"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) --><!-- Facebook Pixel Code -->
+<script>
+!function(f,b,e,v,n,t,s)
+{if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];
+s.parentNode.insertBefore(t,s)}(window, document,'script',
+'https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '123218893217091');
+fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+src="https://www.facebook.com/tr?id=123218893217091&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Facebook Pixel Code --><meta name="facebook-domain-verification" content="cpoqqjfrkhzliu1c7z8s8bwa1h42r2" /><!-- ASKSUITE CODE START --> <script id="script-infochat" src='https://cdn.asksuite.com/infochat.js?dataConfig=https://control.asksuite.com/api/companies/kartodromo-granja-viana'></script> <!-- ASKSUITE CODE END --><link rel="icon" href="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/02/cropped-Novo-KGV_Fundo-Quadrado-32x32.png" sizes="32x32" />
+<link rel="icon" href="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/02/cropped-Novo-KGV_Fundo-Quadrado-192x192.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/02/cropped-Novo-KGV_Fundo-Quadrado-180x180.png" />
+<meta name="msapplication-TileImage" content="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/02/cropped-Novo-KGV_Fundo-Quadrado-270x270.png" />
+<style id="wpr_lightbox_styles">
+				.lg-backdrop {
+					background-color: rgba(0,0,0,0.6) !important;
+				}
+				.lg-toolbar,
+				.lg-dropdown {
+					background-color: rgba(0,0,0,0.8) !important;
+				}
+				.lg-dropdown:after {
+					border-bottom-color: rgba(0,0,0,0.8) !important;
+				}
+				.lg-sub-html {
+					background-color: rgba(0,0,0,0.8) !important;
+				}
+				.lg-thumb-outer,
+				.lg-progress-bar {
+					background-color: #444444 !important;
+				}
+				.lg-progress {
+					background-color: #a90707 !important;
+				}
+				.lg-icon {
+					color: #efefef !important;
+					font-size: 20px !important;
+				}
+				.lg-icon.lg-toogle-thumb {
+					font-size: 24px !important;
+				}
+				.lg-icon:hover,
+				.lg-dropdown-text:hover {
+					color: #ffffff !important;
+				}
+				.lg-sub-html,
+				.lg-dropdown-text {
+					color: #efefef !important;
+					font-size: 14px !important;
+				}
+				#lg-counter {
+					color: #efefef !important;
+					font-size: 14px !important;
+				}
+				.lg-prev,
+				.lg-next {
+					font-size: 35px !important;
+				}
+
+				/* Defaults */
+				.lg-icon {
+				background-color: transparent !important;
+				}
+
+				#lg-counter {
+				opacity: 0.9;
+				}
+
+				.lg-thumb-outer {
+				padding: 0 10px;
+				}
+
+				.lg-thumb-item {
+				border-radius: 0 !important;
+				border: none !important;
+				opacity: 0.5;
+				}
+
+				.lg-thumb-item.active {
+					opacity: 1;
+				}
+	         </style></head>
+
+<body class="page-template-default page page-id-8678 page-child parent-pageid-4039 wp-custom-logo ehf-header ehf-footer ehf-template-hello-elementor ehf-stylesheet-hello-elementor elementor-default elementor-kit-22567 elementor-page elementor-page-8678">
+		<e-page-transition preloader-type="image" preloader-image-url="http://kartodromogranjaviana.com.br/wp-content/uploads/2023/03/Rental-Kart-G.svg" class="e-page-transition--entering" exclude="^https\:\/\/kartodromogranjaviana\.com\.br\/wp\-admin\/">
+					</e-page-transition>
+		<div id="page" class="hfeed site">
+
+		<header id="masthead" itemscope="itemscope" itemtype="https://schema.org/WPHeader">
+			<p class="main-title bhf-hidden" itemprop="headline"><a href="https://kartodromogranjaviana.com.br" title="Kartódromo Granja Viana" rel="home">Kartódromo Granja Viana</a></p>
+					<div data-elementor-type="wp-post" data-elementor-id="31824" class="elementor elementor-31824" data-elementor-post-type="elementor-hf">
+						<header class="elementor-section elementor-top-section elementor-element elementor-element-b03e4da elementor-section-content-middle elementor-hidden-mobile elementor-section-boxed elementor-section-height-default elementor-section-height-default wpr-particle-no wpr-jarallax-no wpr-parallax-no wpr-sticky-section-no" data-id="b03e4da" data-element_type="section">
+						<div class="elementor-container elementor-column-gap-no">
+					<div class="elementor-column elementor-col-33 elementor-top-column elementor-element elementor-element-4a83ca1" data-id="4a83ca1" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-f6c3dca elementor-widget elementor-widget-site-logo" data-id="f6c3dca" data-element_type="widget" data-settings="{&quot;align&quot;:&quot;center&quot;,&quot;width&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;width_tablet&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;width_mobile&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;space&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;space_tablet&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;space_mobile&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;image_border_radius&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;image_border_radius_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;image_border_radius_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_padding&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_padding_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_padding_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_space&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:0,&quot;sizes&quot;:[]},&quot;caption_space_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;caption_space_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]}}" data-widget_type="site-logo.default">
+				<div class="elementor-widget-container">
+					<div class="hfe-site-logo">
+													<a data-elementor-open-lightbox=""  class='elementor-clickable' href="https://kartodromogranjaviana.com.br">
+							<div class="hfe-site-logo-set">           
+				<div class="hfe-site-logo-container">
+									<img class="hfe-site-logo-img elementor-animation- lazyload"  data-src="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/01/Novo-KGV_Positivo-300x212.png" alt="Novo KGV_Positivo" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" style="--smush-placeholder-width: 300px; --smush-placeholder-aspect-ratio: 300/212;" /><noscript><img class="hfe-site-logo-img elementor-animation-"  src="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/01/Novo-KGV_Positivo-300x212.png" alt="Novo KGV_Positivo"/></noscript>
+				</div>
+			</div>
+							</a>
+						</div>  
+					</div>
+				</div>
+					</div>
+		</div>
+				<div class="elementor-column elementor-col-66 elementor-top-column elementor-element elementor-element-0120609" data-id="0120609" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-7b04c94 hfe-nav-menu__align-left hfe-submenu-icon-arrow hfe-submenu-animation-none hfe-link-redirect-child hfe-nav-menu__breakpoint-tablet elementor-widget elementor-widget-navigation-menu" data-id="7b04c94" data-element_type="widget" data-settings="{&quot;padding_horizontal_menu_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:15,&quot;sizes&quot;:[]},&quot;padding_horizontal_menu_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_horizontal_menu_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_menu_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:15,&quot;sizes&quot;:[]},&quot;padding_vertical_menu_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_menu_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_space_between&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_space_between_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_space_between_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_row_space&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_row_space_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_row_space_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;dropdown_border_radius&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;dropdown_border_radius_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;dropdown_border_radius_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;width_dropdown_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;220&quot;,&quot;sizes&quot;:[]},&quot;width_dropdown_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;width_dropdown_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_horizontal_dropdown_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_horizontal_dropdown_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_horizontal_dropdown_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_dropdown_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:15,&quot;sizes&quot;:[]},&quot;padding_vertical_dropdown_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_dropdown_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;distance_from_menu&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;distance_from_menu_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;distance_from_menu_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_size&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_size_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_size_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_width&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_width_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_width_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_radius&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_radius_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_radius_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]}}" data-widget_type="navigation-menu.default">
+				<div class="elementor-widget-container">
+						<div class="hfe-nav-menu hfe-layout-horizontal hfe-nav-menu-layout horizontal hfe-pointer__underline hfe-animation__fade" data-layout="horizontal">
+				<div role="button" class="hfe-nav-menu__toggle elementor-clickable">
+					<span class="screen-reader-text">Menu</span>
+					<div class="hfe-nav-menu-icon">
+						<i aria-hidden="true"  class="fas fa-align-justify"></i>					</div>
+				</div>
+				<nav itemscope="itemscope" itemtype="https://schema.org/SiteNavigationElement" class="hfe-nav-menu__layout-horizontal hfe-nav-menu__submenu-arrow" data-toggle-icon="&lt;i aria-hidden=&quot;true&quot; tabindex=&quot;0&quot; class=&quot;fas fa-align-justify&quot;&gt;&lt;/i&gt;" data-close-icon="&lt;i aria-hidden=&quot;true&quot; tabindex=&quot;0&quot; class=&quot;far fa-window-close&quot;&gt;&lt;/i&gt;" data-full-width="yes">
+					<ul id="menu-1-7b04c94" class="hfe-nav-menu"><li id="menu-item-2783" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" class = "hfe-menu-item">KGV<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-2764" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/historia/" itemprop="url" class = "hfe-sub-menu-item">HISTÓRIA</a></li>
+	<li id="menu-item-2784" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/estrutura/" itemprop="url" class = "hfe-sub-menu-item">ESTRUTURA</a></li>
+	<li id="menu-item-5861" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom hfe-creative-menu"><a href="http://kartodromogranjaviana.com.br/wp-content/uploads/2024/06/Regulamento-Interno-KGV-junho-24.pdf" itemprop="url" class = "hfe-sub-menu-item">REGULAMENTO INTERNO</a></li>
+	<li id="menu-item-24115" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/manual-da-marca/" itemprop="url" class = "hfe-sub-menu-item">MANUAL DA MARCA</a></li>
+</ul>
+</li>
+<li id="menu-item-2788" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" class = "hfe-menu-item">CAMPEONATOS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-24847" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/treinoslivres/" itemprop="url" class = "hfe-sub-menu-item">TREINOS LIVRES</a></li>
+	<li id="menu-item-32670" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/campeonatos-amadores/" itemprop="url" class = "hfe-sub-menu-item">CAMPEONATOS AMADORES</a></li>
+	<li id="menu-item-2792" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/copasp/" itemprop="url" class = "hfe-sub-menu-item">COPA SÃO PAULO</a></li>
+	<li id="menu-item-4109" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/endurancerental/" itemprop="url" class = "hfe-sub-menu-item">ENDURANCE RENTAL</a></li>
+	<li id="menu-item-34711" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/endurancerental/" itemprop="url" class = "hfe-sub-menu-item">500 MILHAS RENTAL</a></li>
+	<li id="menu-item-37511" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/500milhas/" itemprop="url" class = "hfe-sub-menu-item">500 MILHAS PRO</a></li>
+</ul>
+</li>
+<li id="menu-item-2785" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" class = "hfe-menu-item">EVENTOS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-2787" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/eventos-corporativos/" itemprop="url" class = "hfe-sub-menu-item">EVENTOS CORPORATIVOS</a></li>
+	<li id="menu-item-2786" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/festas/" itemprop="url" class = "hfe-sub-menu-item">FESTAS E ANIVERSÁRIOS</a></li>
+</ul>
+</li>
+<li id="menu-item-36156" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page parent hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/calendario/" itemprop="url" class = "hfe-menu-item">CALENDÁRIO</a></li>
+<li id="menu-item-4041" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page current-page-ancestor parent hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/resultados/" itemprop="url" class = "hfe-menu-item">RESULTADOS</a></li>
+<li id="menu-item-4034" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page parent hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/kgv-na-midia/" itemprop="url" class = "hfe-menu-item">NEWS</a></li>
+<li id="menu-item-3009" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" class = "hfe-menu-item">OUTROS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-3192" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" class = "hfe-sub-menu-item">TRAÇADOS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-1'><i class='fa'></i></span></a></div>
+	<ul class="sub-menu">
+		<li id="menu-item-3041" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/tracado-quinzenal/" itemprop="url" class = "hfe-sub-menu-item">QUINZENAIS</a></li>
+		<li id="menu-item-3823" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/tracadoscopasp/" itemprop="url" class = "hfe-sub-menu-item">COPA SÃO PAULO</a></li>
+		<li id="menu-item-9010" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/recordes/" itemprop="url" class = "hfe-sub-menu-item">RECORDES</a></li>
+	</ul>
+</li>
+	<li id="menu-item-3043" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/ebk/" itemprop="url" class = "hfe-sub-menu-item">EBK</a></li>
+</ul>
+</li>
+<li id="menu-item-3013" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" class = "hfe-menu-item">RESERVAS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-3045" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom hfe-creative-menu"><a href="https://reservas.kartodromogranjaviana.com.br" itemprop="url" class = "hfe-sub-menu-item">RESERVAS GRANJA VIANA</a></li>
+	<li id="menu-item-32669" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/informacoes-rental/" itemprop="url" class = "hfe-sub-menu-item">INFORMAÇÕES DE LOCAÇÃO</a></li>
+	<li id="menu-item-3195" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/contato/" itemprop="url" class = "hfe-sub-menu-item">CONTATO</a></li>
+</ul>
+</li>
+<li id="menu-item-21935" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom parent hfe-creative-menu"><a href="http://loja.kartodromogranjaviana.com.br?utm_source=Site&#038;utm_medium=menu&#038;utm_campaign=fromsite" itemprop="url" class = "hfe-menu-item">LOJA</a></li>
+<li id="menu-item-31814" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" class = "hfe-menu-item">MEMBROS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-31817" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/member-login/" itemprop="url" class = "hfe-sub-menu-item">LOGIN</a></li>
+	<li id="menu-item-31818" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/member-login/member-profile/" itemprop="url" class = "hfe-sub-menu-item">PERFIL</a></li>
+	<li id="menu-item-31816" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/member-registration/" itemprop="url" class = "hfe-sub-menu-item">CADASTRO</a></li>
+</ul>
+</li>
+</ul> 
+				</nav>
+			</div>
+					</div>
+				</div>
+					</div>
+		</div>
+					</div>
+		</header>
+				<header class="elementor-section elementor-top-section elementor-element elementor-element-56f791f elementor-section-full_width elementor-section-content-middle elementor-hidden-desktop elementor-hidden-tablet elementor-section-height-default elementor-section-height-default wpr-particle-no wpr-jarallax-no wpr-parallax-no wpr-sticky-section-no" data-id="56f791f" data-element_type="section">
+						<div class="elementor-container elementor-column-gap-no">
+					<div class="elementor-column elementor-col-33 elementor-top-column elementor-element elementor-element-8b82997" data-id="8b82997" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-e893406 elementor-widget elementor-widget-site-logo" data-id="e893406" data-element_type="widget" data-settings="{&quot;align&quot;:&quot;right&quot;,&quot;width&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;width_tablet&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;width_mobile&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;space&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;space_tablet&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;space_mobile&quot;:{&quot;unit&quot;:&quot;%&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;image_border_radius&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;image_border_radius_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;image_border_radius_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_padding&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_padding_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_padding_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;caption_space&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:0,&quot;sizes&quot;:[]},&quot;caption_space_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;caption_space_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]}}" data-widget_type="site-logo.default">
+				<div class="elementor-widget-container">
+					<div class="hfe-site-logo">
+													<a data-elementor-open-lightbox=""  class='elementor-clickable' href="https://kartodromogranjaviana.com.br">
+							<div class="hfe-site-logo-set">           
+				<div class="hfe-site-logo-container">
+									<img class="hfe-site-logo-img elementor-animation- lazyload"  data-src="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/04/Novo-KGV_Positivo-300x212.png" alt="default-logo" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" style="--smush-placeholder-width: 300px; --smush-placeholder-aspect-ratio: 300/212;" /><noscript><img class="hfe-site-logo-img elementor-animation-"  src="https://kartodromogranjaviana.com.br/wp-content/uploads/2022/04/Novo-KGV_Positivo-300x212.png" alt="default-logo"/></noscript>
+				</div>
+			</div>
+							</a>
+						</div>  
+					</div>
+				</div>
+					</div>
+		</div>
+				<div class="elementor-column elementor-col-66 elementor-top-column elementor-element elementor-element-312a8aa" data-id="312a8aa" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-9c4b8e3 hfe-nav-menu__align-left hfe-submenu-icon-arrow hfe-submenu-animation-none hfe-link-redirect-child hfe-nav-menu__breakpoint-tablet elementor-widget elementor-widget-navigation-menu" data-id="9c4b8e3" data-element_type="widget" data-settings="{&quot;padding_horizontal_menu_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:19,&quot;sizes&quot;:[]},&quot;width_dropdown_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:0,&quot;sizes&quot;:[]},&quot;distance_from_menu_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:40,&quot;sizes&quot;:[]},&quot;padding_horizontal_menu_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:15,&quot;sizes&quot;:[]},&quot;padding_horizontal_menu_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_menu_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:15,&quot;sizes&quot;:[]},&quot;padding_vertical_menu_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_menu_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_space_between&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_space_between_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_space_between_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_row_space&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_row_space_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;menu_row_space_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;dropdown_border_radius&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;dropdown_border_radius_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;dropdown_border_radius_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;top&quot;:&quot;&quot;,&quot;right&quot;:&quot;&quot;,&quot;bottom&quot;:&quot;&quot;,&quot;left&quot;:&quot;&quot;,&quot;isLinked&quot;:true},&quot;width_dropdown_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;220&quot;,&quot;sizes&quot;:[]},&quot;width_dropdown_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_horizontal_dropdown_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_horizontal_dropdown_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_horizontal_dropdown_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_dropdown_item&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:15,&quot;sizes&quot;:[]},&quot;padding_vertical_dropdown_item_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;padding_vertical_dropdown_item_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;distance_from_menu&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;distance_from_menu_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_size&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_size_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_size_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_width&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_width_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_width_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_radius&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_radius_tablet&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]},&quot;toggle_border_radius_mobile&quot;:{&quot;unit&quot;:&quot;px&quot;,&quot;size&quot;:&quot;&quot;,&quot;sizes&quot;:[]}}" data-widget_type="navigation-menu.default">
+				<div class="elementor-widget-container">
+						<div class="hfe-nav-menu hfe-layout-horizontal hfe-nav-menu-layout horizontal hfe-pointer__underline hfe-animation__fade" data-layout="horizontal">
+				<div role="button" class="hfe-nav-menu__toggle elementor-clickable">
+					<span class="screen-reader-text">Menu</span>
+					<div class="hfe-nav-menu-icon">
+						<i aria-hidden="true"  class="fas fa-align-justify"></i>					</div>
+				</div>
+				<nav itemscope="itemscope" itemtype="https://schema.org/SiteNavigationElement" class="hfe-nav-menu__layout-horizontal hfe-nav-menu__submenu-arrow" data-toggle-icon="&lt;i aria-hidden=&quot;true&quot; tabindex=&quot;0&quot; class=&quot;fas fa-align-justify&quot;&gt;&lt;/i&gt;" data-close-icon="&lt;i aria-hidden=&quot;true&quot; tabindex=&quot;0&quot; class=&quot;far fa-window-close&quot;&gt;&lt;/i&gt;" data-full-width="yes">
+					<ul id="menu-1-9c4b8e3" class="hfe-nav-menu"><li id="menu-item-2783" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" itemprop="url" class = "hfe-menu-item">KGV<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-2764" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/historia/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">HISTÓRIA</a></li>
+	<li id="menu-item-2784" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/estrutura/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">ESTRUTURA</a></li>
+	<li id="menu-item-5861" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom hfe-creative-menu"><a href="http://kartodromogranjaviana.com.br/wp-content/uploads/2024/06/Regulamento-Interno-KGV-junho-24.pdf" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">REGULAMENTO INTERNO</a></li>
+	<li id="menu-item-24115" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/manual-da-marca/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">MANUAL DA MARCA</a></li>
+</ul>
+</li>
+<li id="menu-item-2788" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" itemprop="url" class = "hfe-menu-item">CAMPEONATOS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-24847" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/treinoslivres/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">TREINOS LIVRES</a></li>
+	<li id="menu-item-32670" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/campeonatos-amadores/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">CAMPEONATOS AMADORES</a></li>
+	<li id="menu-item-2792" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/copasp/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">COPA SÃO PAULO</a></li>
+	<li id="menu-item-4109" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/endurancerental/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">ENDURANCE RENTAL</a></li>
+	<li id="menu-item-34711" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/endurancerental/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">500 MILHAS RENTAL</a></li>
+	<li id="menu-item-37511" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/500milhas/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">500 MILHAS PRO</a></li>
+</ul>
+</li>
+<li id="menu-item-2785" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" itemprop="url" class = "hfe-menu-item">EVENTOS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-2787" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/eventos-corporativos/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">EVENTOS CORPORATIVOS</a></li>
+	<li id="menu-item-2786" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/festas/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">FESTAS E ANIVERSÁRIOS</a></li>
+</ul>
+</li>
+<li id="menu-item-36156" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page parent hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/calendario/" itemprop="url" itemprop="url" class = "hfe-menu-item">CALENDÁRIO</a></li>
+<li id="menu-item-4041" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page current-page-ancestor parent hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/resultados/" itemprop="url" itemprop="url" class = "hfe-menu-item">RESULTADOS</a></li>
+<li id="menu-item-4034" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page parent hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/kgv-na-midia/" itemprop="url" itemprop="url" class = "hfe-menu-item">NEWS</a></li>
+<li id="menu-item-3009" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" itemprop="url" class = "hfe-menu-item">OUTROS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-3192" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">TRAÇADOS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-1'><i class='fa'></i></span></a></div>
+	<ul class="sub-menu">
+		<li id="menu-item-3041" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/tracado-quinzenal/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">QUINZENAIS</a></li>
+		<li id="menu-item-3823" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/tracadoscopasp/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">COPA SÃO PAULO</a></li>
+		<li id="menu-item-9010" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/recordes/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">RECORDES</a></li>
+	</ul>
+</li>
+	<li id="menu-item-3043" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/ebk/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">EBK</a></li>
+</ul>
+</li>
+<li id="menu-item-3013" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" itemprop="url" class = "hfe-menu-item">RESERVAS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-3045" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom hfe-creative-menu"><a href="https://reservas.kartodromogranjaviana.com.br" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">RESERVAS GRANJA VIANA</a></li>
+	<li id="menu-item-32669" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/informacoes-rental/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">INFORMAÇÕES DE LOCAÇÃO</a></li>
+	<li id="menu-item-3195" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/contato/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">CONTATO</a></li>
+</ul>
+</li>
+<li id="menu-item-21935" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom parent hfe-creative-menu"><a href="http://loja.kartodromogranjaviana.com.br?utm_source=Site&#038;utm_medium=menu&#038;utm_campaign=fromsite" itemprop="url" itemprop="url" class = "hfe-menu-item">LOJA</a></li>
+<li id="menu-item-31814" itemprop="name" itemprop="name" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children parent hfe-has-submenu hfe-creative-menu"><div class="hfe-has-submenu-container"><a href="#" itemprop="url" itemprop="url" class = "hfe-menu-item">MEMBROS<span class='hfe-menu-toggle sub-arrow hfe-menu-child-0'><i class='fa'></i></span></a></div>
+<ul class="sub-menu">
+	<li id="menu-item-31817" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/member-login/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">LOGIN</a></li>
+	<li id="menu-item-31818" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/member-login/member-profile/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">PERFIL</a></li>
+	<li id="menu-item-31816" itemprop="name" itemprop="name" class="menu-item menu-item-type-post_type menu-item-object-page hfe-creative-menu"><a href="https://kartodromogranjaviana.com.br/member-registration/" itemprop="url" itemprop="url" class = "hfe-sub-menu-item">CADASTRO</a></li>
+</ul>
+</li>
+</ul> 
+				</nav>
+			</div>
+					</div>
+				</div>
+					</div>
+		</div>
+					</div>
+		</header>
+				</div>
+				</header>
+
+	
+<main id="content" class="site-main post-8678 page type-page status-publish hentry">
+
+	
+	<div class="page-content">
+				<div data-elementor-type="wp-page" data-elementor-id="8678" class="elementor elementor-8678" data-elementor-post-type="page">
+						<section class="elementor-section elementor-top-section elementor-element elementor-element-25d3aa0 elementor-section-boxed elementor-section-height-default elementor-section-height-default wpr-particle-no wpr-jarallax-no wpr-parallax-no wpr-sticky-section-no" data-id="25d3aa0" data-element_type="section">
+						<div class="elementor-container elementor-column-gap-default">
+					<div class="elementor-column elementor-col-100 elementor-top-column elementor-element elementor-element-f8d4359" data-id="f8d4359" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-5b1fe21 elementor-widget elementor-widget-shortcode" data-id="5b1fe21" data-element_type="widget" data-widget_type="shortcode.default">
+				<div class="elementor-widget-container">
+					<div class="elementor-shortcode">
+	<div class="container central">
+		<div class="row">
+			<div class="col-xs-12 text-center mb-5">
+				<a href="javascript: history.back()" title="Voltar" class="btn-voltar f-20"><i class="fas fa-angle-double-left"></i></a>
+				<a href="https://kartodromogranjaviana.com.br/central/quadro-resultados-folha-download.php?uid=bc694fab6921c5e7a52a668872817777&parte=prova" title="Download" target="_blank" class="btn-voltar f-20" style="float: right;"><i class="fas fa-download"></i></a>
+			</div>
+
+			<div class="col-xs-12 text-center mb-5 folha">
+							<html>
+<head>
+<title>Resultados de RENTAL PROVA 11 - 23:00</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+<style type="text/css">table,li,h1,h2,h3, div { font-family: verdana; font-size: 11px;} 
+			table {border-style: solid; border-width: 0px; border-color: #000000; padding: 1px; spacing: 1px; cellspacing: 0 px; } 
+			table.footer {margin-left: 10px; margin-top: 10px; font-size: 10px; } 
+			body {background-color: #ffffff; margin-left: 0 px; margin-right:0 px; margin-top: 12 px; margin-bottom=0; marginheight=0; marginwidth=0; srollbar-base-color: #EEEEEE; scrollbar-face-color: #DDDDDD; scrollbar-track-color: #EEEEEE; scrollbar-arrow-color: #586B9C; scrollbar-highlight-color: #EEEEEE; scrollbar-3dlight-color: #FFFFFF; scrollbar-shadow-color: #FFFFFF; scrollbar-darkshadow-color: #CCCCCC;} 
+			div.headerbig {padding-left: 10px; font-size: 14px; font-weight: bold; border-top: 2px solid #a80e0a; border-bottom: 2px solid #a80e0a;} 
+			div.headersmall {padding-left: 15px; font-size: 12px; font-weight: bold;} 
+			div.info {padding-left: 15px; padding-top: 5px; padding-bottom: 5px; font-size: 11px; } 
+			div.footer {width: 100%; margin-top: 30px; text-align: center; font-size: 14px; font-weight: bold; border-top: 2px solid yellow; background-color: black; color: white;} 
+			div.save {width: 100%;  text-align: right; font-size: 8px; font-weight: bold; background-color: white; color: black;} 
+			table.header {font-weight: bold; text-align: left; background-color: white; color: #a80e0a; width: 100%;} 
+			th.column {font-weight: bold; font-size: 13 px; border-bottom: 1px solid black; } 
+			td.column {font-weight: bold; height: 20px; font-size: 14 px; border-bottom: 1px solid #a80e0a; padding-top: 10px;} 
+td.s1l {text-align: left; color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); padding-left: 2; padding-right: 2; padding-top: 1;} 
+td.s1r {text-align: right; color: rgb(0, 0, 0); background-color: rgb(255, 255, 255); padding-left: 2; padding-right: 2; padding-top: 1;} 
+</style>
+</head>
+<body>
+<div style="">
+<div class="headerbig">KARTODROMO INTERNACIONAL GRANJA VIANA KGV RACE TRACKS - CIRCUITO 101</div>
+<div class="headerbottom"/>
+<div class="headersmall">Resultados de RENTAL - PROVA 11 - 23:00</div>
+<br/>
+<br/>
+<table class="points" cellspacing="0 px">
+<tr class="header">
+<th class="column" text-align="left" _column_width="45">Pos</th>
+<th class="column" text-align="right" _column_width="36">No.</th>
+<th class="column" text-align="left" _column_width="295">Nome</th>
+<th class="column" text-align="left" _column_width="90">Classe</th>
+<th class="column" text-align="left" _column_width="93">Comentários</th>
+<th class="column" text-align="right" _column_width="80">Pitstops</th>
+<th class="column" text-align="right" _column_width="58">Voltas</th>
+<th class="column" text-align="right" _column_width="114">Melhor Tempo</th>
+<th class="column" text-align="right" _column_width="78">Diff</th>
+<th class="column" text-align="right" _column_width="88">Espaço</th>
+<th class="column" text-align="right" _column_width="118">Total Tempo</th>
+</tr>
+<tr>
+<td class="s1l">1</td>
+<td class="s1r">018</td>
+<td class="s1l">[347656] [SAID MOURAD]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">11</td>
+<td class="s1r">1:17.590</td>
+<td class="s1r"/>
+<td class="s1r"/>
+<td class="s1r">15:21.259</td>
+</tr>
+<tr>
+<td class="s1l">2</td>
+<td class="s1r">040</td>
+<td class="s1l">[295298] [PAULO HENRIQUE]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">11</td>
+<td class="s1r">1:19.927</td>
+<td class="s1r">26.884</td>
+<td class="s1r">26.884</td>
+<td class="s1r">15:48.143</td>
+</tr>
+<tr>
+<td class="s1l">3</td>
+<td class="s1r">005</td>
+<td class="s1l">[352743] [NEWTON TOSHIO OUCHI]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">11</td>
+<td class="s1r">1:20.919</td>
+<td class="s1r">1:07.797</td>
+<td class="s1r">40.913</td>
+<td class="s1r">16:29.056</td>
+</tr>
+<tr>
+<td class="s1l">4</td>
+<td class="s1r">053</td>
+<td class="s1l">[398423] [CASSIO MARCELO]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">10</td>
+<td class="s1r">1:23.668</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">15:31.055</td>
+</tr>
+<tr>
+<td class="s1l">5</td>
+<td class="s1r">042</td>
+<td class="s1l">[399270] [ERINALDO SEBASTIAO]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">10</td>
+<td class="s1r">1:23.663</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">4.610</td>
+<td class="s1r">15:35.665</td>
+</tr>
+<tr>
+<td class="s1l">6</td>
+<td class="s1r">062</td>
+<td class="s1l">[340876] [JACKSON DA SILVA]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">10</td>
+<td class="s1r">1:24.589</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">18.676</td>
+<td class="s1r">15:54.341</td>
+</tr>
+<tr>
+<td class="s1l">7</td>
+<td class="s1r">058</td>
+<td class="s1l">[399268] [MATHEUS ALONÇO]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">10</td>
+<td class="s1r">1:24.917</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">2.756</td>
+<td class="s1r">15:57.097</td>
+</tr>
+<tr>
+<td class="s1l">8</td>
+<td class="s1r">049</td>
+<td class="s1l">[399264] [FELIPE AUGUSTO]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">10</td>
+<td class="s1r">1:26.197</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">12.587</td>
+<td class="s1r">16:09.684</td>
+</tr>
+<tr>
+<td class="s1l">9</td>
+<td class="s1r">060</td>
+<td class="s1l">[333141] [RAFAEL GUSTAVO]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">10</td>
+<td class="s1r">1:22.149</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">18.833</td>
+<td class="s1r">16:28.517</td>
+</tr>
+<tr>
+<td class="s1l">10</td>
+<td class="s1r">034</td>
+<td class="s1l">[399260] [CLAUDEMIR JOSE]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">10</td>
+<td class="s1r">1:26.445</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">6.238</td>
+<td class="s1r">16:34.755</td>
+</tr>
+<tr>
+<td class="s1l">11</td>
+<td class="s1r">035</td>
+<td class="s1l">[347210] [GABRIEL ANDRADE]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">9</td>
+<td class="s1r">1:29.531</td>
+<td class="s1r">2 Voltas</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">16:01.973</td>
+</tr>
+<tr>
+<td class="s1l">12</td>
+<td class="s1r">013</td>
+<td class="s1l">[399272] [ELIEL DOS SANTOS SIL</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">9</td>
+<td class="s1r">1:23.930</td>
+<td class="s1r">2 Voltas</td>
+<td class="s1r">14.690</td>
+<td class="s1r">16:16.663</td>
+</tr>
+<tr>
+<td class="s1l">13</td>
+<td class="s1r">010</td>
+<td class="s1l">[399265] [ALEXIA LEANDRO]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">9</td>
+<td class="s1r">1:25.104</td>
+<td class="s1r">2 Voltas</td>
+<td class="s1r">22.956</td>
+<td class="s1r">16:39.619</td>
+</tr>
+<tr>
+<td class="s1l">14</td>
+<td class="s1r">051</td>
+<td class="s1l">[399269] [JAQUELINE NASCIMENTO</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">7</td>
+<td class="s1r">1:44.812</td>
+<td class="s1r">4 Voltas</td>
+<td class="s1r">2 Voltas</td>
+<td class="s1r">17:46.256</td>
+</tr>
+<tr>
+<td class="s1l">Não completou</td>
+<td class="s1r">032</td>
+<td class="s1l">[399273] [ISABELLEY CAROLINE R</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">6</td>
+<td class="s1r">1:37.452</td>
+<td class="s1r">Não completou</td>
+<td class="s1r">1 Volta</td>
+<td class="s1r">14:37.032</td>
+</tr>
+<tr>
+<td class="s1l">Não completou</td>
+<td class="s1r">026</td>
+<td class="s1l">[399267] [AYLTON LELIS]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">6</td>
+<td class="s1r">1:29.628</td>
+<td class="s1r">Não completou</td>
+<td class="s1r">34.196</td>
+<td class="s1r">15:11.228</td>
+</tr>
+<tr>
+<td class="s1l">17</td>
+<td class="s1r">043</td>
+<td class="s1l">[399271] [ANDRESSSA MARINHO]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">6</td>
+<td class="s1r">1:53.854</td>
+<td class="s1r">5 Voltas</td>
+<td class="s1r">53.061</td>
+<td class="s1r">16:04.289</td>
+</tr>
+<tr>
+<td class="s1l">18</td>
+<td class="s1r">055</td>
+<td class="s1l">[399266] [NATALIA LIMA PARDI]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r"/>
+<td class="s1r">6</td>
+<td class="s1r">1:42.212</td>
+<td class="s1r">5 Voltas</td>
+<td class="s1r">29.926</td>
+<td class="s1r">16:34.215</td>
+</tr>
+<tr>
+<td class="s1l">19</td>
+<td class="s1r">056</td>
+<td class="s1l">[399262] [GUSTAVO ALEXANDRE]</td>
+<td class="s1l">RENTAL</td>
+<td class="s1l"/>
+<td class="s1r">1</td>
+<td class="s1r">2</td>
+<td class="s1r">1:39.359</td>
+<td class="s1r">9 Voltas</td>
+<td class="s1r">4 Voltas</td>
+<td class="s1r">5:42.954</td>
+</tr>
+</table>
+<div class="footer">KARTODROMO  GRANJA VIANA</div>
+</div>
+<div class="save">Gerada em 08/07/2024 23:53</div>
+</body>
+</html>
+						</div>
+		</div>
+	
+    </div>
+
+    <link href="https://use.fontawesome.com/releases/v5.4.2/css/all.css" integrity="sha384-/rXc/GQVaYpyDdyxK+ecHPVYJSN9bmVFBvjA/9eOB+pb3F2w2N6fc5qB9Ew5yIns" rel="stylesheet" crossorigin="anonymous">
+    <link href="https://kartodromogranjaviana.com.br/central/assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://kartodromogranjaviana.com.br/central/assets/css/default.css" rel="stylesheet">
+    <link href="https://kartodromogranjaviana.com.br/central/assets/css/resultados.css" rel="stylesheet">
+
+	<script src="https://kartodromogranjaviana.com.br/central/assets/js/default.js"></script>
+    <script>
+	    var MYSELF_ASSETS_URL = 'https://kartodromogranjaviana.com.br/central/assets';
+
+		window.addEventListener("load", function(event) {
+			addScript(MYSELF_ASSETS_URL + '/js/bootstrap.min.js');
+		});
+	</script>
+</div>
+				</div>
+				</div>
+				<div class="elementor-element elementor-element-1b2dad7 elementor-widget elementor-widget-text-editor" data-id="1b2dad7" data-element_type="widget" data-widget_type="text-editor.default">
+				<div class="elementor-widget-container">
+							<p data-pm-slice="1 1 []">Os dados de cronometragem e resultados, incluindo dados disponíveis em qualquer plataforma de Live Timing são de propriedade única e exclusiva do Kartódromo Granja Viana e não podem ser utilizados com fins comerciais e/ou por aplicações de terceiros sem autorização expressa. O descumprimento está sujeito a sanções previstas em lei.</p>						</div>
+				</div>
+					</div>
+		</div>
+					</div>
+		</section>
+				<section class="elementor-section elementor-top-section elementor-element elementor-element-656fb713 elementor-section-boxed elementor-section-height-default elementor-section-height-default wpr-particle-no wpr-jarallax-no wpr-parallax-no wpr-sticky-section-no" data-id="656fb713" data-element_type="section">
+						<div class="elementor-container elementor-column-gap-default">
+					<div class="elementor-column elementor-col-100 elementor-top-column elementor-element elementor-element-65f9ea42" data-id="65f9ea42" data-element_type="column">
+			<div class="elementor-widget-wrap">
+							</div>
+		</div>
+					</div>
+		</section>
+				</div>
+		
+		
+			</div>
+
+	
+</main>
+
+	
+<div class='footer-width-fixer'>		<div data-elementor-type="wp-post" data-elementor-id="31838" class="elementor elementor-31838" data-elementor-post-type="elementor-hf">
+						<section data-wpr-particles="{
+  &quot;particles&quot;: {
+    &quot;number&quot;: {
+      &quot;value&quot;: 80,
+      &quot;density&quot;: {
+        &quot;enable&quot;: true,
+        &quot;value_area&quot;: 800
+      }
+    },
+    &quot;color&quot;: {
+      &quot;value&quot;: &quot;#ffffff&quot;
+    },
+    &quot;shape&quot;: {
+      &quot;type&quot;: &quot;image&quot;,
+      &quot;stroke&quot;: {
+        &quot;width&quot;: 0,
+        &quot;color&quot;: &quot;#000000&quot;
+      },
+      &quot;polygon&quot;: {
+        &quot;nb_sides&quot;: 5
+      },
+      &quot;image&quot;: {
+        &quot;src&quot;: &quot;http://kartodromogranjaviana.com.br/wp-content/uploads/2022/04/Novo-KGV_2022_Branco.png&quot;,
+        &quot;width&quot;: 100,
+        &quot;height&quot;: 70
+      }
+    },
+    &quot;opacity&quot;: {
+      &quot;value&quot;: 0.41035677364878176,
+      &quot;random&quot;: true,
+      &quot;anim&quot;: {
+        &quot;enable&quot;: true,
+        &quot;speed&quot;: 1,
+        &quot;opacity_min&quot;: 0.1,
+        &quot;sync&quot;: false
+      }
+    },
+    &quot;size&quot;: {
+      &quot;value&quot;: 14.3,
+      &quot;random&quot;: true,
+      &quot;anim&quot;: {
+        &quot;enable&quot;: false,
+        &quot;speed&quot;: 40,
+        &quot;size_min&quot;: 0.1,
+        &quot;sync&quot;: false
+      }
+    },
+    &quot;line_linked&quot;: {
+      &quot;enable&quot;: true,
+      &quot;distance&quot;: 150,
+      &quot;color&quot;: &quot;#ffffff&quot;,
+      &quot;opacity&quot;: 0.4,
+      &quot;width&quot;: 1
+    },
+    &quot;move&quot;: {
+      &quot;enable&quot;: true,
+      &quot;speed&quot;: 1,
+      &quot;direction&quot;: &quot;none&quot;,
+      &quot;random&quot;: true,
+      &quot;straight&quot;: false,
+      &quot;out_mode&quot;: &quot;bounce&quot;,
+      &quot;bounce&quot;: false,
+      &quot;attract&quot;: {
+        &quot;enable&quot;: true,
+        &quot;rotateX&quot;: 600,
+        &quot;rotateY&quot;: 1200
+      }
+    }
+  },
+  &quot;interactivity&quot;: {
+    &quot;detect_on&quot;: &quot;Window&quot;,
+    &quot;events&quot;: {
+      &quot;onhover&quot;: {
+        &quot;enable&quot;: true,
+        &quot;mode&quot;: &quot;repulse&quot;
+      },
+      &quot;onclick&quot;: {
+        &quot;enable&quot;: true,
+        &quot;mode&quot;: &quot;push&quot;
+      },
+      &quot;resize&quot;: true
+    },
+    &quot;modes&quot;: {
+      &quot;grab&quot;: {
+        &quot;distance&quot;: 400,
+        &quot;line_linked&quot;: {
+          &quot;opacity&quot;: 1
+        }
+      },
+      &quot;bubble&quot;: {
+        &quot;distance&quot;: 400,
+        &quot;size&quot;: 40,
+        &quot;duration&quot;: 2,
+        &quot;opacity&quot;: 8,
+        &quot;speed&quot;: 3
+      },
+      &quot;repulse&quot;: {
+        &quot;distance&quot;: 100,
+        &quot;duration&quot;: 0.8
+      },
+      &quot;push&quot;: {
+        &quot;particles_nb&quot;: 4
+      },
+      &quot;remove&quot;: {
+        &quot;particles_nb&quot;: 2
+      }
+    }
+  },
+  &quot;retina_detect&quot;: true
+}" particle-source="wpr_particle_json_custom" class="elementor-section elementor-top-section elementor-element elementor-element-1ae3acb elementor-section-height-min-height wpr-particle-yes elementor-section-boxed elementor-section-height-default elementor-section-items-middle wpr-jarallax-no wpr-parallax-no wpr-sticky-section-no" data-id="1ae3acb" data-element_type="section" data-settings="{&quot;background_background&quot;:&quot;gradient&quot;}">
+						<div class="elementor-container elementor-column-gap-default">
+					<div class="elementor-column elementor-col-33 elementor-top-column elementor-element elementor-element-4f076db" data-id="4f076db" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-d352557 elementor-widget elementor-widget-heading" data-id="d352557" data-element_type="widget" data-widget_type="heading.default">
+				<div class="elementor-widget-container">
+			<h3 class="elementor-heading-title elementor-size-default">Kartódromo Granja Viana</h3>		</div>
+				</div>
+				<div class="elementor-element elementor-element-a8e072a elementor-widget elementor-widget-text-editor" data-id="a8e072a" data-element_type="widget" data-widget_type="text-editor.default">
+				<div class="elementor-widget-container">
+							<p><span style="color: #ffffff;">Rua Tomás Sepé, 443 &#8211; Jd. da Glória &#8211; Cotia &#8211; SP</span><br /><span style="color: #ffffff;">11 4702 5055</span></p><h6><span style="color: #ffffff;"><a style="color: #ffffff;" href="mailto:contato@kartgranjaviana.com.br"><b>contato@kartgranjaviana.com.br</b></a></span></h6><p><span style="color: #ffffff;">Para Eventos:</span></p><h6><span style="color: #ffffff;"><strong><a style="color: #ffffff;" href="mailto:eventos1@kartgranjaviana.com.br">eventos1@kartgranjaviana.com.br</a></strong></span></h6>						</div>
+				</div>
+					</div>
+		</div>
+				<div class="elementor-column elementor-col-33 elementor-top-column elementor-element elementor-element-3acba2a" data-id="3acba2a" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-95ac19e elementor-shape-circle elementor-grid-0 e-grid-align-center elementor-widget elementor-widget-social-icons" data-id="95ac19e" data-element_type="widget" data-widget_type="social-icons.default">
+				<div class="elementor-widget-container">
+					<div class="elementor-social-icons-wrapper elementor-grid">
+							<span class="elementor-grid-item">
+					<a class="elementor-icon elementor-social-icon elementor-social-icon-instagram elementor-animation-grow elementor-repeater-item-03d63f6" href="https://www.instagram.com/kartgranjaviana" target="_blank">
+						<span class="elementor-screen-only">Instagram</span>
+						<i class="fab fa-instagram"></i>					</a>
+				</span>
+							<span class="elementor-grid-item">
+					<a class="elementor-icon elementor-social-icon elementor-social-icon-youtube elementor-animation-grow elementor-repeater-item-5ddd34b" href="https://www.youtube.com/kartgranjaviana" target="_blank">
+						<span class="elementor-screen-only">Youtube</span>
+						<i class="fab fa-youtube"></i>					</a>
+				</span>
+							<span class="elementor-grid-item">
+					<a class="elementor-icon elementor-social-icon elementor-social-icon-facebook elementor-animation-grow elementor-repeater-item-e087926" href="https://facebook.com/kartgranjaviana" target="_blank">
+						<span class="elementor-screen-only">Facebook</span>
+						<i class="fab fa-facebook"></i>					</a>
+				</span>
+					</div>
+				</div>
+				</div>
+				<div class="elementor-element elementor-element-591d12c elementor-widget elementor-widget-image" data-id="591d12c" data-element_type="widget" data-widget_type="image.default">
+				<div class="elementor-widget-container">
+													<img width="300" height="96" data-src="https://kartodromogranjaviana.com.br/wp-content/uploads/2019/02/Cartoes-300x96.png" class="attachment-medium size-medium wp-image-7465 lazyload" alt="" data-srcset="https://kartodromogranjaviana.com.br/wp-content/uploads/2019/02/Cartoes-300x96.png 300w, https://kartodromogranjaviana.com.br/wp-content/uploads/2019/02/Cartoes.png 513w" data-sizes="(max-width: 300px) 100vw, 300px" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" style="--smush-placeholder-width: 300px; --smush-placeholder-aspect-ratio: 300/96;" /><noscript><img width="300" height="96" src="https://kartodromogranjaviana.com.br/wp-content/uploads/2019/02/Cartoes-300x96.png" class="attachment-medium size-medium wp-image-7465" alt="" srcset="https://kartodromogranjaviana.com.br/wp-content/uploads/2019/02/Cartoes-300x96.png 300w, https://kartodromogranjaviana.com.br/wp-content/uploads/2019/02/Cartoes.png 513w" sizes="(max-width: 300px) 100vw, 300px" /></noscript>													</div>
+				</div>
+					</div>
+		</div>
+				<div class="elementor-column elementor-col-33 elementor-top-column elementor-element elementor-element-0c6e397" data-id="0c6e397" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-f5bc2ea elementor-widget elementor-widget-heading" data-id="f5bc2ea" data-element_type="widget" data-widget_type="heading.default">
+				<div class="elementor-widget-container">
+			<h3 class="elementor-heading-title elementor-size-default">baixe nosso app</h3>		</div>
+				</div>
+				<section class="elementor-section elementor-inner-section elementor-element elementor-element-f6acea6 elementor-section-boxed elementor-section-height-default elementor-section-height-default wpr-particle-no wpr-jarallax-no wpr-parallax-no wpr-sticky-section-no" data-id="f6acea6" data-element_type="section">
+						<div class="elementor-container elementor-column-gap-default">
+					<div class="elementor-column elementor-col-50 elementor-inner-column elementor-element elementor-element-9008a1b" data-id="9008a1b" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-7b794eb elementor-view-default elementor-widget elementor-widget-icon" data-id="7b794eb" data-element_type="widget" data-widget_type="icon.default">
+				<div class="elementor-widget-container">
+					<div class="elementor-icon-wrapper">
+			<a class="elementor-icon" href="https://play.google.com/store/apps/details?id=br.com.kartodromogranjaviana.app">
+			<svg xmlns="http://www.w3.org/2000/svg" height="800" width="1200" id="svg60" viewBox="-4.12599 -7.65905 35.75858 45.9543"><defs id="defs38"><linearGradient gradientUnits="userSpaceOnUse" y2="21.86" x2="-5.9" y1="1.87" x1="14.09" id="linear-gradient"><stop id="stop4" stop-color="#008eff" offset="0"></stop><stop id="stop6" stop-color="#008fff" offset=".01"></stop><stop id="stop8" stop-color="#00acff" offset=".26"></stop><stop id="stop10" stop-color="#00c0ff" offset=".51"></stop><stop id="stop12" stop-color="#00cdff" offset=".76"></stop><stop id="stop14" stop-color="#00d1ff" offset="1"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" y2="15.32" x2="-2.37" y1="15.32" x1="26.45" id="linear-gradient-2"><stop id="stop17" stop-color="#ffd800" offset="0"></stop><stop id="stop19" stop-color="#ff8a00" offset="1"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" y2="45.15" x2="-9.41" y1="18.05" x1="17.69" id="linear-gradient-3"><stop id="stop22" stop-color="#ff3a44" offset="0"></stop><stop id="stop24" stop-color="#b11162" offset="1"></stop></linearGradient><linearGradient gradientUnits="userSpaceOnUse" y2="3.81" x2="8.92" y1="-8.29" x1="-3.19" id="linear-gradient-4"><stop id="stop27" stop-color="#328e71" offset="0"></stop><stop id="stop29" stop-color="#2d9571" offset=".07"></stop><stop id="stop31" stop-color="#15bd74" offset=".48"></stop><stop id="stop33" stop-color="#06d575" offset=".8"></stop><stop id="stop35" stop-color="#00de76" offset="1"></stop></linearGradient><style id="style2">.cls-7{opacity:.07}</style></defs><g transform="translate(.004)" id="g58"><g id="g56"><path id="path40" d="M.55.48A2.39 2.39 0 000 2.15v26.34a2.41 2.41 0 00.55 1.67l.09.09 14.75-14.76v-.35L.64.39z" fill="url(#linear-gradient)"></path><path id="path42" d="M20.31 20.41l-4.92-4.92v-.35l4.92-4.91.11.06 5.83 3.31c1.67.94 1.67 2.49 0 3.44l-5.83 3.31z" fill="url(#linear-gradient-2)"></path><path id="path44" d="M20.42 20.35l-5-5L.55 30.16a2 2 0 002.45.07l17.39-9.88" fill="url(#linear-gradient-3)"></path><path id="path46" d="M20.42 10.29L3 .4A1.93 1.93 0 00.55.48l14.84 14.84z" fill="url(#linear-gradient-4)"></path><path id="path48" d="M20.31 20.24L3 30.06a2 2 0 01-2.39 0l-.09.09.09.09a2 2 0 002.39 0l17.39-9.88z" opacity=".1"></path><path id="path50" d="M.55 30A2.43 2.43 0 010 28.32v.17a2.41 2.41 0 00.55 1.67l.09-.09z" class="cls-7"></path><path id="path52" d="M26.25 16.86l-5.94 3.38.11.11L26.25 17a2.11 2.11 0 001.25-1.72 2.21 2.21 0 01-1.25 1.58z" class="cls-7"></path><path id="path54" d="M3 .58l23.25 13.19a2.2 2.2 0 011.25 1.55 2.09 2.09 0 00-1.25-1.72L3 .4C1.36-.54 0 .24 0 2.15v.17C0 .42 1.36-.37 3 .58z" fill="#fff" opacity=".3"></path></g></g></svg>			</a>
+		</div>
+				</div>
+				</div>
+				<div class="elementor-element elementor-element-9a71d5b elementor-widget elementor-widget-heading" data-id="9a71d5b" data-element_type="widget" data-widget_type="heading.default">
+				<div class="elementor-widget-container">
+			<h3 class="elementor-heading-title elementor-size-default">play store</h3>		</div>
+				</div>
+					</div>
+		</div>
+				<div class="elementor-column elementor-col-50 elementor-inner-column elementor-element elementor-element-cafffd1" data-id="cafffd1" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-f46acc5 elementor-view-default elementor-widget elementor-widget-icon" data-id="f46acc5" data-element_type="widget" data-widget_type="icon.default">
+				<div class="elementor-widget-container">
+					<div class="elementor-icon-wrapper">
+			<a class="elementor-icon" href="https://play.google.com/store/apps/details?id=br.com.kartodromogranjaviana.app">
+			<svg xmlns="http://www.w3.org/2000/svg" height="800" width="1200" viewBox="-150 -296.79925 1300 1780.7955"><path d="M979.042 925.187c-17.954 41.478-39.206 79.657-63.828 114.76-33.563 47.852-61.044 80.975-82.222 99.37-32.83 30.191-68.006 45.654-105.672 46.533-27.041 0-59.652-7.695-97.611-23.304-38.085-15.535-73.084-23.23-105.086-23.23-33.563 0-69.56 7.695-108.061 23.23-38.561 15.61-69.625 23.744-93.376 24.55-36.12 1.539-72.123-14.364-108.06-47.78-22.938-20.006-51.627-54.302-85.997-102.887-36.875-51.884-67.191-112.048-90.942-180.64C12.751 781.703 0 709.96 0 640.504c0-79.562 17.192-148.183 51.627-205.687 27.063-46.189 63.066-82.625 108.127-109.372 45.06-26.748 93.749-40.379 146.182-41.25 28.69 0 66.312 8.874 113.066 26.315 46.622 17.5 76.557 26.374 89.682 26.374 9.812 0 43.068-10.377 99.443-31.064 53.313-19.185 98.307-27.13 135.168-24 99.883 8.061 174.923 47.435 224.828 118.372-89.33 54.126-133.52 129.935-132.64 227.187.806 75.751 28.287 138.788 82.295 188.84 24.476 23.23 51.81 41.184 82.222 53.935-6.595 19.126-13.557 37.447-20.958 55.034zM749.964 23.751c0 59.373-21.692 114.81-64.928 166.122-52.176 61-115.286 96.248-183.724 90.686a184.836 184.836 0 01-1.378-22.498c0-56.998 24.813-117.998 68.878-167.873 21.999-25.253 49.978-46.25 83.907-63 33.856-16.5 65.88-25.625 95.999-27.188.88 7.937 1.246 15.875 1.246 23.75z"></path></svg>			</a>
+		</div>
+				</div>
+				</div>
+				<div class="elementor-element elementor-element-17f2245 elementor-widget elementor-widget-heading" data-id="17f2245" data-element_type="widget" data-widget_type="heading.default">
+				<div class="elementor-widget-container">
+			<h3 class="elementor-heading-title elementor-size-default">play store</h3>		</div>
+				</div>
+					</div>
+		</div>
+					</div>
+		</section>
+					</div>
+		</div>
+					</div>
+		</section>
+				</div>
+		</div>		<footer itemtype="https://schema.org/WPFooter" itemscope="itemscope" id="colophon" role="contentinfo">
+			<div class='footer-width-fixer'>		<div data-elementor-type="wp-post" data-elementor-id="31860" class="elementor elementor-31860" data-elementor-post-type="elementor-hf">
+						<section class="elementor-section elementor-top-section elementor-element elementor-element-0cedc58 elementor-section-full_width elementor-section-content-middle elementor-section-stretched elementor-section-height-default elementor-section-height-default wpr-particle-no wpr-jarallax-no wpr-parallax-no wpr-sticky-section-no" data-id="0cedc58" data-element_type="section" data-settings="{&quot;stretch_section&quot;:&quot;section-stretched&quot;,&quot;background_background&quot;:&quot;classic&quot;}">
+						<div class="elementor-container elementor-column-gap-default">
+					<div class="elementor-column elementor-col-100 elementor-top-column elementor-element elementor-element-4fb109e" data-id="4fb109e" data-element_type="column">
+			<div class="elementor-widget-wrap elementor-element-populated">
+						<div class="elementor-element elementor-element-0ff2497 elementor-widget elementor-widget-copyright" data-id="0ff2497" data-element_type="widget" data-settings="{&quot;align&quot;:&quot;center&quot;}" data-widget_type="copyright.default">
+				<div class="elementor-widget-container">
+					<div class="hfe-copyright-wrapper">
+							<span>Copyright © 2024 | Kartódromo Granja Viana </span>
+					</div>
+				</div>
+				</div>
+					</div>
+		</div>
+					</div>
+		</section>
+				</div>
+		</div>		</footer>
+	</div><!-- #page -->
+<!-- Enter your scripts here --><!-- Instagram Feed JS -->
+<script type="text/javascript">
+var sbiajaxurl = "https://kartodromogranjaviana.com.br/wp-admin/admin-ajax.php";
+</script>
+<div class="sgpb-main-popup-data-container-27719" style="position:fixed;opacity: 0">
+							<div class="sg-popup-builder-content" id="sg-popup-content-wrapper-27719" data-id="27719" data-events="[{&quot;param&quot;:&quot;load&quot;,&quot;value&quot;:&quot;5&quot;,&quot;hiddenOption&quot;:[]}]" data-options="eyJzZ3BiLWltYWdlLXVybCI6Imh0dHA6XC9cL2thcnRvZHJvbW9ncmFuamF2aWFuYS5jb20uYnJcL3dwLWNvbnRlbnRcL3VwbG9hZHNcLzIwMjRcLzA2XC9NdW5kaWFsLVJlbnRhbC1LV0MtQ29tdW5pY2Fkby1UcmVpbm9zLUxpdnJlcy5wbmciLCJzZ3BiLXR5cGUiOiJpbWFnZSIsInNncGItaXMtcHJldmlldyI6IjAiLCJzZ3BiLWlzLWFjdGl2ZSI6ImNoZWNrZWQiLCJzZ3BiLWJlaGF2aW9yLWFmdGVyLXNwZWNpYWwtZXZlbnRzIjpbW3sicGFyYW0iOiJzZWxlY3RfZXZlbnQifV1dLCJzZ3BiLXBvcHVwLXotaW5kZXgiOiI5OTk5Iiwic2dwYi1wb3B1cC10aGVtZXMiOiJzZ3BiLXRoZW1lLTMiLCJzZ3BiLW92ZXJsYXktY29sb3IiOiIjMDAwMDAwIiwic2dwYi1vdmVybGF5LW9wYWNpdHkiOiIwLjYiLCJzZ3BiLWNvbnRlbnQtY3VzdG9tLWNsYXNzIjoic2ctcG9wdXAtY29udGVudCIsInNncGItZXNjLWtleSI6Im9uIiwic2dwYi1lbmFibGUtY2xvc2UtYnV0dG9uIjoib24iLCJzZ3BiLWNsb3NlLWJ1dHRvbi1kZWxheSI6IjAiLCJzZ3BiLWNsb3NlLWJ1dHRvbi1wb3NpdGlvbiI6InRvcFJpZ2h0Iiwic2dwYi1idXR0b24tcG9zaXRpb24tdG9wIjoiNCIsInNncGItYnV0dG9uLXBvc2l0aW9uLXJpZ2h0IjoiNCIsInNncGItYnV0dG9uLXBvc2l0aW9uLWJvdHRvbSI6IjAiLCJzZ3BiLWJ1dHRvbi1wb3NpdGlvbi1sZWZ0IjoiIiwic2dwYi1idXR0b24taW1hZ2UiOiIiLCJzZ3BiLWJ1dHRvbi1pbWFnZS13aWR0aCI6IjM4Iiwic2dwYi1idXR0b24taW1hZ2UtaGVpZ2h0IjoiMTkiLCJzZ3BiLWJvcmRlci1jb2xvciI6IiMwMDAwMDAiLCJzZ3BiLWJvcmRlci1yYWRpdXMiOiIwIiwic2dwYi1ib3JkZXItcmFkaXVzLXR5cGUiOiIlIiwic2dwYi1idXR0b24tdGV4dCI6IkNsb3NlIiwic2dwYi1vdmVybGF5LWNsaWNrIjoib24iLCJzZ3BiLXBvcHVwLWRpbWVuc2lvbi1tb2RlIjoicmVzcG9uc2l2ZU1vZGUiLCJzZ3BiLXJlc3BvbnNpdmUtZGltZW5zaW9uLW1lYXN1cmUiOiI0MCIsInNncGItd2lkdGgiOiI2NDBweCIsInNncGItaGVpZ2h0IjoiNDgwcHgiLCJzZ3BiLW1heC13aWR0aCI6IiIsInNncGItbWF4LWhlaWdodCI6IiIsInNncGItbWluLXdpZHRoIjoiMTIwcHgiLCJzZ3BiLW1pbi1oZWlnaHQiOiIiLCJzZ3BiLWNvbnRlbnQtY2xpY2siOiJvbiIsInNncGItY29udGVudC1jbGljay1iZWhhdmlvciI6ImNsb3NlIiwic2dwYi1jbGljay1yZWRpcmVjdC10by11cmwiOiJodHRwczpcL1wvcmVzZXJ2YXMua2FydG9kcm9tb2dyYW5qYXZpYW5hLmNvbS5iclwvIiwic2dwYi1jb3B5LXRvLWNsaXBib2FyZC10ZXh0IjoiIiwic2dwYi1jb3B5LXRvLWNsaXBib2FyZC1jbG9zZS1wb3B1cCI6Im9uIiwic2dwYi1jb3B5LXRvLWNsaXBib2FyZC1hbGVydCI6Im9uIiwic2dwYi1jb3B5LXRvLWNsaXBib2FyZC1tZXNzYWdlIjoiQ29waWVkIHRvIENsaXBib2FyZCEiLCJzZ3BiLXNob3ctcG9wdXAtc2FtZS11c2VyIjoib24iLCJzZ3BiLXNob3ctcG9wdXAtc2FtZS11c2VyLWNvdW50IjoiMiIsInNncGItc2hvdy1wb3B1cC1zYW1lLXVzZXItZXhwaXJ5IjoiMCIsInNncGItb3Blbi1hbmltYXRpb24tZWZmZWN0IjoiTm8gZWZmZWN0Iiwic2dwYi1jbG9zZS1hbmltYXRpb24tZWZmZWN0IjoiTm8gZWZmZWN0Iiwic2dwYi1lbmFibGUtY29udGVudC1zY3JvbGxpbmciOiJvbiIsInNncGItcG9wdXAtb3JkZXIiOiIwIiwic2dwYi1wb3B1cC1kZWxheSI6IjAiLCJzZ3BiLXBvc3QtaWQiOiIyNzcxOSIsInNncGItZW5hYmxlLXBvcHVwLW92ZXJsYXkiOiJvbiIsInNncGItYnV0dG9uLWltYWdlLWRhdGEiOiIiLCJzZ3BiLWJhY2tncm91bmQtaW1hZ2UtZGF0YSI6IiIsInNncGJDb25kaXRpb25zIjpudWxsfQ==">
+								<div class="sgpb-popup-builder-content-27719 sgpb-popup-builder-content-html"><img width="1" height="1" class="sgpb-preloaded-image-27719 lazyload" alt="" data-src="http://kartodromogranjaviana.com.br/wp-content/uploads/2024/06/Mundial-Rental-KWC-Comunicado-Treinos-Livres.png" style="--smush-placeholder-width: 1px; --smush-placeholder-aspect-ratio: 1/1;position:absolute;right:9999999999999px" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="><noscript><img width="1" height="1" class="sgpb-preloaded-image-27719" alt="" src="http://kartodromogranjaviana.com.br/wp-content/uploads/2024/06/Mundial-Rental-KWC-Comunicado-Treinos-Livres.png" style="position:absolute;right:9999999999999px"></noscript></div>
+							</div>
+						  </div><link rel='stylesheet' id='e-animations-css' href='https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/animations/animations.min.css?ver=3.22.3' media='all' />
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/contact-form-7/includes/swv/js/index.js?ver=5.9.6" id="swv-js"></script>
+<script id="contact-form-7-js-extra">
+var wpcf7 = {"api":{"root":"https:\/\/kartodromogranjaviana.com.br\/wp-json\/","namespace":"contact-form-7\/v1"},"cached":"1"};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/contact-form-7/includes/js/index.js?ver=5.9.6" id="contact-form-7-js"></script>
+<script id="page-scroll-to-id-plugin-script-js-extra">
+var mPS2id_params = {"instances":{"mPS2id_instance_0":{"selector":"a[href*='#']:not([href='#'])","autoSelectorMenuLinks":"true","excludeSelector":"a[href^='#tab-'], a[href^='#tabs-'], a[data-toggle]:not([data-toggle='tooltip']), a[data-slide], a[data-vc-tabs], a[data-vc-accordion], a.screen-reader-text.skip-link","scrollSpeed":800,"autoScrollSpeed":"true","scrollEasing":"easeInOutQuint","scrollingEasing":"easeOutQuint","forceScrollEasing":"false","pageEndSmoothScroll":"true","stopScrollOnUserAction":"false","autoCorrectScroll":"false","autoCorrectScrollExtend":"false","layout":"vertical","offset":0,"dummyOffset":"false","highlightSelector":"","clickedClass":"mPS2id-clicked","targetClass":"mPS2id-target","highlightClass":"mPS2id-highlight","forceSingleHighlight":"false","keepHighlightUntilNext":"false","highlightByNextTarget":"false","appendHash":"false","scrollToHash":"true","scrollToHashForAll":"true","scrollToHashDelay":0,"scrollToHashUseElementData":"true","scrollToHashRemoveUrlHash":"false","disablePluginBelow":0,"adminDisplayWidgetsId":"true","adminTinyMCEbuttons":"true","unbindUnrelatedClickEvents":"false","unbindUnrelatedClickEventsSelector":"","normalizeAnchorPointTargets":"false","encodeLinks":"false"}},"total_instances":"1","shortcode_class":"_ps2id"};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/page-scroll-to-id/js/page-scroll-to-id.min.js?ver=1.7.9" id="page-scroll-to-id-plugin-script-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/royal-elementor-addons/assets/js/lib/particles/particles.js?ver=3.0.6" id="wpr-particles-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/royal-elementor-addons/assets/js/lib/jarallax/jarallax.min.js?ver=1.12.7" id="wpr-jarallax-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/royal-elementor-addons/assets/js/lib/parallax/parallax.min.js?ver=1.0" id="wpr-parallax-hover-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/pro-elements/assets//lib/instant-page/instant-page.min.js?ver=3.22.1" id="instant-page-js"></script>
+<script src="https://www.google.com/recaptcha/api.js?render=6LcZf4gUAAAAABvHmOaz2Fg0OzkTZ5Chd6Kpt8nH&amp;ver=3.0" id="google-recaptcha-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/dist/vendor/wp-polyfill-inert.min.js?ver=3.1.2" id="wp-polyfill-inert-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/dist/vendor/regenerator-runtime.min.js?ver=0.14.0" id="regenerator-runtime-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/dist/vendor/wp-polyfill.min.js?ver=3.15.0" id="wp-polyfill-js"></script>
+<script id="wpcf7-recaptcha-js-extra">
+var wpcf7_recaptcha = {"sitekey":"6LcZf4gUAAAAABvHmOaz2Fg0OzkTZ5Chd6Kpt8nH","actions":{"homepage":"homepage","contactform":"contactform"}};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/contact-form-7/modules/recaptcha/index.js?ver=5.9.6" id="wpcf7-recaptcha-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/wp-smushit/app/assets/js/smush-lazy-load.min.js?ver=3.16.5" id="smush-lazy-load-js"></script>
+<script id="eael-general-js-extra">
+var localize = {"ajaxurl":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","nonce":"b04ed362f8","i18n":{"added":"Adicionado ","compare":"Comparar","loading":"Carregando..."},"eael_translate_text":{"required_text":"\u00e9 um campo obrigat\u00f3rio","invalid_text":"Inv\u00e1lido","billing_text":"Faturamento","shipping_text":"Envio","fg_mfp_counter_text":"de"},"page_permalink":"https:\/\/kartodromogranjaviana.com.br\/resultados\/folha\/","cart_redirectition":"no","cart_page_url":"","el_breakpoints":{"mobile":{"label":"Dispositivos m\u00f3veis no modo retrato","value":767,"default_value":767,"direction":"max","is_enabled":true},"mobile_extra":{"label":"Dispositivos m\u00f3veis no modo paisagem","value":880,"default_value":880,"direction":"max","is_enabled":false},"tablet":{"label":"Tablet no modo retrato","value":1024,"default_value":1024,"direction":"max","is_enabled":true},"tablet_extra":{"label":"Tablet no modo paisagem","value":1200,"default_value":1200,"direction":"max","is_enabled":false},"laptop":{"label":"Notebook","value":1366,"default_value":1366,"direction":"max","is_enabled":false},"widescreen":{"label":"Tela ampla (widescreen)","value":2400,"default_value":2400,"direction":"min","is_enabled":false}}};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/essential-addons-for-elementor-lite/assets/front-end/js/view/general.min.js?ver=5.9.24" id="eael-general-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/header-footer-elementor/inc/js/frontend.js?ver=1.6.36" id="hfe-frontend-js-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/pro-elements/assets/js/webpack-pro.runtime.min.js?ver=3.22.1" id="elementor-pro-webpack-runtime-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/js/webpack.runtime.min.js?ver=3.22.3" id="elementor-webpack-runtime-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/js/frontend-modules.min.js?ver=3.22.3" id="elementor-frontend-modules-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/dist/hooks.min.js?ver=2810c76e705dd1a53b18" id="wp-hooks-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-includes/js/dist/i18n.min.js?ver=5e580eb46a90c2b997e6" id="wp-i18n-js"></script>
+<script id="wp-i18n-js-after">
+wp.i18n.setLocaleData( { 'text direction\u0004ltr': [ 'ltr' ] } );
+</script>
+<script id="elementor-pro-frontend-js-before">
+var ElementorProFrontendConfig = {"ajaxurl":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","nonce":"72f5e02bd4","urls":{"assets":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/pro-elements\/assets\/","rest":"https:\/\/kartodromogranjaviana.com.br\/wp-json\/"},"shareButtonsNetworks":{"facebook":{"title":"Facebook","has_counter":true},"twitter":{"title":"Twitter"},"linkedin":{"title":"LinkedIn","has_counter":true},"pinterest":{"title":"Pinterest","has_counter":true},"reddit":{"title":"Reddit","has_counter":true},"vk":{"title":"VK","has_counter":true},"odnoklassniki":{"title":"OK","has_counter":true},"tumblr":{"title":"Tumblr"},"digg":{"title":"Digg"},"skype":{"title":"Skype"},"stumbleupon":{"title":"StumbleUpon","has_counter":true},"mix":{"title":"Mix"},"telegram":{"title":"Telegram"},"pocket":{"title":"Pocket","has_counter":true},"xing":{"title":"XING","has_counter":true},"whatsapp":{"title":"WhatsApp"},"email":{"title":"Email"},"print":{"title":"Print"},"x-twitter":{"title":"X"},"threads":{"title":"Threads"}},"facebook_sdk":{"lang":"pt_BR","app_id":""},"lottie":{"defaultAnimationUrl":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/pro-elements\/modules\/lottie\/assets\/animations\/default.json"}};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/pro-elements/assets/js/frontend.min.js?ver=3.22.1" id="elementor-pro-frontend-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/lib/waypoints/waypoints.min.js?ver=4.0.2" id="elementor-waypoints-js"></script>
+<script id="elementor-frontend-js-before">
+var elementorFrontendConfig = {"environmentMode":{"edit":false,"wpPreview":false,"isScriptDebug":false},"i18n":{"shareOnFacebook":"Compartilhar no Facebook","shareOnTwitter":"Compartilhar no Twitter","pinIt":"Fixar","download":"Baixar","downloadImage":"Baixar imagem","fullscreen":"Tela cheia","zoom":"Zoom","share":"Compartilhar","playVideo":"Reproduzir v\u00eddeo","previous":"Anterior","next":"Pr\u00f3ximo","close":"Fechar","a11yCarouselWrapperAriaLabel":"Carrossel | Rolagem horizontal: Setas para esquerda e direita","a11yCarouselPrevSlideMessage":"Slide anterior","a11yCarouselNextSlideMessage":"Pr\u00f3ximo slide","a11yCarouselFirstSlideMessage":"Este \u00e9 o primeiro slide","a11yCarouselLastSlideMessage":"Este \u00e9 o \u00faltimo slide","a11yCarouselPaginationBulletMessage":"Ir para o slide"},"is_rtl":false,"breakpoints":{"xs":0,"sm":480,"md":768,"lg":1025,"xl":1440,"xxl":1600},"responsive":{"breakpoints":{"mobile":{"label":"Dispositivos m\u00f3veis no modo retrato","value":767,"default_value":767,"direction":"max","is_enabled":true},"mobile_extra":{"label":"Dispositivos m\u00f3veis no modo paisagem","value":880,"default_value":880,"direction":"max","is_enabled":false},"tablet":{"label":"Tablet no modo retrato","value":1024,"default_value":1024,"direction":"max","is_enabled":true},"tablet_extra":{"label":"Tablet no modo paisagem","value":1200,"default_value":1200,"direction":"max","is_enabled":false},"laptop":{"label":"Notebook","value":1366,"default_value":1366,"direction":"max","is_enabled":false},"widescreen":{"label":"Tela ampla (widescreen)","value":2400,"default_value":2400,"direction":"min","is_enabled":false}}},"version":"3.22.3","is_static":false,"experimentalFeatures":{"e_optimized_assets_loading":true,"additional_custom_breakpoints":true,"container_grid":true,"e_swiper_latest":true,"e_onboarding":true,"theme_builder_v2":true,"home_screen":true,"ai-layout":true,"landing-pages":true,"display-conditions":true,"form-submissions":true,"taxonomy-filter":true},"urls":{"assets":"https:\/\/kartodromogranjaviana.com.br\/wp-content\/plugins\/elementor\/assets\/"},"swiperClass":"swiper","settings":{"page":[],"editorPreferences":[]},"kit":{"active_breakpoints":["viewport_mobile","viewport_tablet"],"global_image_lightbox":"yes","lightbox_enable_counter":"yes","lightbox_enable_fullscreen":"yes","lightbox_enable_zoom":"yes","lightbox_enable_share":"yes","lightbox_title_src":"title","lightbox_description_src":"description"},"post":{"id":8678,"title":"FOLHA%20%E2%80%93%20Kart%C3%B3dromo%20Granja%20Viana","excerpt":"","featuredImage":false}};
+</script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/elementor/assets/js/frontend.min.js?ver=3.22.3" id="elementor-frontend-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/pro-elements/assets/js/elements-handlers.min.js?ver=3.22.1" id="pro-elements-handlers-js"></script>
+<script id="wpr-addons-js-js-extra">
+var WprConfig = {"ajaxurl":"https:\/\/kartodromogranjaviana.com.br\/wp-admin\/admin-ajax.php","resturl":"https:\/\/kartodromogranjaviana.com.br\/wp-json\/wpraddons\/v1","nonce":"e8fb128f41","addedToCartText":"was added to cart","viewCart":"View Cart","comparePageID":"","comparePageURL":"https:\/\/kartodromogranjaviana.com.br\/resultados\/folha\/","wishlistPageID":"","wishlistPageURL":"https:\/\/kartodromogranjaviana.com.br\/resultados\/folha\/","chooseQuantityText":"Please select the required number of items.","site_key":"","is_admin":"","input_empty":"Please fill out this field","select_empty":"Nothing selected","file_empty":"Please upload a file","recaptcha_error":"Recaptcha Error"};
+</script>
+<script data-cfasync="false" src="https://kartodromogranjaviana.com.br/wp-content/plugins/royal-elementor-addons/assets/js/frontend.min.js?ver=1.3.978" id="wpr-addons-js-js"></script>
+<script src="https://kartodromogranjaviana.com.br/wp-content/plugins/royal-elementor-addons/assets/js/modal-popups.min.js?ver=1.3.978" id="wpr-modal-popups-js-js"></script>
+<script type="text/javascript">window.NREUM||(NREUM={});NREUM.info={"beacon":"bam.nr-data.net","licenseKey":"NRJS-738ffbb5f3e3aa7db21","applicationID":"554837356","transactionName":"ZVZSNxMCChBRBkBaW1wccQAVCgsNHwxaV1FK","queueTime":0,"applicationTime":2965,"atts":"SRFRQVsYGR4=","errorBeacon":"bam.nr-data.net","agent":""}</script></body>
+</html> 
