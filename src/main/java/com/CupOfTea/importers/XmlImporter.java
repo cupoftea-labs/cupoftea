@@ -20,9 +20,9 @@ import com.CupOfTea.table.Column;
 
 public class XmlImporter implements IXmlImporter {
 
-    CupOfTea dataFrame;
+    private final CupOfTea dataFrame;
 
-    public XmlImporter(CupOfTea dataFrame){
+    public XmlImporter(final CupOfTea dataFrame){
 
         this.dataFrame = dataFrame;
 
@@ -30,7 +30,7 @@ public class XmlImporter implements IXmlImporter {
 
 
     @Override
-    public void importFromXml(File file) throws Exception {
+    public void importFromXml(final File file) throws Exception {
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
         Document doc = dBuilder.parse(file);
@@ -40,7 +40,7 @@ public class XmlImporter implements IXmlImporter {
     }
 
     @Override
-    public void importFromXml(String xml) throws Exception {
+    public void importFromXml(final String xml) throws Exception {
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
         DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
         InputSource is = new InputSource(new StringReader(xml));
@@ -49,7 +49,7 @@ public class XmlImporter implements IXmlImporter {
     }
 
     @Override
-    public void importFromXml(Document doc) throws Exception {
+    public void importFromXml(final Document doc) throws Exception {
         doc.getDocumentElement().normalize();
         
         NodeList outNodes = doc.getChildNodes();

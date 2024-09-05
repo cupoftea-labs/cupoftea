@@ -4,6 +4,6 @@ import java.io.File;
 
 public interface IJsonExporter {
 
-    public void exportToJson(File file);
+    public void exportToJson(File file) throws Exception;
    
 }

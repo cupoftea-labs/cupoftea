@@ -1,7 +1,6 @@
 package com.CupOfTea.importers;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -19,15 +18,15 @@ import com.CupOfTea.importers.interfaces.IParquetImporter;
 
 public class ParquetImporter implements IParquetImporter {
 
-    private CupOfTea dataFrame;
+    private final CupOfTea dataFrame;
 
-    public ParquetImporter(CupOfTea dataFrame){
+    public ParquetImporter(final CupOfTea dataFrame){
         this.dataFrame = dataFrame;
     }
 
 
     @Override
-    public void importFromParquet(File file) throws Exception {
+    public void importFromParquet(final File file) throws Exception {
 
         Path path = new Path(file.toString());
         Configuration conf = new Configuration();

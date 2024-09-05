@@ -166,7 +166,7 @@ public class CupOfTea {
     }
 
     
-    public CupOfTea exportToCsv(File file){
+    public CupOfTea exportToCsv(File file) throws Exception {
 
         csvExporter = new CSVExporter(this);
         csvExporter.exportToCsv(file);

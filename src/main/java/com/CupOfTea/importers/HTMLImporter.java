@@ -16,25 +16,43 @@ import com.CupOfTea.table.Column;
 
 public class HTMLImporter implements IHTMLImporter{
 
-    private CupOfTea dataFrame;
+    private final CupOfTea dataFrame;
 
-    public HTMLImporter(CupOfTea dataFrame){
+    public HTMLImporter(final CupOfTea dataFrame){
         this.dataFrame = dataFrame;
     }
 
+    /**
+     * Dumps the Data from a HTML table into the CupOfTea data frame.
+     * 
+     * @param file HTML file with a table
+     */
     @Override
-    public void importFromHtml(File file) throws Exception {
+    public void importFromHtml(final File file) throws Exception {
         Document doc = Jsoup.parse(file);
         this.importToDataFrame(doc);
     }
     
+    /**
+     * Dumps the Data from a html table into the CupOfTea data frame.
+     * 
+     * @param url URL to get the HTML data from
+     * @throws Exception
+     */
     @Override
-    public void importFromHtml(URL url) throws Exception {
+    public void importFromHtml(final URL url) throws Exception {
         Document doc = Jsoup.connect(url.toString()).get();
         this.importToDataFrame(doc);
     }
 
-    private void importToDataFrame(Document doc) throws Exception {
+
+    /**
+     * Dumps the table data from a JSOUP document into the CupOfTea data frame.
+     * 
+     * @param doc
+     * @throws Exception
+     */
+    private void importToDataFrame(final Document doc) throws Exception {
         boolean firstRow = true;
         Elements rows = doc.select("tr");
         for(Element row : rows) {   
