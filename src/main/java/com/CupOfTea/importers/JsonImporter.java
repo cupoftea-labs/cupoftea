@@ -17,7 +17,14 @@ public class JsonImporter implements IJsonImporter {
     public JsonImporter(final CupOfTea dataFrame){
         this.dataFrame = dataFrame;
     }
+    
 
+    /**
+     * Dumps the Data from a JSON file into the CupOfTea data frame.
+     * The json must be a json array for this method to work.
+     * 
+     * @param file JSON file.
+     */
     @Override
     public void importFromJson(final File file) throws Exception {
         String jsonText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
@@ -25,11 +32,22 @@ public class JsonImporter implements IJsonImporter {
         this.importFromJson(jsonArray);
     }
 
+    /**
+     * Dumps the Data from a JSON String into the CupOfTea data frame.
+     * The json must be a json array for this method to work.
+     * 
+     * @param json JSON String.
+     */
     @Override
     public void importFromJson(final String json) throws Exception {
         this.importFromJson(new JSONArray(json));
     }
 
+    /**
+     * Dumps the Data from a JSONArray Object into the CupOfTea data frame.
+     * 
+     * @param json JSONArray Object.
+     */
     @Override
     public void importFromJson(final JSONArray json) throws Exception {
         for (var key : (json.getJSONObject(0)).keySet()){

@@ -24,7 +24,11 @@ public class ParquetImporter implements IParquetImporter {
         this.dataFrame = dataFrame;
     }
 
-
+    /**
+     * Dumps the Data from a Parquet file into the CupOfTea data frame.
+     * 
+     * @param file Parquet file.
+     */
     @Override
     public void importFromParquet(final File file) throws Exception {
 

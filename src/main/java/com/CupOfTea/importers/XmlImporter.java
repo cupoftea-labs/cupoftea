@@ -28,7 +28,11 @@ public class XmlImporter implements IXmlImporter {
 
     }
 
-
+    /**
+     * Dumps the Data from a XML File into the CupOfTea data frame.
+     * 
+     * @param file XML File.
+     */
     @Override
     public void importFromXml(final File file) throws Exception {
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -39,6 +43,11 @@ public class XmlImporter implements IXmlImporter {
 
     }
 
+    /**
+     * Dumps the Data from a XML String into the CupOfTea data frame.
+     * 
+     * @param xml XML String.
+     */
     @Override
     public void importFromXml(final String xml) throws Exception {
         DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
@@ -48,6 +57,11 @@ public class XmlImporter implements IXmlImporter {
         this.importFromXml(doc);
     }
 
+    /**
+     * Dumps the Data from a XML Document into the CupOfTea data frame.
+     * 
+     * @param doc XML Document.
+     */
     @Override
     public void importFromXml(final Document doc) throws Exception {
         doc.getDocumentElement().normalize();

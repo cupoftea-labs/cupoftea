@@ -19,13 +19,22 @@ public class YamlImporter implements IYamlImporter {
         this.dataFrame = dataFrame;
     }
 
-
+    /**
+     * Dumps the Data from a Yaml File into the CupOfTea data frame.
+     * 
+     * @param file Yaml File.
+     */
     @Override
     public void importFromYaml(final File file) throws Exception {
         String yamlText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
         this.importFromYaml(yamlText);
     }
 
+    /**
+     * Dumps the Data from a Yaml Text into the CupOfTea data frame.
+     * 
+     * @param yamlText Yaml Text.
+     */
     @Override
     public void importFromYaml(final String yamlText) throws Exception {
         Yaml yaml = new Yaml();
