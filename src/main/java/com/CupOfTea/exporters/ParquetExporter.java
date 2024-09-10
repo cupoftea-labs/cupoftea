@@ -1,7 +1,6 @@
 package com.CupOfTea.exporters;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -30,6 +29,13 @@ public class ParquetExporter implements IParquetExporter {
         this.dataFrame = dataFrame;
     }
 
+
+    /**
+     * Create a PARQUET file from the data frame.
+     * 
+     * @param file path to your PARQUET file. Can't be null.
+     * @throws if the file already exists throws an Exception
+     */
     @Override
     public void exportToParquet(File file) throws Exception {
         FieldAssembler assembler = SchemaBuilder
@@ -48,7 +54,6 @@ public class ParquetExporter implements IParquetExporter {
         Path path = new Path(file.toString());
         Configuration conf = new Configuration();
 
-        // Configure the Parquet writer
         HadoopOutputFile outputFile = HadoopOutputFile.fromPath(path, conf);
         try (ParquetWriter<GenericRecord> writer = AvroParquetWriter.<GenericRecord>builder(outputFile)
                 .withSchema(schema)

@@ -13,17 +13,27 @@ import com.CupOfTea.importers.interfaces.ICSVImporter;
 
 public class CSVImporter implements ICSVImporter {
 
-    private CupOfTea dataFrame;
+    private final CupOfTea dataFrame;
 
-    public CSVImporter(CupOfTea dataFrame){
+    public CSVImporter(final CupOfTea dataFrame){
         this.dataFrame = dataFrame;
     }
 
+
+    /**
+     * Dumps the data from the CSV file into a CupOfTea data frame.
+     * Any previous data in the data frame will be lost!
+     * 
+     * All the lines of the CSV must have the same amount of columns, otherwise an Exception will be thrown.
+     * 
+     * @param file path to the CSV file. Can't be null.
+     * @param hasHeaders if true, the first line of the CSV will be used for the headers. If False, an auto generated column name will be used.
+     */
     @Override
     public void importFromCsv(File file, boolean hasHeaders) throws Exception {
         // ToDo importar numeros no formato de numero
         // ToDo verificar o tamanho de cada linha, nao podem ter linhas de tamanho diferente
-        // ToDo hasHeaders false criar cabeçalho com valores nulo
+        // ToDo hasHeaders false criar cabeçalho com valores sequenciais
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
             if(hasHeaders){
@@ -39,8 +49,6 @@ public class CSVImporter implements ICSVImporter {
                 }
                 this.dataFrame.addRow(row);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 

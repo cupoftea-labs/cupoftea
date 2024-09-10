@@ -13,21 +13,30 @@ import com.CupOfTea.importers.interfaces.IYamlImporter;
 
 public class YamlImporter implements IYamlImporter {
 
-    private CupOfTea dataFrame;
+    private final CupOfTea dataFrame;
 
-    public YamlImporter(CupOfTea dataFrame){
+    public YamlImporter(final CupOfTea dataFrame){
         this.dataFrame = dataFrame;
     }
 
-
+    /**
+     * Dumps the Data from a Yaml File into the CupOfTea data frame.
+     * 
+     * @param file Yaml File.
+     */
     @Override
-    public void importFromYaml(File file) throws Exception {
+    public void importFromYaml(final File file) throws Exception {
         String yamlText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
         this.importFromYaml(yamlText);
     }
 
+    /**
+     * Dumps the Data from a Yaml Text into the CupOfTea data frame.
+     * 
+     * @param yamlText Yaml Text.
+     */
     @Override
-    public void importFromYaml(String yamlText) throws Exception {
+    public void importFromYaml(final String yamlText) throws Exception {
         Yaml yaml = new Yaml();
         Iterable<Object> list = yaml.loadAll(yamlText);
 

@@ -4,6 +4,6 @@ import java.io.File;
 
 public interface IYamlExporter {
 
-    public void exportToYaml(File file);
+    public void exportToYaml(File file) throws Exception;
 
 }
