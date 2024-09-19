@@ -2,8 +2,9 @@ package com.CupOfTea.table;
 
 import java.util.Objects;
 
-public record Column(
-    String columnName
+public record Column (
+    String columnName,
+    Class columnType
 ) {
     @Override
     public boolean equals(Object o) {

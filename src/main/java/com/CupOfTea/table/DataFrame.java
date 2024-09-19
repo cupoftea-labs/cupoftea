@@ -18,7 +18,7 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame moveColumn(String columnName, int finalIndex) {
-        int columnIndex = headers.indexOf(new Column(columnName));
+        int columnIndex = headers.indexOf(new Column(columnName, null));
         this.moveColumn(columnIndex, finalIndex);
         return this;
     }
@@ -28,13 +28,13 @@ public class DataFrame extends IDataFrame {
         // A Ordem da Coluna é definida pela ordem dos headers
         String columnName = this.headers.get(inicialIndex).columnName();
         this.headers.remove(inicialIndex);
-        this.headers.add(finalIndex, new Column(columnName));
+        this.headers.add(finalIndex, new Column(columnName, null));
         return this;
     }
 
     @Override
     public IDataFrame renameColumn(String oldName, String newName) {
-        int index = this.headers.indexOf(new Column(oldName));
+        int index = this.headers.indexOf(new Column(oldName, null));
         renameColumn(index, newName);
         return this;
     }
@@ -42,7 +42,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame renameColumn(int index, String newName) {
         String oldName = this.headers.get(index).columnName();
-        this.headers.set(index, new Column(newName));
+        this.headers.set(index, new Column(newName, null));
         for(var row : this.getRows()){
             row.put(newName, row.get(oldName));
             row.remove(oldName);
@@ -92,7 +92,7 @@ public class DataFrame extends IDataFrame {
         if (data == null) return this.addColumn(index, columnName, (Object) data);
         if (data.size() != this.size()) throw new ArrayIndexOutOfBoundsException();
 
-        headers.add(index, new Column(columnName));
+        headers.add(index, new Column(columnName, null));
         int i = 0;
         for (HashMap<String, Object> row : this.rows) {
             row.put(columnName, data.get(i));
@@ -104,7 +104,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame removeColumn(String columnName) {
         // ToDo Tratar caso nao exista a coluna
-        int columnIndex = headers.indexOf(new Column(columnName));
+        int columnIndex = headers.indexOf(new Column(columnName, null));
         this.headers.remove(columnIndex);
 
         // Do it in a new thread for performance improvement?
