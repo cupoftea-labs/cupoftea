@@ -48,6 +48,7 @@ public abstract class IDataFrame {
     public abstract IDataFrame removeColumn(int index);
     public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception;
     public abstract IDataFrame removeRow(int index);
+    public abstract IDataFrame removeRows(IFilter filter) throws Exception;
     public abstract ArrayList<Column> getHeaders();
     public abstract IDataFrame filter(IFilter filter) throws Exception;
     public abstract IDataFrame update(HashMap<String, Object> updateColumns) throws Exception;

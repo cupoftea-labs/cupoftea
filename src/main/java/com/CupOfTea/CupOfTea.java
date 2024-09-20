@@ -144,6 +144,19 @@ public class CupOfTea {
         return this;
     }
 
+
+    /**
+     * Removes the filtered rows from the DataFrame
+     * 
+     * @param filter the rows mathing this condition will be removed out of the DataFrame
+     * @return the same DataFrame but without the filtered rows
+     * @throws Exception
+     */
+    public CupOfTea removeRows(IFilter filter) throws Exception {
+        this.dataFrame.removeRows(filter);
+        return this;
+    }
+
     public CupOfTea filter(IFilter filter) throws Exception{
         return new CupOfTea(this.dataFrame.filter(filter));
     }

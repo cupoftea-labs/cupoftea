@@ -142,6 +142,24 @@ public class DataFrame extends IDataFrame {
         return this;
     }
 
+
+    /**
+     * Removes the filtered rows from the DataFrame
+     * 
+     * @param filter the rows mathing this condition will be removed out of the DataFrame
+     * @return the same DataFrame but without the filtered rows
+     * @throws Exception
+     */
+    @Override
+    public IDataFrame removeRows(IFilter filter) throws Exception {
+        for(int i = 0; i < this.rows.size(); i++){
+            if(filter.filter(this.rows.get(i))){
+                this.removeRow(i);
+            }
+        }
+        return this;
+    }
+
     @Override
     public ArrayList<Column> getHeaders() {
         return this.headers;
@@ -195,5 +213,7 @@ public class DataFrame extends IDataFrame {
         );
         return this;
     }
+
+    
 
 }
