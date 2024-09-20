@@ -318,7 +318,7 @@ public class CupOfTea {
 
 
 	public CupOfTea setHeaders(ArrayList<String> arrayList) {
-        ArrayList<Column> columns = (ArrayList<Column>) arrayList.stream().map(column -> new Column(column)).collect(Collectors.toList());
+        ArrayList<Column> columns = (ArrayList<Column>) arrayList.stream().map(column -> new Column(column, null)).collect(Collectors.toList());
 		this.dataFrame.setHeaders(columns);
         return this;
 	}

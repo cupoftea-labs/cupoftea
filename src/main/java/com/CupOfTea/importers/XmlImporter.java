@@ -87,7 +87,7 @@ public class XmlImporter implements IXmlImporter {
                         {
                             Node attr = rowAttributes.item(i);
                             String columnName = element.getTagName() + '.' + attr.getNodeName();
-                            if (firstRow) this.dataFrame.getHeaders().add(new Column(columnName));
+                            if (firstRow) this.dataFrame.getHeaders().add(new Column(columnName, null));
                             rowObj.put(columnName, attr.getNodeValue());
                         }
                         
@@ -96,7 +96,7 @@ public class XmlImporter implements IXmlImporter {
                         {
                             if (rowColumns.item(i) instanceof Element rowColumn) {
                                 String columnName = rowColumn.getTagName();
-                                if (firstRow) this.dataFrame.getHeaders().add(new Column(columnName));
+                                if (firstRow) this.dataFrame.getHeaders().add(new Column(columnName, null));
                                 rowObj.put(columnName, rowColumn.getTextContent());
                             }
                         }

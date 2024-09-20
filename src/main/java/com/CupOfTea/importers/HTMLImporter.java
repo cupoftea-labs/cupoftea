@@ -65,7 +65,7 @@ public class HTMLImporter implements IHTMLImporter{
                 columns = row.select("td");
             }
             for (Element column : columns) {
-                if(firstRow) this.dataFrame.getHeaders().add(new Column(column.text()));
+                if(firstRow) this.dataFrame.getHeaders().add(new Column(column.text(), null));
                 if(!firstRow) {
                     rowDF.put(this.dataFrame.getHeaders().get(i).columnName(),  column.text());
                     i++;

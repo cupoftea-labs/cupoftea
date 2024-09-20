@@ -59,10 +59,10 @@ public class ExcelImporter implements IExcelImporter{
                         if(firstRow && hasHeaders) {
                                 switch (formulaEvaluator.evaluateInCell(cell).getCellType()) {  
                                     case STRING:
-                                        this.dataFrame.getHeaders().add(new Column(cell.getStringCellValue()));
+                                        this.dataFrame.getHeaders().add(new Column(cell.getStringCellValue(), null));
                                     break;  
                                     case NUMERIC:
-                                        this.dataFrame.getHeaders().add(new Column(String.valueOf(cell.getNumericCellValue())));
+                                        this.dataFrame.getHeaders().add(new Column(String.valueOf(cell.getNumericCellValue()), null));
                                     break;
                                     case BLANK:
                                     case BOOLEAN:
@@ -117,10 +117,10 @@ public class ExcelImporter implements IExcelImporter{
                         if(firstRow && hasHeaders) {
                             switch (cell.getCellType()) {  
                                 case STRING:
-                                    this.dataFrame.getHeaders().add(new Column(cell.getStringCellValue()));
+                                    this.dataFrame.getHeaders().add(new Column(cell.getStringCellValue(), null));
                                 break;  
                                 case NUMERIC:
-                                    this.dataFrame.getHeaders().add(new Column(String.valueOf(cell.getNumericCellValue())));
+                                    this.dataFrame.getHeaders().add(new Column(String.valueOf(cell.getNumericCellValue()), null));
                                 break;
                                 case BLANK:
                                 case BOOLEAN:
