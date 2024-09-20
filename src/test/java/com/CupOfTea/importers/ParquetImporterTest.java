@@ -12,6 +12,7 @@ public class ParquetImporterTest extends TestCase {
 
         int expectedColumnsNumber = 3;
         int expectedRowsNumber = 499;
+        Class<?> expectedRowClass = Object.class;
 
         File testFile = new File("src/test/java/com/CupOfTea/testFiles/parquet_sample.parquet");
 
@@ -21,6 +22,9 @@ public class ParquetImporterTest extends TestCase {
 
         assertEquals(expectedColumnsNumber, cupOfTea.getHeaders().size());
         assertEquals(expectedRowsNumber, cupOfTea.getRows().size());
+        assertEquals(expectedRowClass, cupOfTea.getHeaders().get(0).columnType());
+        assertEquals(expectedRowClass, cupOfTea.getHeaders().get(1).columnType());
+        assertEquals(expectedRowClass, cupOfTea.getHeaders().get(2).columnType());
 
     }
 

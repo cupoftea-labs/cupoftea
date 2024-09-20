@@ -15,6 +15,7 @@ import org.apache.parquet.io.InputFile;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.importers.interfaces.IParquetImporter;
+import com.CupOfTea.table.Column;
 
 public class ParquetImporter implements IParquetImporter {
 
@@ -40,31 +41,37 @@ public class ParquetImporter implements IParquetImporter {
             GenericRecord record;
             Boolean setHeaders = true;
             while ((record = reader.read()) != null) {
-                // The Schema.Type enum in Avro defines several types including:
-                // NULL
-                // BOOLEAN
-                // INT
-                // LONG
-                // FLOAT
-                // DOUBLE
-                // BYTES
-                // STRING
-                // RECORD
-                // ENUM
-                // ARRAY
-                // MAP
-                // UNION -> Pode ser de um ou vários tipos, equivalente ao Object do Java
-                // FIXED
-                
-                ArrayList<String> headers = new ArrayList<>();
+                ArrayList<Column> headers = new ArrayList<>();
                 HashMap<String, Object> row = new HashMap<>();
                 Schema schema = record.getSchema();
                 for (Schema.Field field : schema.getFields()) {
-                    if(setHeaders){
-                        headers.add(field.name());
-                    }
                     Schema fieldSchema = field.schema();
-                    String fieldType = fieldSchema.getType().getName();
+                    Schema.Type fieldType = fieldSchema.getType();
+
+                    if(setHeaders){
+                        Class<?> columnType;
+                        
+                    switch(fieldType){
+                        case NULL -> columnType = null;
+                        case BOOLEAN -> columnType = Boolean.class;
+                        case INT -> columnType = Integer.class;
+                        case LONG -> columnType = Long.class;
+                        case FLOAT -> columnType = Float.class;
+                        case DOUBLE -> columnType = Double.class;
+                        case BYTES -> columnType = Byte.class;
+                        case STRING -> columnType = String.class;
+                        case RECORD -> columnType = null; // Not Implemented Yet
+                        case ENUM -> columnType = null; // Not Implemented Yet
+                        case ARRAY -> columnType = null; // Not Implemented Yet
+                        case MAP -> columnType = null; // Not Implemented Yet
+                        case UNION -> columnType = Object.class; 
+                        case FIXED -> columnType = null; // Not Implemented Yet
+                        default -> columnType = null;
+                    }
+
+                        headers.add(new Column(field.name(), columnType));
+                    }
+
                     row.put(field.name(), record.get(field.name()).toString());
                 }
                 if(setHeaders){
