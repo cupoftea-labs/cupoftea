@@ -316,11 +316,23 @@ public class CupOfTea {
 
     }
 
-
-	public CupOfTea setHeaders(ArrayList<String> arrayList) {
-        ArrayList<Column> columns = (ArrayList<Column>) arrayList.stream().map(column -> new Column(column, null)).collect(Collectors.toList());
+    /**
+     * Set the Headers of the Data Frame
+     * 
+     * @param arrayList Suports Column and String ArrayList Types
+     */
+	public CupOfTea setHeaders(ArrayList<?> arrayList) throws Exception {
+        ArrayList<Column> columns;
+        if(arrayList.get(0) instanceof String) {
+            columns = (ArrayList<Column>) ((ArrayList<String>) arrayList).stream().map(column -> new Column(column, null)).collect(Collectors.toList());
+        } else if(arrayList.get(0) instanceof Column) {
+            columns = (ArrayList<Column>) arrayList;
+        } else {
+            throw new Exception("Tipo de array nao suportado");
+        }
 		this.dataFrame.setHeaders(columns);
         return this;
-	}
+        }
+
 
 }
