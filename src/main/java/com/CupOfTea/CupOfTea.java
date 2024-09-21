@@ -34,6 +34,7 @@ import com.CupOfTea.table.Column;
 import com.CupOfTea.table.DataFrame;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.Printer;
+import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
@@ -121,6 +122,18 @@ public class CupOfTea {
 
     public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception{
         this.dataFrame.addColumn(index, columnName, data);
+        return this;
+    }
+
+    /**
+     * Create a new column whose values are defined by the Column Creator Function
+     * The column will be added to the end of the Data Frame
+     * 
+     * @param columnName Name of the new Column
+     * @param columnCreator Function that defines the values of the new column
+     */
+    public CupOfTea addColumn(String columnName, IColumnCreator columnCreator) throws Exception {
+        this.dataFrame.addColumn(columnName, columnCreator);
         return this;
     }
 
