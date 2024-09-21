@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 import com.CupOfTea.table.Column;
+import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
@@ -44,6 +45,7 @@ public abstract class IDataFrame {
     public abstract IDataFrame addColumn(int index, String columnName) throws Exception;
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception;
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception;
+    public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception;
     public abstract IDataFrame removeColumn(String columnName);
     public abstract IDataFrame removeColumn(int index);
     public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception;
@@ -53,6 +55,7 @@ public abstract class IDataFrame {
     public abstract IDataFrame filter(IFilter filter) throws Exception;
     public abstract IDataFrame update(HashMap<String, Object> updateColumns) throws Exception;
     public abstract IDataFrame orderBy(Orderer... orderer) throws Exception;
+    
 
     public Integer size(){
         return this.rows.size();

@@ -7,6 +7,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.CupOfTea.table.interfaces.IDataFrame;
+import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
@@ -100,6 +101,26 @@ public class DataFrame extends IDataFrame {
         }
         return this;
     }
+
+    /**
+     * Create a new column whose values are defined by the Column Creator Function
+     * The column will be added to the end of the Data Frame
+     * 
+     * @param columnName Name of the new Column
+     * @param columnCreator Function that defines the values of the new column
+     */
+    @Override
+    public IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception {
+        int index = headers.size();
+        headers.add(index, new Column(columnName, columnCreator.createColumn(this.getRows().get(0)).getClass()));
+
+        for(var row : this.getRows()){
+            row.put(columnName, columnCreator.createColumn(row));
+        }
+        return this;
+    }
+
+    
 
     @Override
     public IDataFrame removeColumn(String columnName) {
