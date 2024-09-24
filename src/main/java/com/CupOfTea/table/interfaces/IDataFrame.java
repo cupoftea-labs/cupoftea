@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 import org.jetbrains.annotations.NotNull;
 
 import com.CupOfTea.table.Column;
+import com.CupOfTea.table.Header;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
@@ -18,9 +19,11 @@ import lombok.Setter;
 public abstract class IDataFrame {
 
     // ToDo ajustar tamanho dos headers para ter o mesmo numero de colunas que o body
-    // ToDo Criar classe do tipo Header?
     @Getter @Setter
     protected ArrayList<Column> headers;
+
+    protected Header header;
+
     // ToDo tratar casos que as linhas tem diferentes quantidades de colunas
     // ToDo ? uma coluna pode ter diferentes tipos de dados ?
     // ToDo liberar o setter?
@@ -32,7 +35,7 @@ public abstract class IDataFrame {
         // ToDo lidar com o limite de memoria do Java com (sun.misc.Unsafe class)
         // https://blogs.oracle.com/javamagazine/post/the-unsafe-class-unsafe-at-any-speed
         this.rows = new ArrayList<>();
-        this.headers = new ArrayList<>();
+        this.header = new Header();
         
     }
 
@@ -46,7 +49,7 @@ public abstract class IDataFrame {
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception;
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception;
     public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception;
-    public abstract IDataFrame removeColumn(String columnName);
+    public abstract IDataFrame removeColumn(String columnName) throws Exception;
     public abstract IDataFrame removeColumn(int index);
     public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception;
     public abstract IDataFrame removeRow(int index);
@@ -63,6 +66,6 @@ public abstract class IDataFrame {
 
 
     public void setHeaders(ArrayList<Column> headers){
-        this.headers = headers;
+        this.header.setHeader(headers);
     }
 }

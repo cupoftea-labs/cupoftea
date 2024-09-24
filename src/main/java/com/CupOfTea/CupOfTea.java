@@ -137,7 +137,7 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea removeColumn(String columnName) {
+    public CupOfTea removeColumn(String columnName) throws Exception {
         this.dataFrame.removeColumn(columnName);
         return this;
     }
