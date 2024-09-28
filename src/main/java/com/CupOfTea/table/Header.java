@@ -87,7 +87,16 @@ public class Header {
         return this.header.get(index);
     }
 
+    public Column get(String columnName) {
+        return this.header.get(header.indexOf(new Column(columnName, null)));
+    }
+
     public void setHeader(ArrayList<Column> header){
         this.header = header;
+    }
+
+    public void alterColumnType(String columnName, Class columnType){
+        int index = this.header.indexOf(new Column(columnName, null));
+        this.header.set(index, new Column(columnName, columnType));
     }
 }

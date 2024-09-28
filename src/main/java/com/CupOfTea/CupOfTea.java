@@ -68,6 +68,10 @@ public class CupOfTea {
         return this.dataFrame.getHeaders();
     }
 
+    public Column getColumnHeader(String columnName){
+        return this.dataFrame.getColumnHeader(columnName);
+    }
+
     public Integer size(){
         return this.dataFrame.size();
     }
@@ -122,6 +126,11 @@ public class CupOfTea {
 
     public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception{
         this.dataFrame.addColumn(index, columnName, data);
+        return this;
+    }
+
+    public CupOfTea alterColumnType(String columnName, Class newColumnType) throws Exception {
+        this.dataFrame.alterColumnType(columnName, newColumnType);
         return this;
     }
 

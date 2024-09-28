@@ -1,12 +1,16 @@
 package com.CupOfTea.table;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.CupOfTea.table.interfaces.IDataFrame;
+import com.CupOfTea.table.interfaces.IDataTypeConverter;
+import com.CupOfTea.utils.ClassFinder;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
@@ -15,6 +19,16 @@ public class DataFrame extends IDataFrame {
 
     public DataFrame(){
         super();
+    }
+
+    @Override
+    public ArrayList<Column> getHeaders() {
+        return this.header.getHeader();
+    }
+
+    @Override
+    public Column getColumnHeader(String columnName) {
+        return this.header.get(columnName);
     }
 
     @Override
@@ -87,7 +101,8 @@ public class DataFrame extends IDataFrame {
         if (data == null) return this.addColumn(index, columnName, (Object) data);
         if (data.size() != this.size()) throw new ArrayIndexOutOfBoundsException();
 
-        header.addColumn(index, new Column(columnName, null));
+        // ToDo Definir o tipo de coluna
+        header.addColumn(index, new Column(columnName, String.class)); 
         int i = 0;
         for (HashMap<String, Object> row : this.rows) {
             row.put(columnName, data.get(i));
@@ -133,6 +148,44 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
+    public IDataFrame alterColumnType(String columnName, Class<?> newColumnType) throws Exception {
+        
+        Class<?> oldColumnType = this.header.get(columnName).columnType();
+
+        HashMap<Class<?>, IDataTypeConverter<?>> converters = this.findConverters();
+        
+        for(var row : this.rows){
+
+            Object value = row.get(columnName);
+            if(value == null) continue;
+            Object convertedValue = converters.get(newColumnType).convert(value, oldColumnType);
+            row.put(columnName, convertedValue);
+
+        }
+            
+        this.header.alterColumnType(columnName, newColumnType);
+
+        return this;
+    }
+
+    private HashMap<Class<?>, IDataTypeConverter<?>> findConverters() throws Exception {
+
+        ClassFinder finder = new ClassFinder();
+        List<Class<?>> classes = finder.findClasses("com.CupOfTea.table.converters");
+
+        HashMap<Class<?>, IDataTypeConverter<?>> converters = new HashMap<>();
+
+        for(var clazz : classes) {
+            Method method = clazz.getMethod("convert", Object.class, Class.class);
+            Class<?> returnType = method.getReturnType();
+            converters.put(returnType, (IDataTypeConverter<?>) clazz.newInstance());
+        }
+
+        return converters;
+
+    }
+
+    @Override
     public IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception {
         // ToDo Verificar se todas as colunas batem com as colunas do header
         return this.addRow(row, true);
@@ -140,6 +193,7 @@ public class DataFrame extends IDataFrame {
 
     private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) throws Exception {
         // ToDo Verificar se todas as colunas batem com as colunas do header
+        // ToDo Realizar o cast dos tipos de coluna para bater com o do header
         if (clone) rows.add((HashMap<String, Object>) row.clone());
         else rows.add(row);
         return this;
@@ -169,10 +223,7 @@ public class DataFrame extends IDataFrame {
         return this;
     }
 
-    @Override
-    public ArrayList<Column> getHeaders() {
-        return this.header.getHeader();
-    }
+   
 
     @Override
     public IDataFrame filter(IFilter filter) throws Exception {

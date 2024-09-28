@@ -14,14 +14,9 @@ import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
 import lombok.Getter;
-import lombok.Setter;
 
 public abstract class IDataFrame {
-
     // ToDo ajustar tamanho dos headers para ter o mesmo numero de colunas que o body
-    @Getter @Setter
-    protected ArrayList<Column> headers;
-
     protected Header header;
 
     // ToDo tratar casos que as linhas tem diferentes quantidades de colunas
@@ -39,6 +34,8 @@ public abstract class IDataFrame {
         
     }
 
+    public abstract ArrayList<Column> getHeaders();
+    public abstract Column getColumnHeader(String columnName);
     public abstract IDataFrame moveColumn(String columnName, int finalIndex);
     public abstract IDataFrame moveColumn(int inicialIndex, int finalIndex);
     public abstract IDataFrame renameColumn(String oldName, String newName);
@@ -51,10 +48,10 @@ public abstract class IDataFrame {
     public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception;
     public abstract IDataFrame removeColumn(String columnName) throws Exception;
     public abstract IDataFrame removeColumn(int index);
+    public abstract IDataFrame alterColumnType(String columnName, Class<?> newColumnType) throws Exception;
     public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception;
     public abstract IDataFrame removeRow(int index);
     public abstract IDataFrame removeRows(IFilter filter) throws Exception;
-    public abstract ArrayList<Column> getHeaders();
     public abstract IDataFrame filter(IFilter filter) throws Exception;
     public abstract IDataFrame update(HashMap<String, Object> updateColumns) throws Exception;
     public abstract IDataFrame orderBy(Orderer... orderer) throws Exception;
