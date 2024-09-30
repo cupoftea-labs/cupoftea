@@ -6,7 +6,7 @@ import com.CupOfTea.CupOfTea;
 
 import junit.framework.TestCase;
 
-public class DataFrameTest extends TestCase{
+public class DataFrameTest extends TestCase {
 
     final String testData =  """
         [
