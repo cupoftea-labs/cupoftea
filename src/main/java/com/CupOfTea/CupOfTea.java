@@ -68,6 +68,10 @@ public class CupOfTea {
         return this.dataFrame.getHeaders();
     }
 
+    public Column getColumnHeader(String columnName){
+        return this.dataFrame.getColumnHeader(columnName);
+    }
+
     public Integer size(){
         return this.dataFrame.size();
     }
@@ -125,6 +129,11 @@ public class CupOfTea {
         return this;
     }
 
+    public CupOfTea alterColumnType(String columnName, Class newColumnType) throws Exception {
+        this.dataFrame.alterColumnType(columnName, newColumnType);
+        return this;
+    }
+
     /**
      * Create a new column whose values are defined by the Column Creator Function
      * The column will be added to the end of the Data Frame
@@ -137,7 +146,7 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea removeColumn(String columnName) {
+    public CupOfTea removeColumn(String columnName) throws Exception {
         this.dataFrame.removeColumn(columnName);
         return this;
     }

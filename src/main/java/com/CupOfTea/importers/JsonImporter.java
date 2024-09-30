@@ -55,6 +55,9 @@ public class JsonImporter implements IJsonImporter {
         }
         for(int i = 0; i < json.length(); i++){
             var jsonObj = json.getJSONObject(i).toMap();
+
+            jsonObj.replaceAll((key, value) -> value.toString());
+
             this.dataFrame.addRow((HashMap<String, Object>) jsonObj);
           
         }

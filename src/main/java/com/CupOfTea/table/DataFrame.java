@@ -1,12 +1,16 @@
 package com.CupOfTea.table;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.CupOfTea.table.interfaces.IDataFrame;
+import com.CupOfTea.table.interfaces.IDataTypeConverter;
+import com.CupOfTea.utils.ClassFinder;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
@@ -18,37 +22,41 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
+    public ArrayList<Column> getHeaders() {
+        return this.header.getHeader();
+    }
+
+    @Override
+    public Column getColumnHeader(String columnName) {
+        return this.header.get(columnName);
+    }
+
+    @Override
     public IDataFrame moveColumn(String columnName, int finalIndex) {
-        int columnIndex = headers.indexOf(new Column(columnName, null));
-        this.moveColumn(columnIndex, finalIndex);
+        this.header.moveColumn(columnName, finalIndex);
         return this;
     }
 
     @Override
-    public IDataFrame moveColumn(int inicialIndex, int finalIndex) {
-        // A Ordem da Coluna é definida pela ordem dos headers
-        String columnName = this.headers.get(inicialIndex).columnName();
-        this.headers.remove(inicialIndex);
-        this.headers.add(finalIndex, new Column(columnName, null));
+    public IDataFrame moveColumn(int initialIndex, int finalIndex) {
+        this.header.moveColumn(initialIndex, finalIndex);
         return this;
     }
 
     @Override
     public IDataFrame renameColumn(String oldName, String newName) {
-        int index = this.headers.indexOf(new Column(oldName, null));
-        renameColumn(index, newName);
+        this.header.renameColumn(oldName, newName);
         return this;
     }
 
     @Override
     public IDataFrame renameColumn(int index, String newName) {
-        String oldName = this.headers.get(index).columnName();
-        this.headers.set(index, new Column(newName, null));
+        String oldName = this.header.get(index).columnName();
+        this.header.renameColumn(index, newName);
         for(var row : this.getRows()){
             row.put(newName, row.get(oldName));
             row.remove(oldName);
         }
-
         return this;
     }
 
@@ -66,7 +74,7 @@ public class DataFrame extends IDataFrame {
      */
     @Override
     public IDataFrame addColumn(String columnName) throws Exception {
-        int index = headers.size();
+        int index = this.header.columnCount();
         this.addColumn(index, columnName);
         return this;
     }
@@ -93,7 +101,8 @@ public class DataFrame extends IDataFrame {
         if (data == null) return this.addColumn(index, columnName, (Object) data);
         if (data.size() != this.size()) throw new ArrayIndexOutOfBoundsException();
 
-        headers.add(index, new Column(columnName, null));
+        // ToDo Definir o tipo de coluna
+        header.addColumn(index, new Column(columnName, String.class)); 
         int i = 0;
         for (HashMap<String, Object> row : this.rows) {
             row.put(columnName, data.get(i));
@@ -111,8 +120,9 @@ public class DataFrame extends IDataFrame {
      */
     @Override
     public IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception {
-        int index = headers.size();
-        headers.add(index, new Column(columnName, columnCreator.createColumn(this.getRows().get(0)).getClass()));
+        int index = header.columnCount();
+
+        this.header.addColumn(index, new Column(columnName, columnCreator.createColumn(this.getRows().get(0)).getClass()));
 
         for(var row : this.getRows()){
             row.put(columnName, columnCreator.createColumn(row));
@@ -120,15 +130,9 @@ public class DataFrame extends IDataFrame {
         return this;
     }
 
-    
-
     @Override
     public IDataFrame removeColumn(String columnName) {
-        // ToDo Tratar caso nao exista a coluna
-        int columnIndex = headers.indexOf(new Column(columnName, null));
-        this.headers.remove(columnIndex);
-
-        // Do it in a new thread for performance improvement?
+        this.header.removeColumn(columnName);
         for(var row : this.rows) {
             row.remove(columnName);
         }
@@ -137,13 +141,50 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame removeColumn(int index) {
+    public IDataFrame removeColumn(int index){
         // ToDo tratar out of bond?
-        String columnName = this.headers.get(index).columnName();
+        String columnName = this.header.get(index).columnName();
         return this.removeColumn(columnName);
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
+    public IDataFrame alterColumnType(String columnName, Class<?> newColumnType) throws Exception {
+        
+        Class<?> oldColumnType = this.header.get(columnName).columnType();
+
+        HashMap<Class<?>, IDataTypeConverter<?>> converters = this.findConverters();
+        
+        for(var row : this.rows){
+
+            Object value = row.get(columnName);
+            if(value == null) continue;
+            Object convertedValue = converters.get(newColumnType).convert(value, oldColumnType);
+            row.put(columnName, convertedValue);
+
+        }
+            
+        this.header.alterColumnType(columnName, newColumnType);
+
+        return this;
+    }
+
+    private HashMap<Class<?>, IDataTypeConverter<?>> findConverters() throws Exception {
+
+        ClassFinder finder = new ClassFinder();
+        List<Class<?>> classes = finder.findClasses("com.CupOfTea.table.converters");
+
+        HashMap<Class<?>, IDataTypeConverter<?>> converters = new HashMap<>();
+
+        for(var clazz : classes) {
+            Method method = clazz.getMethod("convert", Object.class, Class.class);
+            Class<?> returnType = method.getReturnType();
+            converters.put(returnType, (IDataTypeConverter<?>) clazz.newInstance());
+        }
+
+        return converters;
+
+    }
+
     @Override
     public IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception {
         // ToDo Verificar se todas as colunas batem com as colunas do header
@@ -152,6 +193,7 @@ public class DataFrame extends IDataFrame {
 
     private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) throws Exception {
         // ToDo Verificar se todas as colunas batem com as colunas do header
+        // ToDo Realizar o cast dos tipos de coluna para bater com o do header
         if (clone) rows.add((HashMap<String, Object>) row.clone());
         else rows.add(row);
         return this;
@@ -181,17 +223,12 @@ public class DataFrame extends IDataFrame {
         return this;
     }
 
-    @Override
-    public ArrayList<Column> getHeaders() {
-        return this.headers;
-    }
+   
 
     @Override
     public IDataFrame filter(IFilter filter) throws Exception {
 
         DataFrame filteredDF = new DataFrame();
-
-        // filteredDF.setHeaders(this.headers);
 
         for(var row : this.rows){
             if(filter.filter(row)){
