@@ -4,4 +4,8 @@ import junit.framework.TestCase;
 
 public class CSVExporterTest extends TestCase{
 
+    public void test() {
+        
+    }
+
 }

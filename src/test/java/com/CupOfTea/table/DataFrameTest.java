@@ -68,7 +68,7 @@ public class DataFrameTest extends TestCase {
         ;
 
         assertEquals(expectedFirstRow, (String) df.getRow(0).get("FullName"));
-        assertEquals(expectedColumnType, df.getHeaders().getLast().columnType());
+        assertEquals(expectedColumnType, df.getHeaders().get(df.getHeaders().size() - 1).columnType());
 
     }
 

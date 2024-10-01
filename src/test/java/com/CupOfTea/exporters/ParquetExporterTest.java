@@ -4,4 +4,8 @@ import junit.framework.TestCase;
 
 public class ParquetExporterTest extends TestCase {
 
+    public void test() {
+        
+    }
+
 }
