@@ -4,4 +4,8 @@ import junit.framework.TestCase;
 
 public class DoubleConverterTest extends TestCase {
 
+    public void test() {
+        
+    }
+
 }

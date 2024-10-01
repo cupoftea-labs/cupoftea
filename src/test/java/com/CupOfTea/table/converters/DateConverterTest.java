@@ -4,4 +4,8 @@ import junit.framework.TestCase;
 
 public class DateConverterTest extends TestCase {
 
+    public void test() {
+        
+    }
+
 }

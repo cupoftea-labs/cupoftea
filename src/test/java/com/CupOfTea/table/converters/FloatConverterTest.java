@@ -4,4 +4,8 @@ import junit.framework.TestCase;
 
 public class FloatConverterTest extends TestCase {
 
+    public void test() {
+        
+    }
+
 }
