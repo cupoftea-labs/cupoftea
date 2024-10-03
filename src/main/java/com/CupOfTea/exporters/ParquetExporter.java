@@ -5,8 +5,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaBuilder;
-import org.apache.avro.SchemaBuilder.FieldAssembler;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.hadoop.conf.Configuration;
@@ -38,18 +36,32 @@ public class ParquetExporter implements IParquetExporter {
      */
     @Override
     public void exportToParquet(File file) throws Exception {
-        FieldAssembler assembler = SchemaBuilder
-                                    .record("DataFrame") // Todo Ver melhor forma de definir record name
-                                    .namespace("com.CupOfTea") // Todo ver melhor forma de definir namespace
-                                    .fields();
+        // FieldAssembler assembler = SchemaBuilder
+        //                             .record("DataFrame") // Todo Ver melhor forma de definir record name
+        //                             .namespace("com.CupOfTea") // Todo ver melhor forma de definir namespace
+        //                             .fields();
 
         ArrayList<Column> headers = this.dataFrame.getHeaders();
 
-        for (Column header : headers){
-            assembler.requiredString(header.columnName());
-        }
+        // for (Column header : headers){
+        //     assembler.requiredString(header.columnName());
+        // }
 
-        Schema schema = (Schema) assembler.endRecord();
+        String schemaJson = """
+            {
+                "type": "record",
+                "name": "User",
+                "fields": [
+                    {"name": "id", "type": "int"},
+                    {"name": "name", "type": "string"},
+                    {"name": "age", "type": "int"},
+                    {"name": "balance", "type": "double"},
+                    {"name": "isActive", "type": "boolean"}
+                ]
+            }        
+        """;
+
+        Schema schema = new Schema.Parser().parse(schemaJson);
         
         Path path = new Path(file.toString());
         Configuration conf = new Configuration();

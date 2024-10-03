@@ -12,6 +12,7 @@ import org.json.JSONArray;
 import org.w3c.dom.Document;
 
 import com.CupOfTea.exporters.CSVExporter;
+import com.CupOfTea.exporters.JsonExporter;
 import com.CupOfTea.exporters.ParquetExporter;
 import com.CupOfTea.exporters.interfaces.ICSVExporter;
 import com.CupOfTea.exporters.interfaces.IJsonExporter;
@@ -200,6 +201,21 @@ public class CupOfTea {
 
     }
 
+    public CupOfTea exportToJson(File file) throws Exception {
+
+        jsonExporter = new JsonExporter(this);
+        jsonExporter.exportToJson(file);
+        return this;
+
+    }
+
+    public JSONArray exportToJson() throws Exception {
+
+        jsonExporter = new JsonExporter(this);
+        JSONArray json = jsonExporter.exportToJson();
+        return json;
+
+    }
     
     public CupOfTea exportToCsv(File file) throws Exception {
 
