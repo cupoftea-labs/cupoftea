@@ -51,28 +51,49 @@ public class ParquetImporter implements IParquetImporter {
                     if(setHeaders){
                         Class<?> columnType;
                         
-                    switch(fieldType){
-                        case NULL -> columnType = null;
-                        case BOOLEAN -> columnType = Boolean.class;
-                        case INT -> columnType = Integer.class;
-                        case LONG -> columnType = Long.class;
-                        case FLOAT -> columnType = Float.class;
-                        case DOUBLE -> columnType = Double.class;
-                        case BYTES -> columnType = Byte.class;
-                        case STRING -> columnType = String.class;
-                        case RECORD -> columnType = null; // Not Implemented Yet
-                        case ENUM -> columnType = null; // Not Implemented Yet
-                        case ARRAY -> columnType = null; // Not Implemented Yet
-                        case MAP -> columnType = null; // Not Implemented Yet
-                        case UNION -> columnType = Object.class; 
-                        case FIXED -> columnType = null; // Not Implemented Yet
-                        default -> columnType = null;
-                    }
+                        switch(fieldType){
+                            case NULL -> columnType = null;
+                            case BOOLEAN -> columnType = Boolean.class;
+                            case INT -> columnType = Integer.class;
+                            case LONG -> columnType = Long.class;
+                            case FLOAT -> columnType = Float.class;
+                            case DOUBLE -> columnType = Double.class;
+                            case BYTES -> columnType = Byte.class;
+                            case STRING -> columnType = String.class;
+                            case RECORD -> columnType = null; // Not Implemented Yet
+                            case ENUM -> columnType = null; // Not Implemented Yet
+                            case ARRAY -> columnType = null; // Not Implemented Yet
+                            case MAP -> columnType = null; // Not Implemented Yet
+                            case UNION -> columnType = Object.class; 
+                            case FIXED -> columnType = null; // Not Implemented Yet
+                            default -> columnType = null;
+                        }
 
                         headers.add(new Column(field.name(), columnType));
                     }
 
-                    row.put(field.name(), record.get(field.name()).toString());
+                    Object value;
+
+                    switch(fieldType){
+                        // case NULL -> value = ?;
+                        // case BOOLEAN -> value = ?;
+                        case INT -> value = record.get(field.name());
+                        // case LONG -> value = ?;
+                        // case FLOAT -> value = ?;
+                        // case DOUBLE -> value = ?;
+                        // case BYTES -> value = ?;
+                        case STRING ->  value = record.get(field.name()).toString();
+                        // case RECORD -> value = ?;
+                        // case ENUM -> value = ?;
+                        // case ARRAY -> value = ?;
+                        // case MAP -> value = ?;
+                        // case UNION -> value = ?;
+                        // case FIXED -> value = ?;
+                        default -> value = record.get(field.name()).toString();
+                    }
+
+                    row.put(field.name(), value);
+
                 }
                 if(setHeaders){
                     this.dataFrame.setHeaders(headers);

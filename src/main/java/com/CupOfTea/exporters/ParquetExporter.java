@@ -13,6 +13,8 @@ import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exporters.interfaces.IParquetExporter;
@@ -36,32 +38,35 @@ public class ParquetExporter implements IParquetExporter {
      */
     @Override
     public void exportToParquet(File file) throws Exception {
-        // FieldAssembler assembler = SchemaBuilder
-        //                             .record("DataFrame") // Todo Ver melhor forma de definir record name
-        //                             .namespace("com.CupOfTea") // Todo ver melhor forma de definir namespace
-        //                             .fields();
 
         ArrayList<Column> headers = this.dataFrame.getHeaders();
 
-        // for (Column header : headers){
-        //     assembler.requiredString(header.columnName());
-        // }
+        JSONArray fields = new JSONArray();
 
-        String schemaJson = """
-            {
-                "type": "record",
-                "name": "User",
-                "fields": [
-                    {"name": "id", "type": "int"},
-                    {"name": "name", "type": "string"},
-                    {"name": "age", "type": "int"},
-                    {"name": "balance", "type": "double"},
-                    {"name": "isActive", "type": "boolean"}
-                ]
-            }        
-        """;
+        for(var column : this.dataFrame.getHeaders()){
+            Class<?> columnType = column.columnType();
+            String type;
 
-        Schema schema = new Schema.Parser().parse(schemaJson);
+            if(columnType == String.class){
+                type = "string";
+            } else if (columnType == Integer.class) {
+                type = "int";
+            } else {
+                type = "union";
+            }
+
+            fields.put(new JSONObject().put("name", column.columnName()).put("type", type));
+        }
+        
+        JSONObject schemaJson = new JSONObject();
+
+        schemaJson
+                .put("type", "record")
+                .put("name", "DataFrame")
+                .put("fields", fields)
+            ;
+
+        Schema schema = new Schema.Parser().parse(schemaJson.toString());
         
         Path path = new Path(file.toString());
         Configuration conf = new Configuration();
@@ -77,7 +82,7 @@ public class ParquetExporter implements IParquetExporter {
                 GenericRecord record = new GenericData.Record(schema);
                 for (int i = 0; i < data.size(); i++){
                     String header = headers.get(i).columnName();
-                    record.put(header, data.get(header).toString());
+                    record.put(header, data.get(header));
                 }
                 writer.write(record);
             }
