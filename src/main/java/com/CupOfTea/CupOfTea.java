@@ -4,6 +4,7 @@ import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
@@ -33,6 +34,7 @@ import com.CupOfTea.importers.interfaces.IXmlImporter;
 import com.CupOfTea.importers.interfaces.IYamlImporter;
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.DataFrame;
+import com.CupOfTea.table.Group;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.Printer;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
@@ -370,7 +372,117 @@ public class CupOfTea {
         }
 		this.dataFrame.setHeaders(columns);
         return this;
+    }
+
+
+    /**
+     * Retorna um novo DataFrame com colunas de dados agrupados, que podem ser tratados posteriormente
+     * 
+     */
+    public CupOfTea groupBy(String... columns) throws Exception {
+
+        // ToDo Garantir que o Novo DataFrame não influencia o antigo
+
+        CupOfTea groupedDataFrame = new CupOfTea();
+
+        // groupedDataFrame.setHeaders(this.getHeaders());
+
+        List<Column> columnsToGroup = this.getHeaders().stream().filter((a) -> {
+            for(var column : columns){
+                if(a.columnName().equals(column)) return false;
+            }
+            return true;
+            })
+            // .map((a) -> new Column(a.columnName(), Group.class))
+            .collect(Collectors.toList());
+
+        for(var column : columns) {
+            groupedDataFrame.getHeaders().add(this.getColumnHeader(column));
+        }
+        
+
+        for(var row : this.getRows()){
+
+            var temp_df = groupedDataFrame.filter((a) -> {
+                for(var column : columns){
+                    if(!a.get(column).equals(row.get(column))) return false;
+                }
+                return true;
+                
+            });
+
+            if(temp_df.getRows().size() == 1) {
+                for(var column : columnsToGroup) {
+                    Object value = row.get(column.columnName());
+                    Group groupedValue = (Group) temp_df.getRow(0).get(column.columnName());
+                    groupedValue.groupedValues.add(value);
+                }
+            } else {
+                HashMap<String, Object> groupedRow = new HashMap<>();
+
+                for (var column : columnsToGroup) {
+                    Group group = new Group(row.get(column.columnName()), column.columnType());
+                    groupedRow.put(column.columnName(), group);
+                }
+                for (var column : columns) {
+                    groupedRow.put(column, row.get(column));
+                }
+                groupedDataFrame.addRow(groupedRow);
+            }
         }
 
+        columnsToGroup.stream()
+            .map((a) -> new Column(a.columnName(), Group.class))
+            .forEach((a) -> groupedDataFrame.getHeaders().add(a));        
 
+        return groupedDataFrame;
+    }
+
+    public CupOfTea sum(String column) throws Exception { 
+
+        Column groupedColumn = this.getColumnHeader(column);
+
+        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+
+        for(var row : this.getRows()) {
+            Object sum = null;
+            Group value = (Group) row.get(column);
+
+            if(value.getColumnType() == Integer.class) {
+                Integer integerSum = 0;
+                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
+                    integerSum += (Integer) valuesToSum;
+                }             
+                sum = integerSum;    
+            }
+            String columnName = "SumOf"+column;
+            this.getHeaders().add(new Column(columnName, Integer.class));
+            row.put(columnName, sum);
+        }
+
+        return this;
+    }
+
+    public CupOfTea average(String column) throws Exception {
+
+        return this;
+    }
+
+    public CupOfTea maximum(String column) throws Exception {
+
+        return this;
+    }
+
+    public CupOfTea minimum (String column) throws Exception {
+
+        return this;
+    }
+
+    public CupOfTea count() throws Exception {
+        return this;
+    }
+
+    public CupOfTea aggregate(String column) throws Exception {
+        return this;
+    }
 }
