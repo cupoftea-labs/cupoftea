@@ -454,7 +454,15 @@ public class CupOfTea {
                     integerSum += (Integer) valuesToSum;
                 }             
                 sum = integerSum;    
+            } else if (value.getColumnType() == Double.class){
+                Double integerSum = 0.0;
+                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
+                    integerSum += (Double) valuesToSum;
+                }             
+                sum = integerSum;
             }
+
+
             String columnName = "SumOf"+column;
             this.getHeaders().add(new Column(columnName, Integer.class));
             row.put(columnName, sum);
