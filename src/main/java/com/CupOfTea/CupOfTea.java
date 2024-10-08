@@ -441,7 +441,7 @@ public class CupOfTea {
     public CupOfTea sum(String column) throws Exception { 
 
         Column groupedColumn = this.getColumnHeader(column);
-
+        Class<?> finalColumnType = null;
         if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
 
         for(var row : this.getRows()) {
@@ -450,21 +450,23 @@ public class CupOfTea {
 
             if(value.getColumnType() == Integer.class) {
                 Integer integerSum = 0;
+                finalColumnType = Integer.class;
                 for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
                     integerSum += (Integer) valuesToSum;
                 }             
                 sum = integerSum;    
             } else if (value.getColumnType() == Double.class){
-                Double integerSum = 0.0;
+                finalColumnType = Double.class;
+                Double doubleSum = 0.0;
                 for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
-                    integerSum += (Double) valuesToSum;
+                    doubleSum += (Double) valuesToSum;
                 }             
-                sum = integerSum;
+                sum = doubleSum;
             }
 
 
-            String columnName = "SumOf"+column;
-            this.getHeaders().add(new Column(columnName, Integer.class));
+            String columnName = column+"Sum";
+            this.getHeaders().add(new Column(columnName, finalColumnType));
             row.put(columnName, sum);
         }
 
@@ -472,6 +474,39 @@ public class CupOfTea {
     }
 
     public CupOfTea average(String column) throws Exception {
+
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = null;
+
+        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+
+        for(var row : this.getRows()) {
+            Object average = null;
+            Group value = (Group) row.get(column);
+
+            if(value.getColumnType() == Integer.class) {
+                finalColumnType = Double.class;
+                Integer integerSum = 0;
+                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
+                    integerSum += (Integer) valuesToSum;
+                }
+                
+                average = Double.valueOf(integerSum) / Double.valueOf(((Group) row.get(column)).groupedValues.size());
+
+            } else if (value.getColumnType() == Double.class){
+                finalColumnType = Double.class;
+                Double doubleSum = 0.0;
+                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
+                    doubleSum += (Double) valuesToSum;
+                }             
+                average = doubleSum / Double.valueOf(((Group) row.get(column)).groupedValues.size());
+            }
+
+
+            String columnName = column+"Average";
+            this.getHeaders().add(new Column(columnName,finalColumnType));
+            row.put(columnName, average);
+        }
 
         return this;
     }
