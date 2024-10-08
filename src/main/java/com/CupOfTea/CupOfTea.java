@@ -3,6 +3,7 @@ package com.CupOfTea;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -513,10 +514,75 @@ public class CupOfTea {
 
     public CupOfTea maximum(String column) throws Exception {
 
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = null;
+        String columnName = column+"Maximum";
+
+        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+
+        for(var row : this.getRows()) {
+            Object maximum = null;
+            Group value = (Group) row.get(column);
+
+            if(value.getColumnType() == Integer.class) {
+                Integer maximumValue = 0;
+                finalColumnType = Integer.class;
+
+                maximumValue = Collections.max(((Group) row.get(column)).groupedValues.stream().map(a -> (Integer) a).collect(Collectors.toList()));
+        
+                maximum = maximumValue;    
+
+            } else if (value.getColumnType() == Double.class){
+                Double maximumValue = 0.0;
+                finalColumnType = Double.class;
+
+                maximumValue = Collections.max(((Group) row.get(column)).groupedValues.stream().map(a -> (Double) a).collect(Collectors.toList()));
+        
+                maximum = maximumValue;    
+            }
+
+            row.put(columnName, maximum);
+        }
+
+        this.getHeaders().add(new Column(columnName, finalColumnType));
+
         return this;
     }
 
     public CupOfTea minimum (String column) throws Exception {
+
+        
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = null;
+        String columnName = column+"Minimum";
+
+        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+
+        for(var row : this.getRows()) {
+            Object minimum = null;
+            Group value = (Group) row.get(column);
+
+            if(value.getColumnType() == Integer.class) {
+                Integer minimumValue = 0;
+                finalColumnType = Integer.class;
+
+                minimumValue = Collections.min(((Group) row.get(column)).groupedValues.stream().map(a -> (Integer) a).collect(Collectors.toList()));
+        
+                minimum = minimumValue;    
+
+            } else if (value.getColumnType() == Double.class){
+                Double minimumValue = 0.0;
+                finalColumnType = Double.class;
+
+                minimumValue = Collections.min(((Group) row.get(column)).groupedValues.stream().map(a -> (Double) a).collect(Collectors.toList()));
+        
+                minimum = minimumValue;    
+            }
+
+            row.put(columnName, minimum);
+        }
+
+        this.getHeaders().add(new Column(columnName, finalColumnType));
 
         return this;
     }
