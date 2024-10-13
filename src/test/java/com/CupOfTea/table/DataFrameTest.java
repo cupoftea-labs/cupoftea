@@ -29,6 +29,12 @@ public class DataFrameTest extends TestCase {
                 "price": 58749.87
             },
             {
+                "car": "Mitsubishi",
+                "model": "Lancer",
+                "year": 2016,
+                "price": 65000.33
+            },
+            {
                 "car": "Fiat",
                 "model": "Uno",
                 "year": 1999,
@@ -45,7 +51,7 @@ public class DataFrameTest extends TestCase {
 
     public void test_GivenADataFrame_WhenTryingToRemoveSomeFilteredRows_ThenShouldRemoveTheCorrectRowsOutOfTheDataFrame() throws Exception {
 
-        int expectedRowsNumber = 3;
+        int expectedRowsNumber = 4;
 
         CupOfTea df = new CupOfTea();
 
@@ -139,6 +145,29 @@ public class DataFrameTest extends TestCase {
         ;
 
         assertEquals(expectedColumnType, df.getColumnHeader(columnToChangeType).columnType());
-        assertEquals(expectedLastRowYear, df.getRows().get(5).get(columnToChangeType));
+        assertEquals(expectedLastRowYear, df.getRows().get(df.getRows().size() - 1).get(columnToChangeType));
+    }
+
+    public void test_givenADataFrame_WhenGroupingByAndSumingValues_ThenShouldCreateANewColumnWithTheSumOfTheValues() throws Exception {
+
+        String columnToSum = "price";
+        String columnToGroupBy = "car";
+        Double expectedSum = 123750.20000000001;
+        Class<?> expectedColumnType = Double.class;
+
+        CupOfTea df = new CupOfTea();
+
+        CupOfTea gdf = df.importFromJson(testData)
+            .alterColumnType(columnToSum, expectedColumnType)
+            .groupBy(columnToGroupBy)
+            .sum(columnToSum)
+            .print()
+        ;
+
+        Object sum = gdf.filter(a -> a.get(columnToGroupBy).equals("Mitsubishi"))
+        .getRow(0).get(columnToSum+"Sum");
+
+        assertEquals(expectedSum, sum);
+
     }
 }
