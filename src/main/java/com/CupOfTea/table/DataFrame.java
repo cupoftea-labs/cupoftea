@@ -230,6 +230,8 @@ public class DataFrame extends IDataFrame {
 
         DataFrame filteredDF = new DataFrame();
 
+        filteredDF.setHeaders(this.getHeaders());
+
         for(var row : this.rows){
             if(filter.filter(row)){
                 filteredDF.addRow(row, false);

@@ -1,9 +1,11 @@
 package com.CupOfTea.utils;
 
-import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.table.Column;
+import com.CupOfTea.table.Group;
 import com.CupOfTea.utils.interfaces.IPrinter;
 
 public class Printer implements IPrinter {
@@ -15,10 +17,9 @@ public class Printer implements IPrinter {
         this.dataFrame = dataFrame;
     }
 
-
     // ToDo ajustar tamanho das colunas
     // ToDo refatorar esse metodo
-    // ToDo criar sobrecarga para escolhar quantas linhas printar
+    // ToDo criar classe de configuracao para editar o print
     // ToDo adicionar ao lado do nome da coluna o formato da coluna
     // ToDo melhorar descrição da tabela
 
@@ -30,7 +31,7 @@ public class Printer implements IPrinter {
         System.out.print('\u250C');
         System.out.print(String.valueOf('\u2500').repeat((22)));
 
-        ArrayList<Column> headers = this.dataFrame.getHeaders();
+        List<Column> headers = this.dataFrame.getHeaders().stream().filter(a -> a.columnType() != Group.class).collect(Collectors.toList());
 
         for(int i = 0; i < headers.size() - 1; i++) {
             System.out.print('\u252C');
@@ -60,7 +61,7 @@ public class Printer implements IPrinter {
         for (int i = 0; i < 10 && i < dataFrame.size(); i++) {
             System.out.print('\u2502'+" ");
 
-            for (var column : this.dataFrame.getHeaders()){
+            for (var column : headers){
                 Object rowColumn = this.dataFrame.getRow(i).get(column.columnName());
                 String rowData = rowColumn == null ? "null" : rowColumn.toString();
                 int length = rowData.length();
