@@ -9,9 +9,8 @@ import java.util.stream.Collectors;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exporters.configurations.CSVExporterConfiguration;
-import com.CupOfTea.exporters.interfaces.ICSVExporter;
 
-public class CSVExporter implements ICSVExporter {
+public class CSVExporter {
 
     private final CupOfTea dataFrame;
     private CSVExporterConfiguration configuration;
@@ -28,7 +27,6 @@ public class CSVExporter implements ICSVExporter {
      * @param file path to your CSV file. Can't be null.
      * @throws if the file already exists throws an Exception
      */
-    @Override
     public void exportToCsv(File file) throws Exception {
         // ToDo String deve gerar o CSV com ""?
         // ToDo Throws an Exception in case the file already exists
@@ -57,7 +55,6 @@ public class CSVExporter implements ICSVExporter {
      * @param file path to your CSV file. Can't be null.
      * @throws if the file already exists throws an Exception
      */
-    @Override
     public void exportToCsv(File file, CSVExporterConfiguration configuration) throws Exception {
         this.configuration = configuration;
 
