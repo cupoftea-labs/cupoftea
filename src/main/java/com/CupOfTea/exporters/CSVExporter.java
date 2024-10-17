@@ -3,12 +3,16 @@ package com.CupOfTea.exporters;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
+import javax.xml.bind.annotation.XmlElement.DEFAULT;
+
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exporters.configurations.CSVExporterConfiguration;
+import com.CupOfTea.exporters.configurations.CSVExporterConfiguration.QuoteBehaviour;
 
 public class CSVExporter {
 
@@ -28,18 +32,39 @@ public class CSVExporter {
      * @throws if the file already exists throws an Exception
      */
     public void exportToCsv(File file) throws Exception {
-        // ToDo String deve gerar o CSV com ""?
-        // ToDo Throws an Exception in case the file already exists
-        // ToDo Throws an Exception in case the file is null
+        // ToDo Throws an Exception in case the file already exists?
+
+        if (file == null) throw new Exception("File can not be null");
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            String header = String.join(this.configuration.getSeparator(), this.dataFrame.getHeaders().stream().map(a -> a.columnName()).toList()) + this.configuration.getLineEndString();
-        
+            String header = String.join(
+                this.configuration.getSeparator(),
+                this.dataFrame.getHeaders().stream()
+                    .map(a -> a.columnName())
+                    .toList()
+                ) + this.configuration.getLineEndString()
+            ;
+
             writer.write(header);
             
             for (HashMap<String, Object> data :  this.dataFrame.getRows()){
                 ArrayList<String> dataArr = (ArrayList<String>) this.dataFrame.getHeaders().stream()
-                        .map((i -> data.get(i.columnName()).toString()))
+                        .map(i -> 
+                            {   
+                                String quote;
+
+                                switch(this.configuration.getQuoteBehaviour()) {
+                                    case ALL -> quote = this.configuration.getQuoteString();
+                                    case ALL_BUT_NUMBERS -> quote = Number.class.isAssignableFrom(i.columnType()) ? "" : this.configuration.getQuoteString();
+                                    case STRING_ONLY -> quote = i.columnType() == String.class ? this.configuration.getQuoteString() : "";
+                                    case NONE -> quote = "";
+                                    default -> quote = "";
+                                }
+
+                                String field = quote + data.get(i.columnName()).toString() + quote;
+                                return field;
+                            }
+                        )
                         .collect(Collectors.toList())
                         ;
                 

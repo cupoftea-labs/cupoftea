@@ -8,16 +8,16 @@ import lombok.Getter;
 public class CSVExporterConfiguration {
 
     public enum QuoteBehaviour {
-
+        NONE,
         ALL,
-        ALL_BUT_NUMBERS; 
-
+        ALL_BUT_NUMBERS,
+        STRING_ONLY,
+        ; 
     }
-
 
     private String separator = ",";
     private QuoteBehaviour quoteBehaviour = ALL;
-    private String quoteString = null;
+    private String quoteString = "";
     private String lineEndString = "\n";
     private String escapeString = "\\";
     
@@ -29,7 +29,7 @@ public class CSVExporterConfiguration {
         return this;
     }
 
-    public CSVExporterConfiguration setFieldWrapperBehaviour (QuoteBehaviour quoteBehaviour) {
+    public CSVExporterConfiguration setQuoteBehaviour (QuoteBehaviour quoteBehaviour) {
 
         this.quoteBehaviour = quoteBehaviour;
 
