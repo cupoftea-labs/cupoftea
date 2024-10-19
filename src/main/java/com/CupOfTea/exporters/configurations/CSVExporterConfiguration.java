@@ -1,5 +1,6 @@
 package com.CupOfTea.exporters.configurations;
 
+import static com.CupOfTea.exporters.configurations.CSVExporterConfiguration.HeadersPlacement.TOP;
 import static com.CupOfTea.exporters.configurations.CSVExporterConfiguration.QuoteBehaviour.ALL;
 
 import lombok.Getter;
@@ -11,20 +12,31 @@ public class CSVExporterConfiguration {
         NONE,
         ALL,
         ALL_BUT_NUMBERS,
+        ALL_BUT_NULL,
         STRING_ONLY,
+        HEADERS_ONLY,
         ; 
     }
 
-    private String separator = ",";
+    public enum HeadersPlacement {
+        TOP,
+        BOTTOM,
+        NO_HEADER,
+        ;
+    }
+
+    private String delimiter = ",";
     private QuoteBehaviour quoteBehaviour = ALL;
+    private HeadersPlacement headersPlacement = TOP;
     private String quoteString = "";
     private String lineEndString = "\n";
     private String escapeString = "\\";
-    
+    private String stringNull = "null";
 
-    public CSVExporterConfiguration setSeparator (String separator) {
 
-        this.separator = (separator == null ? "" : separator);
+    public CSVExporterConfiguration setDelimiter (String delimiter) {
+
+        this.delimiter = (delimiter == null ? "" : delimiter);
 
         return this;
     }
@@ -35,6 +47,12 @@ public class CSVExporterConfiguration {
 
         return this;
 
+    }
+
+    public CSVExporterConfiguration setHeadersPlacement (HeadersPlacement headersPlacement) {
+        this.headersPlacement = headersPlacement;
+        
+        return this;
     }
 
     public CSVExporterConfiguration setQuoteString (String quoteString) {
@@ -59,6 +77,12 @@ public class CSVExporterConfiguration {
 
         return this; 
 
+    }
+
+    public CSVExporterConfiguration setStringNull(String stringNull) {
+        this.stringNull = stringNull;
+
+        return this;
     }
 
 }

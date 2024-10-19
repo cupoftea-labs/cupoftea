@@ -3,16 +3,13 @@ package com.CupOfTea.exporters;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
-import javax.xml.bind.annotation.XmlElement.DEFAULT;
-
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exporters.configurations.CSVExporterConfiguration;
-import com.CupOfTea.exporters.configurations.CSVExporterConfiguration.QuoteBehaviour;
+import static com.CupOfTea.exporters.configurations.CSVExporterConfiguration.HeadersPlacement.*;
 
 public class CSVExporter {
 
@@ -37,40 +34,29 @@ public class CSVExporter {
         if (file == null) throw new Exception("File can not be null");
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            String header = String.join(
-                this.configuration.getSeparator(),
+            String header = null;
+            
+            if(this.configuration.getHeadersPlacement() != NO_HEADER) header = String.join(
+                this.configuration.getDelimiter(),
                 this.dataFrame.getHeaders().stream()
-                    .map(a -> a.columnName())
+                    .map(a ->  this.prepareFieldValue(a.columnName(), a.columnType(), true))
                     .toList()
                 ) + this.configuration.getLineEndString()
             ;
 
-            writer.write(header);
+            if (this.configuration.getHeadersPlacement() == TOP) writer.write(header);
             
             for (HashMap<String, Object> data :  this.dataFrame.getRows()){
                 ArrayList<String> dataArr = (ArrayList<String>) this.dataFrame.getHeaders().stream()
-                        .map(i -> 
-                            {   
-                                String quote;
-
-                                switch(this.configuration.getQuoteBehaviour()) {
-                                    case ALL -> quote = this.configuration.getQuoteString();
-                                    case ALL_BUT_NUMBERS -> quote = Number.class.isAssignableFrom(i.columnType()) ? "" : this.configuration.getQuoteString();
-                                    case STRING_ONLY -> quote = i.columnType() == String.class ? this.configuration.getQuoteString() : "";
-                                    case NONE -> quote = "";
-                                    default -> quote = "";
-                                }
-
-                                String field = quote + data.get(i.columnName()).toString() + quote;
-                                return field;
-                            }
-                        )
-                        .collect(Collectors.toList())
-                        ;
+                    .map(i -> this.prepareFieldValue(data.get(i.columnName()).toString(), i.columnType(), false))
+                    .collect(Collectors.toList())
+                    ;
                 
-                String dataStr = String.join(this.configuration.getSeparator(), dataArr.toArray(String[]::new)) + this.configuration.getLineEndString();
+                String dataStr = String.join(this.configuration.getDelimiter(), dataArr.toArray(String[]::new)) + this.configuration.getLineEndString();
                 writer.write(dataStr);
             }
+
+            if (this.configuration.getHeadersPlacement() == BOTTOM) writer.write(header);
         }
     }
 
@@ -87,5 +73,22 @@ public class CSVExporter {
 
     }
 
+    private String prepareFieldValue(String fieldValue, Class<?> columnType, Boolean isHeader){
+        String quote;
+
+        switch(this.configuration.getQuoteBehaviour()) {
+            case ALL -> quote = this.configuration.getQuoteString();
+            case ALL_BUT_NUMBERS -> quote = (Number.class.isAssignableFrom(columnType) && !isHeader ? "" : this.configuration.getQuoteString());
+            case ALL_BUT_NULL -> quote = (fieldValue == null ?  "" : this.configuration.getQuoteString());
+            case STRING_ONLY -> quote = columnType == String.class ? this.configuration.getQuoteString() : "";
+            case HEADERS_ONLY -> quote = (isHeader ? this.configuration.getQuoteString() : "");
+            case NONE -> quote = "";
+            default -> quote = "";
+        }
+
+        String field = quote + (fieldValue == null ? this.configuration.getStringNull() : fieldValue) + quote;
+
+        return field;
+    }
 
 }
