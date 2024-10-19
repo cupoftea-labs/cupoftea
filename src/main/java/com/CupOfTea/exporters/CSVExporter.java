@@ -29,7 +29,7 @@ public class CSVExporter {
      * @throws if the file already exists throws an Exception
      */
     public void exportToCsv(File file) throws Exception {
-        // ToDo Throws an Exception in case the file already exists?
+        // Todo implement Escape String
 
         if (file == null) throw new Exception("File can not be null");
 
