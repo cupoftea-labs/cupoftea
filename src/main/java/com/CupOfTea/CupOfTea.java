@@ -16,7 +16,7 @@ import org.w3c.dom.Document;
 import com.CupOfTea.exporters.CSVExporter;
 import com.CupOfTea.exporters.JsonExporter;
 import com.CupOfTea.exporters.ParquetExporter;
-import com.CupOfTea.exporters.interfaces.ICSVExporter;
+import com.CupOfTea.exporters.configurations.CSVExporterConfiguration;
 import com.CupOfTea.exporters.interfaces.IJsonExporter;
 import com.CupOfTea.exporters.interfaces.IParquetExporter;
 import com.CupOfTea.exporters.interfaces.IYamlExporter;
@@ -47,7 +47,7 @@ public class CupOfTea {
 
     private IDataFrame dataFrame;
 
-    private ICSVExporter csvExporter;
+    private CSVExporter csvExporter;
     private IJsonExporter jsonExporter;
     private IParquetExporter parquetExporter;
     private IYamlExporter yamlExporter;
@@ -224,6 +224,14 @@ public class CupOfTea {
 
         csvExporter = new CSVExporter(this);
         csvExporter.exportToCsv(file);
+        return this;
+
+    }
+
+    public CupOfTea exportToCsv(File file, CSVExporterConfiguration configuration) throws Exception {
+
+        csvExporter = new CSVExporter(this);
+        csvExporter.exportToCsv(file, configuration);
         return this;
 
     }
