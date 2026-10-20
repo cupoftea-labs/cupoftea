@@ -11,13 +11,13 @@ public class DoubleConverter implements IDataTypeConverter<Double> {
             return null;
         }
 
-        if (Double.class.isAssignableFrom(value.getClass())) {
+        if (value instanceof Double) {
             return (Double) value;
         }
 
         Double convertedValue;
 
-        if (oldColumnType == Integer.class || (value instanceof Number && !(value instanceof Double))) {
+        if (value instanceof Number) {
             convertedValue = ((Number) value).doubleValue();
         } else if (oldColumnType == String.class) {
             try {
@@ -25,8 +25,6 @@ public class DoubleConverter implements IDataTypeConverter<Double> {
             } catch (NumberFormatException e) {
                 throw new ConversionException("Cannot convert string '" + value + "' to Double", e);
             }
-        } else if (oldColumnType == Float.class) {
-            convertedValue = ((Float) value).doubleValue();
         } else {
             throw new ConversionException("Column type not supported for Double conversion: "
                     + (oldColumnType != null ? oldColumnType.getName() : "null"));

@@ -1,11 +1,14 @@
 package com.CupOfTea.table;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 
 import org.jetbrains.annotations.NotNull;
@@ -18,6 +21,9 @@ import com.CupOfTea.table.converters.DateConverter;
 import com.CupOfTea.table.converters.DoubleConverter;
 import com.CupOfTea.table.converters.FloatConverter;
 import com.CupOfTea.table.converters.IntegerConverter;
+import com.CupOfTea.table.converters.LocalDateConverter;
+import com.CupOfTea.table.converters.LocalDateTimeConverter;
+import com.CupOfTea.table.converters.LongConverter;
 import com.CupOfTea.table.converters.StringConverter;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
@@ -28,13 +34,31 @@ import com.CupOfTea.utils.interfaces.Orderer;
 
 public class DataFrame extends IDataFrame {
 
-    private static final Map<Class<?>, IDataTypeConverter<?>> CONVERTERS = Map.of(
-        Boolean.class, new BooleanConverter(),
-        Date.class, new DateConverter(),
-        Double.class, new DoubleConverter(),
-        Float.class, new FloatConverter(),
-        Integer.class, new IntegerConverter(),
-        String.class, new StringConverter()
+    private static final IntegerConverter INTEGER_CONVERTER = new IntegerConverter();
+    private static final DoubleConverter DOUBLE_CONVERTER = new DoubleConverter();
+    private static final FloatConverter FLOAT_CONVERTER = new FloatConverter();
+    private static final LongConverter LONG_CONVERTER = new LongConverter();
+    private static final BooleanConverter BOOLEAN_CONVERTER = new BooleanConverter();
+    private static final StringConverter STRING_CONVERTER = new StringConverter();
+    private static final DateConverter DATE_CONVERTER = new DateConverter();
+    private static final LocalDateConverter LOCAL_DATE_CONVERTER = new LocalDateConverter();
+    private static final LocalDateTimeConverter LOCAL_DATE_TIME_CONVERTER = new LocalDateTimeConverter();
+
+    private static final Map<Class<?>, IDataTypeConverter<?>> CONVERTERS = Map.ofEntries(
+        Map.entry(Integer.class, INTEGER_CONVERTER),
+        Map.entry(int.class, INTEGER_CONVERTER),
+        Map.entry(Double.class, DOUBLE_CONVERTER),
+        Map.entry(double.class, DOUBLE_CONVERTER),
+        Map.entry(Float.class, FLOAT_CONVERTER),
+        Map.entry(float.class, FLOAT_CONVERTER),
+        Map.entry(Long.class, LONG_CONVERTER),
+        Map.entry(long.class, LONG_CONVERTER),
+        Map.entry(Boolean.class, BOOLEAN_CONVERTER),
+        Map.entry(boolean.class, BOOLEAN_CONVERTER),
+        Map.entry(String.class, STRING_CONVERTER),
+        Map.entry(Date.class, DATE_CONVERTER),
+        Map.entry(LocalDate.class, LOCAL_DATE_CONVERTER),
+        Map.entry(LocalDateTime.class, LOCAL_DATE_TIME_CONVERTER)
     );
 
     private final HashMap<String, IColumnCreator> columnCreators = new HashMap<>();

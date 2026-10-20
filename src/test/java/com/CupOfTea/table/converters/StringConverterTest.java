@@ -4,14 +4,25 @@ import junit.framework.TestCase;
 
 public class StringConverterTest extends TestCase {
 
-    public void test_GivenAnInteger_WhenTryingToConvertToString_ShouldReturnString() throws Exception {
-        StringConverter sc = new StringConverter();
-        assertEquals("123", sc.convert(123, Integer.class));
+    public void test_GivenAString_WhenConvertingToString_ShouldReturnSameString() throws Exception {
+        StringConverter converter = new StringConverter();
+        String value = "hello";
+        assertEquals(value, converter.convert(value, String.class));
     }
 
-    public void test_GivenAString_WhenTryingToConvertToString_ShouldReturnSameString() throws Exception {
-        StringConverter sc = new StringConverter();
-        assertEquals("hello", sc.convert("hello", String.class));
+    public void test_GivenAnInteger_WhenConvertingToString_ShouldReturnStringRepresentation() throws Exception {
+        StringConverter converter = new StringConverter();
+        assertEquals("42", converter.convert(42, Integer.class));
+    }
+
+    public void test_GivenADouble_WhenConvertingToString_ShouldReturnStringRepresentation() throws Exception {
+        StringConverter converter = new StringConverter();
+        assertEquals("42.5", converter.convert(42.5, Double.class));
+    }
+
+    public void test_GivenABoolean_WhenConvertingToString_ShouldReturnStringRepresentation() throws Exception {
+        StringConverter converter = new StringConverter();
+        assertEquals("true", converter.convert(true, Boolean.class));
     }
 
 }

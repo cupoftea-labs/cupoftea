@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.ConversionException;
 import com.CupOfTea.utils.interfaces.Order;
 import com.CupOfTea.utils.interfaces.Orderer;
 
@@ -781,5 +782,63 @@ public class DataFrameTest extends TestCase {
         assertEquals(df.size().intValue(), invocations.get());
         assertEquals(Integer.class, df.getColumnHeader("RowNumber").columnType());
         assertEquals(Integer.valueOf(1), df.getRow(0).get("RowNumber"));
+    }
+
+    public void test_givenADataFrame_WhenAlteringColumnTypeToLocalDate_ShouldSuccessfullyConvert() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("date");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("date", "2023-05-15");
+        df.addRow(row);
+        df.alterColumnType("date", LocalDate.class);
+
+        assertEquals(LocalDate.class, df.getColumnHeader("date").columnType());
+        assertEquals(LocalDate.of(2023, 5, 15), df.getRow(0).get("date"));
+    }
+
+    public void test_givenADataFrame_WhenAlteringColumnTypeToDate_ShouldSuccessfullyConvert() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("date");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("date", "2023-05-15");
+        df.addRow(row);
+        df.alterColumnType("date", Date.class);
+
+        assertEquals(Date.class, df.getColumnHeader("date").columnType());
+        assertTrue(df.getRow(0).get("date") instanceof Date);
+    }
+
+    public void test_givenADataFrame_WhenAlteringColumnTypeToLong_ShouldSuccessfullyConvert() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("id");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("id", "123456789");
+        df.addRow(row);
+        df.alterColumnType("id", Long.class);
+
+        assertEquals(Long.class, df.getColumnHeader("id").columnType());
+        assertEquals(123456789L, df.getRow(0).get("id"));
+    }
+
+    public void test_givenADataFrame_WhenAlteringColumnTypeToPrimitiveInt_ShouldSuccessfullyConvert() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("count");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("count", "42");
+        df.addRow(row);
+        df.alterColumnType("count", int.class);
+
+        assertEquals(int.class, df.getColumnHeader("count").columnType());
+        assertEquals(42, df.getRow(0).get("count"));
+    }
+
+    public void test_givenADataFrame_WhenAlteringColumnTypeToUnsupportedType_ShouldThrowException() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("value");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("value", "abc");
+        df.addRow(row);
+
+        org.junit.Assert.assertThrows(ConversionException.class, () -> df.alterColumnType("value", java.util.List.class));
     }
 }
