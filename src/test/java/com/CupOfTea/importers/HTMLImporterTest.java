@@ -13,6 +13,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.ImportException;
 import com.sun.net.httpserver.HttpServer;
 
 import junit.framework.TestCase;
@@ -115,9 +116,10 @@ public class HTMLImporterTest extends TestCase {
             CupOfTea cupOfTea = new CupOfTea();
             try {
                 cupOfTea.importFromHtml(url, 50, HTMLImporter.DEFAULT_MAX_BODY_SIZE_BYTES);
-                fail("Expected SocketTimeoutException or HttpTimeoutException when URL response exceeds timeout");
-            } catch (SocketTimeoutException | HttpTimeoutException expected) {
-                // expected
+                fail("Expected ImportException when URL response exceeds timeout");
+            } catch (ImportException expected) {
+                Throwable cause = expected.getCause();
+                assertTrue(cause instanceof SocketTimeoutException || cause instanceof HttpTimeoutException);
             }
         } finally {
             server.stop(0);

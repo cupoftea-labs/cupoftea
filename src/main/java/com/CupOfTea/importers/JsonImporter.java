@@ -1,6 +1,7 @@
 package com.CupOfTea.importers;
 
 import java.io.File;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -14,9 +15,11 @@ import java.util.Map;
 import java.util.Set;
 
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.ImportException;
 import com.CupOfTea.importers.interfaces.IJsonImporter;
 import com.CupOfTea.table.Column;
 
@@ -36,7 +39,7 @@ public class JsonImporter implements IJsonImporter {
      * @param file JSON file.
      */
     @Override
-    public void importFromJson(final File file) throws Exception {
+    public void importFromJson(final File file) {
         this.importFromJson(file, Collections.emptyMap());
     }
 
@@ -47,10 +50,24 @@ public class JsonImporter implements IJsonImporter {
      * @param schema Explicit mapping of column names to Java types.
      */
     @Override
-    public void importFromJson(final File file, final Map<String, Class<?>> schema) throws Exception {
-        String jsonText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-        JSONArray jsonArray = new JSONArray(jsonText);
-        this.importFromJson(jsonArray, schema);
+    public void importFromJson(final File file, final Map<String, Class<?>> schema) {
+        if (file == null) {
+            throw new ImportException("File cannot be null");
+        }
+        try {
+            String jsonText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            JSONArray jsonArray = new JSONArray(jsonText);
+            this.importFromJson(jsonArray, schema);
+        } catch (IOException e) {
+            throw new ImportException("Failed to read JSON file: " + file.getPath(), e);
+        } catch (JSONException e) {
+            throw new ImportException("Failed to parse JSON file: " + file.getPath(), e);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new ImportException("Failed to import JSON file: " + file.getPath(), e);
+        }
     }
 
     /**
@@ -60,8 +77,8 @@ public class JsonImporter implements IJsonImporter {
      * @param json JSON String.
      */
     @Override
-    public void importFromJson(final String json) throws Exception {
-        this.importFromJson(new JSONArray(json), Collections.emptyMap());
+    public void importFromJson(final String json) {
+        this.importFromJson(json, Collections.emptyMap());
     }
 
     /**
@@ -71,8 +88,20 @@ public class JsonImporter implements IJsonImporter {
      * @param schema Explicit mapping of column names to Java types.
      */
     @Override
-    public void importFromJson(final String json, final Map<String, Class<?>> schema) throws Exception {
-        this.importFromJson(new JSONArray(json), schema);
+    public void importFromJson(final String json, final Map<String, Class<?>> schema) {
+        if (json == null) {
+            throw new ImportException("JSON string cannot be null");
+        }
+        try {
+            this.importFromJson(new JSONArray(json), schema);
+        } catch (JSONException e) {
+            throw new ImportException("Failed to parse JSON string", e);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new ImportException("Failed to import JSON string", e);
+        }
     }
 
     /**
@@ -81,7 +110,7 @@ public class JsonImporter implements IJsonImporter {
      * @param json JSONArray Object.
      */
     @Override
-    public void importFromJson(final JSONArray json) throws Exception {
+    public void importFromJson(final JSONArray json) {
         this.importFromJson(json, Collections.emptyMap());
     }
 
@@ -92,74 +121,93 @@ public class JsonImporter implements IJsonImporter {
      * @param schema Explicit mapping of column names to Java types.
      */
     @Override
-    public void importFromJson(final JSONArray json, final Map<String, Class<?>> schema) throws Exception {
-        if (json == null || json.isEmpty()) {
-            return;
+    public void importFromJson(final JSONArray json, final Map<String, Class<?>> schema) {
+        if (json == null) {
+            throw new ImportException("JSONArray cannot be null");
         }
-
-        Map<String, Class<?>> columnTypes = new LinkedHashMap<>();
-        Set<String> fixedSchemaColumns = new HashSet<>();
-
-        for (Column existingColumn : this.dataFrame.getHeaders()) {
-            columnTypes.put(existingColumn.columnName(), existingColumn.columnType());
-            if (existingColumn.columnType() != null) {
-                fixedSchemaColumns.add(existingColumn.columnName());
+        try {
+            if (json.isEmpty()) {
+                return;
             }
-        }
 
-        if (schema != null) {
-            for (Map.Entry<String, Class<?>> entry : schema.entrySet()) {
-                columnTypes.put(entry.getKey(), entry.getValue());
-                if (entry.getValue() != null) {
-                    fixedSchemaColumns.add(entry.getKey());
+            Map<String, Class<?>> columnTypes = new LinkedHashMap<>();
+            Set<String> fixedSchemaColumns = new HashSet<>();
+
+            for (Column existingColumn : this.dataFrame.getHeaders()) {
+                columnTypes.put(existingColumn.columnName(), existingColumn.columnType());
+                if (existingColumn.columnType() != null) {
+                    fixedSchemaColumns.add(existingColumn.columnName());
                 }
             }
-        }
 
-        List<Map<String, Object>> normalizedRows = new ArrayList<>(json.length());
-        for (int i = 0; i < json.length(); i++) {
-            JSONObject jsonObject = json.getJSONObject(i);
-            Map<String, Object> rowValues = new LinkedHashMap<>();
-            for (String key : jsonObject.keySet()) {
-                Object normalizedValue = normalizeJsonValue(jsonObject.opt(key));
-                rowValues.put(key, normalizedValue);
-                if (!fixedSchemaColumns.contains(key)) {
-                    Class<?> valueType = normalizedValue == null ? null : normalizedValue.getClass();
-                    if (!columnTypes.containsKey(key)) {
-                        columnTypes.put(key, valueType);
-                    } else {
-                        columnTypes.put(key, mergeColumnType(columnTypes.get(key), valueType));
+            if (schema != null) {
+                for (Map.Entry<String, Class<?>> entry : schema.entrySet()) {
+                    columnTypes.put(entry.getKey(), entry.getValue());
+                    if (entry.getValue() != null) {
+                        fixedSchemaColumns.add(entry.getKey());
                     }
                 }
             }
-            normalizedRows.add(rowValues);
-        }
 
-        for (Map.Entry<String, Class<?>> entry : columnTypes.entrySet()) {
-            String columnName = entry.getKey();
-            Class<?> columnType = entry.getValue();
-            boolean existsInHeader = this.dataFrame.getHeaders().stream()
-                    .anyMatch(col -> columnName.equals(col.columnName()));
-            if (!existsInHeader) {
-                this.dataFrame.addColumn(columnName, columnType);
-            } else {
-                Column existing = this.dataFrame.getColumnHeader(columnName);
-                if (columnType != null && !columnType.equals(existing.columnType())) {
-                    int idx = this.dataFrame.getHeaders().indexOf(existing);
-                    this.dataFrame.getHeaders().set(idx, new Column(columnName, columnType));
+            List<Map<String, Object>> normalizedRows = new ArrayList<>(json.length());
+            for (int i = 0; i < json.length(); i++) {
+                JSONObject jsonObject = json.getJSONObject(i);
+                Map<String, Object> rowValues = new LinkedHashMap<>();
+                for (String key : jsonObject.keySet()) {
+                    Object normalizedValue = normalizeJsonValue(jsonObject.opt(key));
+                    rowValues.put(key, normalizedValue);
+                    if (!fixedSchemaColumns.contains(key)) {
+                        Class<?> valueType = normalizedValue == null ? null : normalizedValue.getClass();
+                        if (!columnTypes.containsKey(key)) {
+                            columnTypes.put(key, valueType);
+                        } else {
+                            columnTypes.put(key, mergeColumnType(columnTypes.get(key), valueType));
+                        }
+                    }
                 }
+                normalizedRows.add(rowValues);
             }
-        }
 
-        for (Map<String, Object> rawRow : normalizedRows) {
-            HashMap<String, Object> row = new HashMap<>();
             for (Map.Entry<String, Class<?>> entry : columnTypes.entrySet()) {
                 String columnName = entry.getKey();
-                Class<?> columnType = this.dataFrame.getColumnHeader(columnName).columnType();
-                Object value = rawRow.get(columnName);
-                row.put(columnName, coerceToColumnType(value, columnType));
+                Class<?> columnType = entry.getValue();
+                boolean existsInHeader = this.dataFrame.getHeaders().stream()
+                        .anyMatch(col -> columnName.equals(col.columnName()));
+                if (!existsInHeader) {
+                    this.dataFrame.addColumn(columnName, columnType);
+                } else {
+                    Column existing = this.dataFrame.getColumnHeader(columnName);
+                    if (columnType != null && !columnType.equals(existing.columnType())) {
+                        int idx = this.dataFrame.getHeaders().indexOf(existing);
+                        this.dataFrame.getHeaders().set(idx, new Column(columnName, columnType));
+                    }
+                }
             }
-            this.dataFrame.addRow(row);
+
+            for (Map.Entry<String, Class<?>> entry : columnTypes.entrySet()) {
+                String columnName = entry.getKey();
+                for (Map<String, Object> rawRow : normalizedRows) {
+                    rawRow.putIfAbsent(columnName, null);
+                }
+            }
+
+            for (Map<String, Object> rawRow : normalizedRows) {
+                HashMap<String, Object> row = new HashMap<>();
+                for (Map.Entry<String, Class<?>> entry : columnTypes.entrySet()) {
+                    String columnName = entry.getKey();
+                    Class<?> columnType = this.dataFrame.getColumnHeader(columnName).columnType();
+                    Object value = rawRow.get(columnName);
+                    row.put(columnName, coerceToColumnType(value, columnType));
+                }
+                this.dataFrame.addRow(row);
+            }
+        } catch (JSONException e) {
+            throw new ImportException("Failed to process JSONArray", e);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new ImportException("Failed to import JSONArray", e);
         }
     }
 

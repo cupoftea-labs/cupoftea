@@ -2,11 +2,13 @@ package com.CupOfTea.table.converters;
 
 import static org.junit.Assert.assertThrows;
 
+import com.CupOfTea.exceptions.ConversionException;
+
 import junit.framework.TestCase;
 
 public class BooleanConverterTest extends TestCase {
 
-    public void test_GivenAStringTrue_WhenTryingToConvertToBoolean_ShouldReturnABooleanTrue() throws Exception {
+    public void test_GivenAStringTrue_WhenTryingToConvertToBoolean_ShouldReturnABooleanTrue() {
         
         Boolean expectedValue = true;
 
@@ -20,7 +22,7 @@ public class BooleanConverterTest extends TestCase {
 
     }
 
-    public void test_GivenAStringFalse_WhenTryingToConvertToBoolean_ShouldReturnABooleanFalse() throws Exception {
+    public void test_GivenAStringFalse_WhenTryingToConvertToBoolean_ShouldReturnABooleanFalse() {
         
         Boolean expectedValue = false;
 
@@ -34,19 +36,17 @@ public class BooleanConverterTest extends TestCase {
 
     }
 
-    public void test_GivenAString_WhenTryingToConvertToBoolean_ShouldReturnAException() throws Exception {
+    public void test_GivenAString_WhenTryingToConvertToBoolean_ShouldReturnAException() {
         
-        Boolean expectedValue = true;
-
         String valueToConvert = "AnyValue";
 
         BooleanConverter bc = new BooleanConverter();
 
-        assertThrows(Exception.class, () -> bc.convert(valueToConvert, String.class));
+        assertThrows(ConversionException.class, () -> bc.convert(valueToConvert, String.class));
 
     }
 
-    public void test_GivenAInterger1_WhenTryingToConvertToBoolean_ShouldReturnABooleanTrue() throws Exception {
+    public void test_GivenAInterger1_WhenTryingToConvertToBoolean_ShouldReturnABooleanTrue() {
         
         Boolean expectedValue = true;
 
@@ -60,7 +60,7 @@ public class BooleanConverterTest extends TestCase {
 
     }
 
-    public void test_GivenAInteger0_WhenTryingToConvertToBoolean_ShouldReturnABooleanFalse() throws Exception {
+    public void test_GivenAInteger0_WhenTryingToConvertToBoolean_ShouldReturnABooleanFalse() {
         
         Boolean expectedValue = false;
 
@@ -74,15 +74,13 @@ public class BooleanConverterTest extends TestCase {
 
     }
 
-    public void test_GivenAInteger_WhenTryingToConvertToBoolean_ShouldReturnAException() throws Exception {
+    public void test_GivenAInteger_WhenTryingToConvertToBoolean_ShouldReturnAException() {
         
-        Boolean expectedValue = true;
-
         Integer valueToConvert = 1234;
 
         BooleanConverter bc = new BooleanConverter();
 
-        assertThrows(Exception.class, () -> bc.convert(valueToConvert, Integer.class));
+        assertThrows(ConversionException.class, () -> bc.convert(valueToConvert, Integer.class));
 
     }
 

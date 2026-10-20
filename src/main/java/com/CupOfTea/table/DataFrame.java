@@ -11,6 +11,8 @@ import java.util.Map;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.CupOfTea.exceptions.ConversionException;
+import com.CupOfTea.exceptions.SchemaMismatchException;
 import com.CupOfTea.table.converters.BooleanConverter;
 import com.CupOfTea.table.converters.DateConverter;
 import com.CupOfTea.table.converters.DoubleConverter;
@@ -108,27 +110,27 @@ public class DataFrame extends IDataFrame {
      * The column will be created in the last position with null value
      */
     @Override
-    public IDataFrame addColumn(String columnName) throws Exception {
+    public IDataFrame addColumn(String columnName) {
         int index = this.header.columnCount();
         this.addColumn(index, columnName);
         return this;
     }
 
     @Override
-    public IDataFrame addColumn(String columnName, Class<?> columnType) throws Exception {
+    public IDataFrame addColumn(String columnName, Class<?> columnType) {
         int index = this.header.columnCount();
         this.addColumn(index, columnName, columnType);
         return this;
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName) throws Exception {
+    public IDataFrame addColumn(int index, String columnName) {
         this.addColumn(index, columnName, (Object) null);
         return this;
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, Class<?> columnType) throws Exception {
+    public IDataFrame addColumn(int index, String columnName, Class<?> columnType) {
         header.addColumn(index, new Column(columnName, columnType));
         for (HashMap<String, Object> row : this.rows) {
             row.put(columnName, null);
@@ -137,20 +139,21 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception {
+    public IDataFrame addColumn(int index, String columnName, @Nullable Object data) {
         ArrayList<Object> dataArray = new ArrayList<>();
         for (@SuppressWarnings("unused") var row : this.rows) {
             dataArray.add(data);
         }
-        this.addColumn(index,columnName,dataArray);
+        this.addColumn(index, columnName, dataArray);
         return this;
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception {
-
+    public IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
         if (data == null) return this.addColumn(index, columnName, (Object) data);
-        if (data.size() != this.size()) throw new ArrayIndexOutOfBoundsException();
+        if (data.size() != this.size()) {
+            throw new SchemaMismatchException("Column data size (" + data.size() + ") does not match DataFrame size (" + this.size() + ")");
+        }
 
         Class<?> columnType = String.class;
         for (Object value : data) {
@@ -176,32 +179,32 @@ public class DataFrame extends IDataFrame {
      * @param columnCreator Function that defines the values of the new column
      */
     @Override
-    public IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception {
+    public IDataFrame addColumn(String columnName, IColumnCreator columnCreator) {
         return this.addColumn(this.header.columnCount(), columnName, (Class<?>) null, columnCreator);
     }
 
     @Override
-    public IDataFrame addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+    public IDataFrame addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) {
         return this.addColumn(this.header.columnCount(), columnName, columnType, columnCreator);
     }
 
     @Override
-    public IDataFrame addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+    public IDataFrame addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) {
         return this.addColumn(this.header.columnCount(), columnName, columnType, columnCreator);
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator) throws Exception {
+    public IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator) {
         return this.addColumn(index, columnName, (Class<?>) null, columnCreator);
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+    public IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) {
         return this.addColumn(index, columnName, columnType, columnCreator);
     }
 
     @Override
-    public IDataFrame addColumn(int index, String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+    public IDataFrame addColumn(int index, String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
         Class<?> resolvedType = columnType;
 
         for (var row : this.getRows()) {
@@ -244,22 +247,23 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame alterColumnType(String columnName, Class<?> newColumnType) throws Exception {
-        
-        Class<?> oldColumnType = this.header.get(columnName).columnType();
+    public IDataFrame alterColumnType(String columnName, Class<?> newColumnType) {
+        Column column = this.getColumnHeader(columnName);
+        if (column == null) {
+            throw new SchemaMismatchException("Column not found: " + columnName);
+        }
+        Class<?> oldColumnType = column.columnType();
 
         IDataTypeConverter<?> converter = CONVERTERS.get(newColumnType);
         if (converter == null) {
-            throw new Exception("Column Type not Suported for Conversion");
+            throw new ConversionException("Column Type not Suported for Conversion");
         }
         
         for(var row : this.rows){
-
             Object value = row.get(columnName);
             if(value == null) continue;
             Object convertedValue = converter.convert(value, oldColumnType);
             row.put(columnName, convertedValue);
-
         }
             
         this.pendingTypeInferenceColumns.remove(columnName);
@@ -269,12 +273,12 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception {
+    public IDataFrame addRow(@NotNull HashMap<String, Object> row) {
         // ToDo Verificar se todas as colunas batem com as colunas do header
         return this.addRow(row, true);
     }
 
-    private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) throws Exception {
+    private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) {
         // ToDo Verificar se todas as colunas batem com as colunas do header
         // ToDo Realizar o cast dos tipos de coluna para bater com o do header
         HashMap<String, Object> rowToAdd = clone ? this.cloneRow(row) : row;
@@ -322,18 +326,15 @@ public class DataFrame extends IDataFrame {
      * 
      * @param filter the rows mathing this condition will be removed out of the DataFrame
      * @return the same DataFrame but without the filtered rows
-     * @throws Exception
      */
     @Override
-    public IDataFrame removeRows(IFilter filter) throws Exception {
+    public IDataFrame removeRows(IFilter filter) {
         this.rows.removeIf(filter::filter);
         return this;
     }
 
-   
-
     @Override
-    public IDataFrame filter(IFilter filter) throws Exception {
+    public IDataFrame filter(IFilter filter) {
 
         DataFrame filteredDF = new DataFrame();
 
@@ -351,7 +352,7 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame update(HashMap<String, Object> updateColumns) throws Exception {
+    public IDataFrame update(HashMap<String, Object> updateColumns) {
         for(var row : this.rows){
             row.putAll(updateColumns);
         }
@@ -360,7 +361,7 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame orderBy(Orderer... orderer) throws Exception {
+    public IDataFrame orderBy(Orderer... orderer) {
         if (this.rows.isEmpty() || orderer == null || orderer.length == 0) {
             return this;
         }
@@ -460,7 +461,5 @@ public class DataFrame extends IDataFrame {
         }
         return new BigDecimal(numA.toString()).compareTo(new BigDecimal(numB.toString()));
     }
-
-    
 
 }

@@ -1,37 +1,39 @@
 package com.CupOfTea.table.converters;
 
+import com.CupOfTea.exceptions.ConversionException;
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
 
 public class BooleanConverter implements IDataTypeConverter<Boolean> {
 
     @Override
-    public Boolean convert(Object value, Class<?> oldColumnType) throws Exception {
+    public Boolean convert(Object value, Class<?> oldColumnType) throws ConversionException {
+        if (value == null) {
+            return null;
+        }
 
-        if (Boolean.class.isAssignableFrom(value.getClass())) return (Boolean) value;
+        if (Boolean.class.isAssignableFrom(value.getClass())) {
+            return (Boolean) value;
+        }
 
         Boolean convertedValue;
 
         if (oldColumnType == String.class) {
-
             switch (((String) value).toLowerCase()) {
                 case "true" -> convertedValue = true;
                 case "false" -> convertedValue = false;
-                default -> throw new Exception("Value can not be converted to Boolean");
+                default -> throw new ConversionException("Value cannot be converted to Boolean: " + value);
             }
-
         } else if (oldColumnType == Integer.class) {
-
             switch ((Integer) value) {
                 case 1 -> convertedValue = true;
                 case 0 -> convertedValue = false;
-                default -> throw new Exception("Value can not be converted to Boolean");
+                default -> throw new ConversionException("Value cannot be converted to Boolean: " + value);
             }
-
+        } else {
+            throw new ConversionException("Column type not supported for Boolean conversion: "
+                    + (oldColumnType != null ? oldColumnType.getName() : "null"));
         }
-        else throw new Exception("Column Type not Suported for Conversion");
 
         return convertedValue;
-
     }
-
 }

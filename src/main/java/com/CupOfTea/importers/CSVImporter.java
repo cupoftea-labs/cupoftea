@@ -3,6 +3,7 @@ package com.CupOfTea.importers;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,6 +11,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.CsvParseException;
+import com.CupOfTea.exceptions.ImportException;
 import com.CupOfTea.importers.configurations.CSVImporterConfiguration;
 import com.CupOfTea.importers.interfaces.ICSVImporter;
 import com.CupOfTea.table.Column;
@@ -51,9 +54,9 @@ public class CSVImporter implements ICSVImporter {
      * @param file path to the CSV file. Can't be null.
      */
     @Override
-    public void importFromCsv(File file) throws Exception {
+    public void importFromCsv(File file) {
         if (file == null) {
-            throw new IllegalArgumentException("File can not be null");
+            throw new ImportException("File cannot be null");
         }
 
         this.dataFrame.getRows().clear();
@@ -95,12 +98,22 @@ public class CSVImporter implements ICSVImporter {
             String[] line;
             while ((line = reader.readNext()) != null) {
                 if (line.length != columnCount) {
-                    throw new IllegalArgumentException(
+                    throw new CsvParseException(
                         "Row length mismatch: expected " + columnCount + " columns, but got " + line.length
                     );
                 }
                 rawRows.add(line);
             }
+        } catch (IOException e) {
+            throw new CsvParseException("Failed to read CSV file: " + file.getPath(), e);
+        } catch (Exception e) {
+            if (e instanceof CsvParseException) {
+                throw (CsvParseException) e;
+            }
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new CsvParseException("Failed to parse CSV file: " + file.getPath(), e);
         }
 
         Class<?>[] columnTypes = new Class<?>[columnCount];
@@ -135,7 +148,7 @@ public class CSVImporter implements ICSVImporter {
      * @param hasHeaders if true, the first line of the CSV will be used for the headers. If false, auto-generated 0-based sequential column names ("0", "1", ...) will be used.
      */
     @Override
-    public void importFromCsv(File file, boolean hasHeaders) throws Exception {
+    public void importFromCsv(File file, boolean hasHeaders) {
         this.configuration.setHasHeaders(hasHeaders);
         this.importFromCsv(file);
     }
@@ -150,9 +163,9 @@ public class CSVImporter implements ICSVImporter {
      * @param configuration configuration for CSV parsing (delimiter, quote, escape, charset, headers, numeric type inference).
      */
     @Override
-    public void importFromCsv(File file, CSVImporterConfiguration configuration) throws Exception {
+    public void importFromCsv(File file, CSVImporterConfiguration configuration) {
         if (configuration == null) {
-            throw new IllegalArgumentException("Configuration can not be null");
+            throw new ImportException("Configuration cannot be null");
         }
         this.configuration = configuration;
         this.importFromCsv(file);

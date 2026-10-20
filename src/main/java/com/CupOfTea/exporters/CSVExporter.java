@@ -3,11 +3,13 @@ package com.CupOfTea.exporters;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.ExportException;
 import com.CupOfTea.exporters.configurations.CSVExporterConfiguration;
 import static com.CupOfTea.exporters.configurations.CSVExporterConfiguration.HeadersPlacement.*;
 
@@ -26,12 +28,13 @@ public class CSVExporter {
      * Create a CSV file from the data frame.
      * 
      * @param file path to your CSV file. Can't be null.
-     * @throws if the file already exists throws an Exception
      */
-    public void exportToCsv(File file) throws Exception {
+    public void exportToCsv(File file) {
         // Todo implement Escape String
 
-        if (file == null) throw new Exception("File can not be null");
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
 
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
             String header = null;
@@ -48,7 +51,7 @@ public class CSVExporter {
             
             for (HashMap<String, Object> data :  this.dataFrame.getRows()){
                 ArrayList<String> dataArr = (ArrayList<String>) this.dataFrame.getHeaders().stream()
-                    .map(i -> this.prepareFieldValue(data.get(i.columnName()).toString(), i.columnType(), false))
+                    .map(i -> this.prepareFieldValue(data.get(i.columnName()) != null ? data.get(i.columnName()).toString() : null, i.columnType(), false))
                     .collect(Collectors.toList())
                     ;
                 
@@ -57,6 +60,13 @@ public class CSVExporter {
             }
 
             if (this.configuration.getHeadersPlacement() == BOTTOM) writer.write(header);
+        } catch (IOException e) {
+            throw new ExportException("Failed to export to CSV file: " + file.getPath(), e);
+        } catch (Exception e) {
+            if (e instanceof ExportException) {
+                throw (ExportException) e;
+            }
+            throw new ExportException("Failed to export to CSV file: " + file.getPath(), e);
         }
     }
 
@@ -64,13 +74,10 @@ public class CSVExporter {
      * Create a CSV file from the data frame.
      * 
      * @param file path to your CSV file. Can't be null.
-     * @throws if the file already exists throws an Exception
      */
-    public void exportToCsv(File file, CSVExporterConfiguration configuration) throws Exception {
+    public void exportToCsv(File file, CSVExporterConfiguration configuration) {
         this.configuration = configuration;
-
         this.exportToCsv(file);
-
     }
 
     private String prepareFieldValue(String fieldValue, Class<?> columnType, Boolean isHeader){
@@ -78,7 +85,7 @@ public class CSVExporter {
 
         switch(this.configuration.getQuoteBehaviour()) {
             case ALL -> quote = this.configuration.getQuoteString();
-            case ALL_BUT_NUMBERS -> quote = (Number.class.isAssignableFrom(columnType) && !isHeader ? "" : this.configuration.getQuoteString());
+            case ALL_BUT_NUMBERS -> quote = (columnType != null && Number.class.isAssignableFrom(columnType) && !isHeader ? "" : this.configuration.getQuoteString());
             case ALL_BUT_NULL -> quote = (fieldValue == null ?  "" : this.configuration.getQuoteString());
             case STRING_ONLY -> quote = columnType == String.class ? this.configuration.getQuoteString() : "";
             case HEADERS_ONLY -> quote = (isHeader ? this.configuration.getQuoteString() : "");

@@ -4,6 +4,6 @@ import java.io.File;
 
 public interface IParquetExporter {
 
-     public void exportToParquet(File file) throws Exception;
+     public void exportToParquet(File file);
      
 }

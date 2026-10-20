@@ -1,7 +1,7 @@
 package com.CupOfTea.importers;
 
-
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Locale;
@@ -12,6 +12,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.ImportException;
 import com.CupOfTea.importers.interfaces.IHTMLImporter;
 import com.CupOfTea.table.Column;
 
@@ -57,12 +58,21 @@ public class HTMLImporter implements IHTMLImporter {
      * @param file HTML file with a table
      */
     @Override
-    public void importFromHtml(final File file) throws Exception {
+    public void importFromHtml(final File file) {
         if (file == null) {
-            throw new IllegalArgumentException("HTML file cannot be null");
+            throw new ImportException("File cannot be null");
         }
-        Document doc = Jsoup.parse(file);
-        this.importFromHtml(doc);
+        try {
+            Document doc = Jsoup.parse(file);
+            this.importFromHtml(doc);
+        } catch (IOException e) {
+            throw new ImportException("Failed to read HTML file: " + file.getPath(), e);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new ImportException("Failed to parse HTML file: " + file.getPath(), e);
+        }
     }
     
     /**
@@ -75,10 +85,9 @@ public class HTMLImporter implements IHTMLImporter {
      * already-fetched document in untrusted environments.
      * 
      * @param url URL to get the HTML data from
-     * @throws Exception if fetching or parsing fails
      */
     @Override
-    public void importFromHtml(final URL url) throws Exception {
+    public void importFromHtml(final URL url) {
         this.importFromHtml(url, this.timeoutMillis, this.maxBodySizeBytes);
     }
 
@@ -93,12 +102,11 @@ public class HTMLImporter implements IHTMLImporter {
      * @param url URL to get the HTML data from (must use {@code http} or {@code https})
      * @param timeoutMillis connect and read timeout in milliseconds (must be &gt; 0)
      * @param maxBodySizeBytes maximum response body size in bytes (must be &gt; 0)
-     * @throws Exception if fetching or parsing fails
      */
     @Override
-    public void importFromHtml(final URL url, final int timeoutMillis, final int maxBodySizeBytes) throws Exception {
+    public void importFromHtml(final URL url, final int timeoutMillis, final int maxBodySizeBytes) {
         if (url == null) {
-            throw new IllegalArgumentException("HTML URL cannot be null");
+            throw new ImportException("URL cannot be null");
         }
         validateLimits(timeoutMillis, maxBodySizeBytes);
         String protocol = url.getProtocol() != null ? url.getProtocol().toLowerCase(Locale.ROOT) : "";
@@ -106,11 +114,20 @@ public class HTMLImporter implements IHTMLImporter {
             throw new IllegalArgumentException("Only http and https URLs are supported: " + url.getProtocol());
         }
 
-        Document doc = Jsoup.connect(url.toString())
-                .timeout(timeoutMillis)
-                .maxBodySize(maxBodySizeBytes)
-                .get();
-        this.importFromHtml(doc);
+        try {
+            Document doc = Jsoup.connect(url.toString())
+                    .timeout(timeoutMillis)
+                    .maxBodySize(maxBodySizeBytes)
+                    .get();
+            this.importFromHtml(doc);
+        } catch (IOException e) {
+            throw new ImportException("Failed to fetch HTML from URL: " + url, e);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new ImportException("Failed to parse HTML from URL: " + url, e);
+        }
     }
 
     /**
@@ -118,15 +135,21 @@ public class HTMLImporter implements IHTMLImporter {
      * Preferred over {@link #importFromHtml(URL)} in untrusted or server environments.
      *
      * @param html HTML string containing a table
-     * @throws Exception if parsing or importing fails
      */
     @Override
-    public void importFromHtml(final String html) throws Exception {
+    public void importFromHtml(final String html) {
         if (html == null) {
-            throw new IllegalArgumentException("HTML string cannot be null");
+            throw new ImportException("HTML string cannot be null");
         }
-        Document doc = Jsoup.parse(html);
-        this.importFromHtml(doc);
+        try {
+            Document doc = Jsoup.parse(html);
+            this.importFromHtml(doc);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new ImportException("Failed to parse HTML string", e);
+        }
     }
 
     /**
@@ -134,12 +157,11 @@ public class HTMLImporter implements IHTMLImporter {
      * Preferred over {@link #importFromHtml(URL)} in untrusted or server environments.
      *
      * @param doc Jsoup document containing a table
-     * @throws Exception if importing fails
      */
     @Override
-    public void importFromHtml(final Document doc) throws Exception {
+    public void importFromHtml(final Document doc) {
         if (doc == null) {
-            throw new IllegalArgumentException("HTML document cannot be null");
+            throw new ImportException("HTML document cannot be null");
         }
         this.importToDataFrame(doc);
     }
@@ -157,9 +179,8 @@ public class HTMLImporter implements IHTMLImporter {
      * Dumps the table data from a JSOUP document into the CupOfTea data frame.
      * 
      * @param doc
-     * @throws Exception
      */
-    private void importToDataFrame(final Document doc) throws Exception {
+    private void importToDataFrame(final Document doc) {
         boolean firstRow = true;
         Elements rows = doc.select("tr");
         for(Element row : rows) {   
