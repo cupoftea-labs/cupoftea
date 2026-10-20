@@ -1,5 +1,8 @@
 package com.CupOfTea.importers;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import java.io.File;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
@@ -11,14 +14,15 @@ import java.nio.charset.StandardCharsets;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exceptions.ImportException;
 import com.sun.net.httpserver.HttpServer;
 
-import junit.framework.TestCase;
-
-public class HTMLImporterTest extends TestCase {
+public class HTMLImporterTest {
 
     private static final String SAMPLE_TABLE_HTML =
             "<html><body><table>" +
@@ -27,51 +31,65 @@ public class HTMLImporterTest extends TestCase {
             "<tr><td>Bob</td><td>Designer</td></tr>" +
             "</table></body></html>";
 
-    public void test_GivenAHTMLFile_WhenImporting_ShouldReturnACupOfTeaDataFrame() throws Exception {
+    private HttpServer tryCreateServer() {
+        try {
+            return HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        } catch (Throwable t) {
+            Assumptions.assumeTrue(false, "Loopback HTTP server could not be created in this environment: " + t.getMessage());
+            return null;
+        }
+    }
 
+    @Test
+    @DisplayName("Should import DataFrame from HTML file")
+    void test_GivenAHTMLFile_WhenImporting_ShouldReturnACupOfTeaDataFrame() {
         int expectedColumnsNumber = 11;
         int expectedRowsNumber = 19;
 
         File testFile = new File("src/test/java/com/CupOfTea/testFiles/html_sample.html");
-
         CupOfTea cupOfTea = new CupOfTea();
 
         cupOfTea.importFromHtml(testFile);
 
-        assertEquals(expectedColumnsNumber, cupOfTea.getHeaders().size());
-        assertEquals(expectedRowsNumber, cupOfTea.getRows().size());
-
+        assertThat(cupOfTea.getHeaders()).hasSize(expectedColumnsNumber);
+        assertThat(cupOfTea.getRows()).hasSize(expectedRowsNumber);
     }
 
-    public void test_GivenAHTMLString_WhenImporting_ShouldReturnACupOfTeaDataFrame() throws Exception {
+    @Test
+    @DisplayName("Should import DataFrame from HTML string")
+    void test_GivenAHTMLString_WhenImporting_ShouldReturnACupOfTeaDataFrame() {
         CupOfTea cupOfTea = new CupOfTea();
 
         cupOfTea.importFromHtml(SAMPLE_TABLE_HTML);
 
-        assertEquals(2, cupOfTea.getHeaders().size());
-        assertEquals("Name", cupOfTea.getHeaders().get(0).columnName());
-        assertEquals("Role", cupOfTea.getHeaders().get(1).columnName());
-        assertEquals(2, cupOfTea.getRows().size());
-        assertEquals("Alice", cupOfTea.getRow(0).get("Name"));
-        assertEquals("Engineer", cupOfTea.getRow(0).get("Role"));
-        assertEquals("Bob", cupOfTea.getRow(1).get("Name"));
-        assertEquals("Designer", cupOfTea.getRow(1).get("Role"));
+        assertThat(cupOfTea.getHeaders()).hasSize(2);
+        assertThat(cupOfTea.getHeaders().get(0).columnName()).isEqualTo("Name");
+        assertThat(cupOfTea.getHeaders().get(1).columnName()).isEqualTo("Role");
+        assertThat(cupOfTea.getRows()).hasSize(2);
+        assertThat(cupOfTea.getRow(0).get("Name")).isEqualTo("Alice");
+        assertThat(cupOfTea.getRow(0).get("Role")).isEqualTo("Engineer");
+        assertThat(cupOfTea.getRow(1).get("Name")).isEqualTo("Bob");
+        assertThat(cupOfTea.getRow(1).get("Role")).isEqualTo("Designer");
     }
 
-    public void test_GivenAJsoupDocument_WhenImporting_ShouldReturnACupOfTeaDataFrame() throws Exception {
+    @Test
+    @DisplayName("Should import DataFrame from Jsoup Document")
+    void test_GivenAJsoupDocument_WhenImporting_ShouldReturnACupOfTeaDataFrame() {
         Document doc = Jsoup.parse(SAMPLE_TABLE_HTML);
         CupOfTea cupOfTea = new CupOfTea();
 
         cupOfTea.importFromHtml(doc);
 
-        assertEquals(2, cupOfTea.getHeaders().size());
-        assertEquals(2, cupOfTea.getRows().size());
-        assertEquals("Alice", cupOfTea.getRow(0).get("Name"));
-        assertEquals("Designer", cupOfTea.getRow(1).get("Role"));
+        assertThat(cupOfTea.getHeaders()).hasSize(2);
+        assertThat(cupOfTea.getRows()).hasSize(2);
+        assertThat(cupOfTea.getRow(0).get("Name")).isEqualTo("Alice");
+        assertThat(cupOfTea.getRow(1).get("Role")).isEqualTo("Designer");
     }
 
-    public void test_GivenAValidURL_WhenImporting_ShouldReturnACupOfTeaDataFrame() throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    @Test
+    @DisplayName("Should import DataFrame from valid HTTP URL")
+    void test_GivenAValidURL_WhenImporting_ShouldReturnACupOfTeaDataFrame() throws Exception {
+        HttpServer server = tryCreateServer();
         try {
             byte[] responseBytes = SAMPLE_TABLE_HTML.getBytes(StandardCharsets.UTF_8);
             server.createContext("/table", exchange -> {
@@ -86,17 +104,19 @@ public class HTMLImporterTest extends TestCase {
             CupOfTea cupOfTea = new CupOfTea();
             cupOfTea.importFromHtml(url);
 
-            assertEquals(2, cupOfTea.getHeaders().size());
-            assertEquals(2, cupOfTea.getRows().size());
-            assertEquals("Alice", cupOfTea.getRow(0).get("Name"));
-            assertEquals("Bob", cupOfTea.getRow(1).get("Name"));
+            assertThat(cupOfTea.getHeaders()).hasSize(2);
+            assertThat(cupOfTea.getRows()).hasSize(2);
+            assertThat(cupOfTea.getRow(0).get("Name")).isEqualTo("Alice");
+            assertThat(cupOfTea.getRow(1).get("Name")).isEqualTo("Bob");
         } finally {
             server.stop(0);
         }
     }
 
-    public void test_GivenASlowURL_WhenTimeoutIsExceeded_ShouldThrowSocketTimeoutException() throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    @Test
+    @DisplayName("Should throw ImportException when URL response exceeds timeout")
+    void test_GivenASlowURL_WhenTimeoutIsExceeded_ShouldThrowSocketTimeoutException() throws Exception {
+        HttpServer server = tryCreateServer();
         try {
             byte[] responseBytes = SAMPLE_TABLE_HTML.getBytes(StandardCharsets.UTF_8);
             server.createContext("/slow", exchange -> {
@@ -114,26 +134,31 @@ public class HTMLImporterTest extends TestCase {
 
             URL url = URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/slow").toURL();
             CupOfTea cupOfTea = new CupOfTea();
-            try {
-                cupOfTea.importFromHtml(url, 50, HTMLImporter.DEFAULT_MAX_BODY_SIZE_BYTES);
-                fail("Expected ImportException when URL response exceeds timeout");
-            } catch (ImportException expected) {
-                Throwable cause = expected.getCause();
-                assertTrue(cause instanceof SocketTimeoutException || cause instanceof HttpTimeoutException);
-            }
+
+            assertThatThrownBy(() -> cupOfTea.importFromHtml(url, 50, HTMLImporter.DEFAULT_MAX_BODY_SIZE_BYTES))
+                .isInstanceOf(ImportException.class)
+                .satisfies(e -> {
+                    Throwable cause = e.getCause();
+                    assertThat(cause).satisfiesAnyOf(
+                        c -> assertThat(c).isInstanceOf(SocketTimeoutException.class),
+                        c -> assertThat(c).isInstanceOf(HttpTimeoutException.class)
+                    );
+                });
         } finally {
             server.stop(0);
         }
     }
 
-    public void test_GivenALargeURLResponse_WhenMaxBodySizeIsSet_ShouldLimitBytesRead() throws Exception {
+    @Test
+    @DisplayName("Should limit bytes read when maxBodySize is set")
+    void test_GivenALargeURLResponse_WhenMaxBodySizeIsSet_ShouldLimitBytesRead() throws Exception {
+        HttpServer server = tryCreateServer();
         StringBuilder largeTable = new StringBuilder("<html><body><table><tr><th>Name</th><th>Role</th></tr>");
         for (int i = 0; i < 200; i++) {
             largeTable.append("<tr><td>User").append(i).append("</td><td>Engineer</td></tr>");
         }
         largeTable.append("</table></body></html>");
 
-        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         try {
             byte[] responseBytes = largeTable.toString().getBytes(StandardCharsets.UTF_8);
             server.createContext("/large", exchange -> {
@@ -148,70 +173,40 @@ public class HTMLImporterTest extends TestCase {
             CupOfTea cupOfTea = new CupOfTea();
             cupOfTea.importFromHtml(url, HTMLImporter.DEFAULT_TIMEOUT_MILLIS, 256);
 
-            assertTrue("Expected rows to be truncated by maxBodySizeBytes", cupOfTea.getRows().size() < 200);
+            assertThat(cupOfTea.getRows().size()).isLessThan(200);
         } finally {
             server.stop(0);
         }
     }
 
-    public void test_GivenNonHttpURL_WhenImporting_ShouldThrowIllegalArgumentException() throws Exception {
+    @Test
+    @DisplayName("Should throw IllegalArgumentException for non-http URL")
+    void test_GivenNonHttpURL_WhenImporting_ShouldThrowIllegalArgumentException() throws Exception {
         File testFile = new File("src/test/java/com/CupOfTea/testFiles/html_sample.html");
         URL fileUrl = testFile.toURI().toURL();
         CupOfTea cupOfTea = new CupOfTea();
 
-        try {
-            cupOfTea.importFromHtml(fileUrl);
-            fail("Expected IllegalArgumentException for file:// URL");
-        } catch (IllegalArgumentException expected) {
-            // expected
-        }
+        assertThatThrownBy(() -> cupOfTea.importFromHtml(fileUrl))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
-    public void test_GivenNullInputsOrInvalidLimits_WhenImporting_ShouldThrowIllegalArgumentException() throws Exception {
+    @Test
+    @DisplayName("Should throw IllegalArgumentException for null inputs or invalid limits")
+    void test_GivenNullInputsOrInvalidLimits_WhenImporting_ShouldThrowIllegalArgumentException() {
         CupOfTea cupOfTea = new CupOfTea();
         HTMLImporter importer = new HTMLImporter(cupOfTea);
 
-        try {
-            importer.importFromHtml((File) null);
-            fail("Expected IllegalArgumentException for null File");
-        } catch (IllegalArgumentException expected) {
-            // expected
-        }
-
-        try {
-            importer.importFromHtml((URL) null);
-            fail("Expected IllegalArgumentException for null URL");
-        } catch (IllegalArgumentException expected) {
-            // expected
-        }
-
-        try {
-            importer.importFromHtml((String) null);
-            fail("Expected IllegalArgumentException for null String");
-        } catch (IllegalArgumentException expected) {
-            // expected
-        }
-
-        try {
-            importer.importFromHtml((Document) null);
-            fail("Expected IllegalArgumentException for null Document");
-        } catch (IllegalArgumentException expected) {
-            // expected
-        }
-
-        try {
-            new HTMLImporter(cupOfTea, 0, 1024);
-            fail("Expected IllegalArgumentException for non-positive timeout");
-        } catch (IllegalArgumentException expected) {
-            // expected
-        }
-
-        try {
-            new HTMLImporter(cupOfTea, 1000, 0);
-            fail("Expected IllegalArgumentException for non-positive maxBodySize");
-        } catch (IllegalArgumentException expected) {
-            // expected
-        }
+        assertThatThrownBy(() -> importer.importFromHtml((File) null))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> importer.importFromHtml((URL) null))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> importer.importFromHtml((String) null))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> importer.importFromHtml((Document) null))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new HTMLImporter(cupOfTea, 0, 1024))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new HTMLImporter(cupOfTea, 1000, 0))
+            .isInstanceOf(IllegalArgumentException.class);
     }
-
 }

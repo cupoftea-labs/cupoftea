@@ -1,42 +1,45 @@
 package com.CupOfTea.importers;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.json.JSONArray;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.table.Column;
 
-import junit.framework.TestCase;
+public class JsonImporterTest {
 
-public class JsonImporterTest extends TestCase {
-
-    public void test_GivenAJsonFile_WhenImporting_ShouldReturnACupOfTeaDataFrameWithPreservedTypes() throws Exception {
-
+    @Test
+    @DisplayName("Should import JSON file and preserve types")
+    void test_GivenAJsonFile_WhenImporting_ShouldReturnACupOfTeaDataFrameWithPreservedTypes() {
         int expectedColumnsNumber = 3;
         int expectedRowsNumber = 4;
 
         File testFile = new File("src/test/java/com/CupOfTea/testFiles/json_sample.json");
-
         CupOfTea cupOfTea = new CupOfTea();
 
         cupOfTea.importFromJson(testFile);
 
-        assertEquals(expectedColumnsNumber, cupOfTea.getHeaders().size());
-        assertEquals(expectedRowsNumber, cupOfTea.getRows().size());
-        assertEquals(String.class, cupOfTea.getColumnHeader("car").columnType());
-        assertEquals(Integer.class, cupOfTea.getColumnHeader("year").columnType());
-        assertEquals(String.class, cupOfTea.getColumnHeader("color").columnType());
-        assertEquals("Mustang", cupOfTea.getRow(0).get("car"));
-        assertEquals(Integer.valueOf(2019), cupOfTea.getRow(0).get("year"));
-        assertEquals("white", cupOfTea.getRow(0).get("color"));
-
+        assertThat(cupOfTea.getHeaders()).hasSize(expectedColumnsNumber);
+        assertThat(cupOfTea.getRows()).hasSize(expectedRowsNumber);
+        assertThat(cupOfTea.getColumnHeader("car").columnType()).isEqualTo(String.class);
+        assertThat(cupOfTea.getColumnHeader("year").columnType()).isEqualTo(Integer.class);
+        assertThat(cupOfTea.getColumnHeader("color").columnType()).isEqualTo(String.class);
+        assertThat(cupOfTea.getRow(0).get("car")).isEqualTo("Mustang");
+        assertThat(cupOfTea.getRow(0).get("year")).isEqualTo(2019);
+        assertThat(cupOfTea.getRow(0).get("color")).isEqualTo("white");
     }
 
-    public void test_GivenAJsonStringWithPrimitivesAndNull_WhenImporting_ShouldPreserveTypesAndMissingValues() throws Exception {
+    @Test
+    @DisplayName("Should preserve primitive types and missing values when importing JSON string")
+    void test_GivenAJsonStringWithPrimitivesAndNull_WhenImporting_ShouldPreserveTypesAndMissingValues() {
         String json = """
             [
                 {
@@ -62,28 +65,30 @@ public class JsonImporterTest extends TestCase {
 
         CupOfTea df = new CupOfTea().importFromJson(json);
 
-        assertEquals(2, df.size().intValue());
-        assertEquals(String.class, df.getColumnHeader("name").columnType());
-        assertEquals(Integer.class, df.getColumnHeader("age").columnType());
-        assertEquals(Long.class, df.getColumnHeader("bigId").columnType());
-        assertEquals(Double.class, df.getColumnHeader("balance").columnType());
-        assertEquals(Boolean.class, df.getColumnHeader("active").columnType());
-        assertEquals(String.class, df.getColumnHeader("nickname").columnType());
-        assertNull(df.getColumnHeader("emptyCol").columnType());
+        assertThat(df.size()).isEqualTo(2);
+        assertThat(df.getColumnHeader("name").columnType()).isEqualTo(String.class);
+        assertThat(df.getColumnHeader("age").columnType()).isEqualTo(Integer.class);
+        assertThat(df.getColumnHeader("bigId").columnType()).isEqualTo(Long.class);
+        assertThat(df.getColumnHeader("balance").columnType()).isEqualTo(Double.class);
+        assertThat(df.getColumnHeader("active").columnType()).isEqualTo(Boolean.class);
+        assertThat(df.getColumnHeader("nickname").columnType()).isEqualTo(String.class);
+        assertThat(df.getColumnHeader("emptyCol").columnType()).isNull();
 
-        assertEquals("Alice", df.getRow(0).get("name"));
-        assertEquals(Integer.valueOf(30), df.getRow(0).get("age"));
-        assertEquals(Long.valueOf(9876543210L), df.getRow(0).get("bigId"));
-        assertEquals(Double.valueOf(1250.75), df.getRow(0).get("balance"));
-        assertEquals(Boolean.TRUE, df.getRow(0).get("active"));
-        assertNull(df.getRow(0).get("nickname"));
-        assertNull(df.getRow(0).get("emptyCol"));
+        assertThat(df.getRow(0).get("name")).isEqualTo("Alice");
+        assertThat(df.getRow(0).get("age")).isEqualTo(30);
+        assertThat(df.getRow(0).get("bigId")).isEqualTo(9876543210L);
+        assertThat(df.getRow(0).get("balance")).isEqualTo(1250.75);
+        assertThat(df.getRow(0).get("active")).isEqualTo(Boolean.TRUE);
+        assertThat(df.getRow(0).get("nickname")).isNull();
+        assertThat(df.getRow(0).get("emptyCol")).isNull();
 
-        assertEquals("Bobby", df.getRow(1).get("nickname"));
-        assertEquals(Boolean.FALSE, df.getRow(1).get("active"));
+        assertThat(df.getRow(1).get("nickname")).isEqualTo("Bobby");
+        assertThat(df.getRow(1).get("active")).isEqualTo(Boolean.FALSE);
     }
 
-    public void test_GivenJsonWithMixedIntegerAndDouble_WhenImporting_ShouldPromoteColumnToDouble() throws Exception {
+    @Test
+    @DisplayName("Should promote mixed Integer and Double column to Double")
+    void test_GivenJsonWithMixedIntegerAndDouble_WhenImporting_ShouldPromoteColumnToDouble() {
         String json = """
             [
                 {"item": "A", "price": 100},
@@ -93,12 +98,14 @@ public class JsonImporterTest extends TestCase {
 
         CupOfTea df = new CupOfTea().importFromJson(json);
 
-        assertEquals(Double.class, df.getColumnHeader("price").columnType());
-        assertEquals(Double.valueOf(100.0), df.getRow(0).get("price"));
-        assertEquals(Double.valueOf(150.5), df.getRow(1).get("price"));
+        assertThat(df.getColumnHeader("price").columnType()).isEqualTo(Double.class);
+        assertThat(df.getRow(0).get("price")).isEqualTo(100.0);
+        assertThat(df.getRow(1).get("price")).isEqualTo(150.5);
     }
 
-    public void test_GivenJsonWithMixedIntegerAndLong_WhenImporting_ShouldPromoteColumnToLong() throws Exception {
+    @Test
+    @DisplayName("Should promote mixed Integer and Long column to Long")
+    void test_GivenJsonWithMixedIntegerAndLong_WhenImporting_ShouldPromoteColumnToLong() {
         String json = """
             [
                 {"item": "A", "count": 42},
@@ -108,12 +115,14 @@ public class JsonImporterTest extends TestCase {
 
         CupOfTea df = new CupOfTea().importFromJson(json);
 
-        assertEquals(Long.class, df.getColumnHeader("count").columnType());
-        assertEquals(Long.valueOf(42L), df.getRow(0).get("count"));
-        assertEquals(Long.valueOf(5000000000L), df.getRow(1).get("count"));
+        assertThat(df.getColumnHeader("count").columnType()).isEqualTo(Long.class);
+        assertThat(df.getRow(0).get("count")).isEqualTo(42L);
+        assertThat(df.getRow(1).get("count")).isEqualTo(5000000000L);
     }
 
-    public void test_GivenJsonWithExplicitSchema_WhenImporting_ShouldApplySchemaTypes() throws Exception {
+    @Test
+    @DisplayName("Should apply explicit schema types on JSON import")
+    void test_GivenJsonWithExplicitSchema_WhenImporting_ShouldApplySchemaTypes() {
         String json = """
             [
                 {"year": "2020", "price": 100, "inStock": "true"},
@@ -128,17 +137,19 @@ public class JsonImporterTest extends TestCase {
 
         CupOfTea df = new CupOfTea().importFromJson(json, schema);
 
-        assertEquals(Integer.class, df.getColumnHeader("year").columnType());
-        assertEquals(Double.class, df.getColumnHeader("price").columnType());
-        assertEquals(Boolean.class, df.getColumnHeader("inStock").columnType());
+        assertThat(df.getColumnHeader("year").columnType()).isEqualTo(Integer.class);
+        assertThat(df.getColumnHeader("price").columnType()).isEqualTo(Double.class);
+        assertThat(df.getColumnHeader("inStock").columnType()).isEqualTo(Boolean.class);
 
-        assertEquals(Integer.valueOf(2020), df.getRow(0).get("year"));
-        assertEquals(Double.valueOf(100.0), df.getRow(0).get("price"));
-        assertEquals(Boolean.TRUE, df.getRow(0).get("inStock"));
-        assertEquals(Boolean.FALSE, df.getRow(1).get("inStock"));
+        assertThat(df.getRow(0).get("year")).isEqualTo(2020);
+        assertThat(df.getRow(0).get("price")).isEqualTo(100.0);
+        assertThat(df.getRow(0).get("inStock")).isEqualTo(Boolean.TRUE);
+        assertThat(df.getRow(1).get("inStock")).isEqualTo(Boolean.FALSE);
     }
 
-    public void test_GivenPreconfiguredHeadersOnDataFrame_WhenImportingJson_ShouldRespectHeaderTypes() throws Exception {
+    @Test
+    @DisplayName("Should respect preconfigured headers on DataFrame when importing JSON")
+    void test_GivenPreconfiguredHeadersOnDataFrame_WhenImportingJson_ShouldRespectHeaderTypes() {
         ArrayList<Column> headers = new ArrayList<>();
         headers.add(new Column("year", Long.class));
         headers.add(new Column("price", Float.class));
@@ -147,17 +158,18 @@ public class JsonImporterTest extends TestCase {
             .setHeaders(headers)
             .importFromJson(new JSONArray("[{\"year\": 2022, \"price\": 99.5}]"));
 
-        assertEquals(Long.class, df.getColumnHeader("year").columnType());
-        assertEquals(Float.class, df.getColumnHeader("price").columnType());
-        assertEquals(Long.valueOf(2022L), df.getRow(0).get("year"));
-        assertEquals(Float.valueOf(99.5f), df.getRow(0).get("price"));
+        assertThat(df.getColumnHeader("year").columnType()).isEqualTo(Long.class);
+        assertThat(df.getColumnHeader("price").columnType()).isEqualTo(Float.class);
+        assertThat(df.getRow(0).get("year")).isEqualTo(2022L);
+        assertThat(df.getRow(0).get("price")).isEqualTo(99.5f);
     }
 
-    public void test_GivenEmptyJsonArray_WhenImporting_ShouldProduceEmptyDataFrame() throws Exception {
+    @Test
+    @DisplayName("Should produce empty DataFrame when importing empty JSON array")
+    void test_GivenEmptyJsonArray_WhenImporting_ShouldProduceEmptyDataFrame() {
         CupOfTea df = new CupOfTea().importFromJson("[]");
 
-        assertEquals(0, df.getHeaders().size());
-        assertEquals(0, df.size().intValue());
+        assertThat(df.getHeaders()).isEmpty();
+        assertThat(df.size()).isEqualTo(0);
     }
-
 }

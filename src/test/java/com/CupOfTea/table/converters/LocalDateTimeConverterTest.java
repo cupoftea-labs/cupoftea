@@ -1,57 +1,75 @@
 package com.CupOfTea.table.converters;
 
-import static org.junit.Assert.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
 import com.CupOfTea.exceptions.ConversionException;
 
-import junit.framework.TestCase;
+public class LocalDateTimeConverterTest {
 
-public class LocalDateTimeConverterTest extends TestCase {
+    private LocalDateTimeConverter converter;
 
-    public void test_GivenAnIsoDateTimeString_WhenConvertingToLocalDateTime_ShouldReturnParsedDateTime() throws Exception {
-        LocalDateTimeConverter converter = new LocalDateTimeConverter();
+    @BeforeEach
+    void setUp() {
+        converter = new LocalDateTimeConverter();
+    }
+
+    @Test
+    @DisplayName("Should convert ISO date-time string to LocalDateTime")
+    void test_GivenAnIsoDateTimeString_WhenConvertingToLocalDateTime_ShouldReturnParsedDateTime() {
         LocalDateTime result = converter.convert("2023-05-15T14:30:00", String.class);
-
-        assertEquals(LocalDateTime.of(2023, 5, 15, 14, 30, 0), result);
+        assertThat(result).isEqualTo(LocalDateTime.of(2023, 5, 15, 14, 30, 0));
     }
 
-    public void test_GivenADateString_WhenConvertingToLocalDateTime_ShouldReturnParsedDateTimeAtStartOfDay() throws Exception {
-        LocalDateTimeConverter converter = new LocalDateTimeConverter();
+    @Test
+    @DisplayName("Should convert date string to LocalDateTime at start of day")
+    void test_GivenADateString_WhenConvertingToLocalDateTime_ShouldReturnParsedDateTimeAtStartOfDay() {
         LocalDateTime result = converter.convert("2023-05-15", String.class);
-
-        assertEquals(LocalDate.of(2023, 5, 15).atStartOfDay(), result);
+        assertThat(result).isEqualTo(LocalDate.of(2023, 5, 15).atStartOfDay());
     }
 
-    public void test_GivenALocalDate_WhenConvertingToLocalDateTime_ShouldReturnDateTimeAtStartOfDay() throws Exception {
-        LocalDateTimeConverter converter = new LocalDateTimeConverter();
+    @Test
+    @DisplayName("Should convert LocalDate to LocalDateTime at start of day")
+    void test_GivenALocalDate_WhenConvertingToLocalDateTime_ShouldReturnDateTimeAtStartOfDay() {
         LocalDate localDate = LocalDate.of(2023, 5, 15);
         LocalDateTime result = converter.convert(localDate, LocalDate.class);
-
-        assertEquals(localDate.atStartOfDay(), result);
+        assertThat(result).isEqualTo(localDate.atStartOfDay());
     }
 
-    public void test_GivenADate_WhenConvertingToLocalDateTime_ShouldReturnCorrespondingDateTime() throws Exception {
-        LocalDateTimeConverter converter = new LocalDateTimeConverter();
+    @Test
+    @DisplayName("Should convert java.util.Date to corresponding LocalDateTime")
+    void test_GivenADate_WhenConvertingToLocalDateTime_ShouldReturnCorrespondingDateTime() {
         LocalDate localDate = LocalDate.of(2023, 5, 15);
         Date date = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
 
         LocalDateTime result = converter.convert(date, Date.class);
-        assertEquals(localDate.atStartOfDay(), result);
+        assertThat(result).isEqualTo(localDate.atStartOfDay());
     }
 
-    public void test_GivenAnUnsupportedType_WhenConvertingToLocalDateTime_ShouldThrowException() {
-        LocalDateTimeConverter converter = new LocalDateTimeConverter();
-        assertThrows(ConversionException.class, () -> converter.convert(12345, Integer.class));
+    @ParameterizedTest
+    @ValueSource(classes = {Integer.class, Double.class, Boolean.class, Object.class})
+    @DisplayName("Should throw ConversionException for unsupported types")
+    void test_GivenAnUnsupportedType_WhenConvertingToLocalDateTime_ShouldThrowException(Class<?> unsupportedClass) {
+        assertThatThrownBy(() -> converter.convert(12345, (Class) unsupportedClass))
+            .isInstanceOf(ConversionException.class);
     }
 
-    public void test_GivenAnInvalidDateString_WhenConvertingToLocalDateTime_ShouldThrowException() {
-        LocalDateTimeConverter converter = new LocalDateTimeConverter();
-        assertThrows(ConversionException.class, () -> converter.convert("invalid-datetime", String.class));
+    @ParameterizedTest
+    @ValueSource(strings = {"invalid-datetime", "not-a-datetime", "", " "})
+    @DisplayName("Should throw ConversionException for invalid date-time strings")
+    void test_GivenAnInvalidDateString_WhenConvertingToLocalDateTime_ShouldThrowException(String input) {
+        assertThatThrownBy(() -> converter.convert(input, String.class))
+            .isInstanceOf(ConversionException.class);
     }
-
 }

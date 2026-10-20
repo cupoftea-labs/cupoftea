@@ -1,11 +1,11 @@
 package com.CupOfTea.exporters;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class ParquetExporterTest extends TestCase {
+public class ParquetExporterTest {
 
-    public void test() {
-        
+    @Test
+    void test() {
     }
 
 }

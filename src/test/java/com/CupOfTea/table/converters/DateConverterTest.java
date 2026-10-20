@@ -1,52 +1,69 @@
 package com.CupOfTea.table.converters;
 
-import static org.junit.Assert.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
 import com.CupOfTea.exceptions.ConversionException;
 
-import junit.framework.TestCase;
+public class DateConverterTest {
 
-public class DateConverterTest extends TestCase {
+    private DateConverter converter;
 
-    public void test_GivenAValidDateString_WhenConvertingToDate_ShouldReturnParsedDate() throws Exception {
-        DateConverter converter = new DateConverter();
-        Date result = converter.convert("2023-05-15", String.class);
-
-        LocalDate expectedLocalDate = LocalDate.of(2023, 5, 15);
-        Date expectedDate = Date.from(expectedLocalDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
-
-        assertEquals(expectedDate, result);
+    @BeforeEach
+    void setUp() {
+        converter = new DateConverter();
     }
 
-    public void test_GivenADate_WhenConvertingToDate_ShouldReturnSameDate() throws Exception {
-        DateConverter converter = new DateConverter();
-        Date original = new Date();
-        Date result = converter.convert(original, Date.class);
-
-        assertEquals(original, result);
+    @ParameterizedTest(name = "convert date string ''{0}'' should return parsed Date")
+    @ValueSource(strings = {"2024-05-15", "2000-01-01", "1999-12-31"})
+    @DisplayName("Should convert valid date strings (yyyy-MM-dd) to Date")
+    void testConvertValidDateStringsToDate(String dateString) {
+        LocalDate localDate = LocalDate.parse(dateString);
+        Date expected = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date result = converter.convert(dateString, String.class);
+        assertThat(result).isEqualTo(expected);
     }
 
-    public void test_GivenALocalDate_WhenConvertingToDate_ShouldReturnCorrespondingDate() throws Exception {
-        DateConverter converter = new DateConverter();
+    @Test
+    @DisplayName("Should return same Date instance when converting Date type")
+    void testConvertDateToSameDate() {
+        Date now = new Date();
+        Date result = converter.convert(now, Date.class);
+        assertThat(result).isEqualTo(now);
+    }
+
+    @Test
+    @DisplayName("Should convert LocalDate to corresponding Date")
+    void testConvertLocalDateToDate() {
         LocalDate localDate = LocalDate.of(2023, 5, 15);
-        Date result = converter.convert(localDate, LocalDate.class);
-
         Date expectedDate = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
-        assertEquals(expectedDate, result);
+        Date result = converter.convert(localDate, LocalDate.class);
+        assertThat(result).isEqualTo(expectedDate);
     }
 
-    public void test_GivenAnUnsupportedType_WhenConvertingToDate_ShouldThrowException() {
-        DateConverter converter = new DateConverter();
-        assertThrows(ConversionException.class, () -> converter.convert(12345, Integer.class));
+    @ParameterizedTest
+    @ValueSource(strings = {"not-a-date", "invalid-format", "abc", "", "   "})
+    @DisplayName("Should throw ConversionException for invalid date strings")
+    void testConvertInvalidDateStringThrowsException(String input) {
+        assertThatThrownBy(() -> converter.convert(input, String.class))
+            .isInstanceOf(ConversionException.class);
     }
 
-    public void test_GivenAnInvalidDateString_WhenConvertingToDate_ShouldThrowException() {
-        DateConverter converter = new DateConverter();
-        assertThrows(ConversionException.class, () -> converter.convert("invalid-date", String.class));
+    @ParameterizedTest
+    @ValueSource(classes = {Integer.class, Double.class, Boolean.class, Object.class})
+    @DisplayName("Should throw ConversionException for unsupported types")
+    void testConvertUnsupportedTypeThrowsException(Class<?> unsupportedClass) {
+        assertThatThrownBy(() -> converter.convert(12345, (Class) unsupportedClass))
+            .isInstanceOf(ConversionException.class);
     }
-
 }

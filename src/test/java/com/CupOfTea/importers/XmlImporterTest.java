@@ -1,29 +1,28 @@
 package com.CupOfTea.importers;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.File;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import com.CupOfTea.CupOfTea;
 
-import junit.framework.TestCase;
+public class XmlImporterTest {
 
-public class XmlImporterTest extends TestCase {
-
-
-    public void test_GivenAXmlFile_WhenImporting_ShouldReturnACupOfTeaDataFrame() throws Exception {
-
+    @Test
+    @DisplayName("Should import DataFrame from XML file")
+    void test_GivenAXmlFile_WhenImporting_ShouldReturnACupOfTeaDataFrame() {
         int expectedColumnsNumber = 3;
         int expectedRowsNumber = 16;
 
         File testFile = new File("src/test/java/com/CupOfTea/testFiles/xml_sample.xml");
-
         CupOfTea cupOfTea = new CupOfTea();
 
         cupOfTea.importFromXml(testFile);
 
-        assertEquals(expectedColumnsNumber, cupOfTea.getHeaders().size());
-        assertEquals(expectedRowsNumber, cupOfTea.getRows().size());
-
+        assertThat(cupOfTea.getHeaders()).hasSize(expectedColumnsNumber);
+        assertThat(cupOfTea.getRows()).hasSize(expectedRowsNumber);
     }
-
-
 }

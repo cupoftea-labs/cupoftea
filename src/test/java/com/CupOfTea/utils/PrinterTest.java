@@ -1,19 +1,22 @@
 package com.CupOfTea.utils;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.util.HashMap;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.Group;
 import com.CupOfTea.utils.configurations.PrinterConfiguration;
 
-import junit.framework.TestCase;
+public class PrinterTest {
 
-public class PrinterTest extends TestCase {
-
-    private CupOfTea createSampleDataFrame(int rowCount, int columnCount) throws Exception {
+    private CupOfTea createSampleDataFrame(int rowCount, int columnCount) {
         CupOfTea df = new CupOfTea();
         for (int c = 0; c < columnCount; c++) {
             final String colName = "col_" + c;
@@ -29,33 +32,39 @@ public class PrinterTest extends TestCase {
         return df;
     }
 
-    public void test_defaultPrint_smallDataFrame() throws Exception {
+    @Test
+    @DisplayName("Should print small DataFrame with default configuration")
+    void test_defaultPrint_smallDataFrame() {
         CupOfTea df = createSampleDataFrame(3, 2);
         String output = df.printToString();
 
-        assertNotNull(output);
-        assertTrue(output.contains("Showing 3 registers"));
-        assertTrue(output.contains("col_0"));
-        assertTrue(output.contains("col_1"));
-        assertTrue(output.contains("val_0_0"));
+        assertThat(output).isNotNull();
+        assertThat(output).contains("Showing 3 registers");
+        assertThat(output).contains("col_0");
+        assertThat(output).contains("col_1");
+        assertThat(output).contains("val_0_0");
     }
 
-    public void test_lineLengths_areStrictlyEqual() throws Exception {
+    @Test
+    @DisplayName("Should ensure table border and data lines have strictly equal lengths")
+    void test_lineLengths_areStrictlyEqual() {
         CupOfTea df = createSampleDataFrame(5, 3);
         String output = df.printToString();
 
         String[] lines = output.split(System.lineSeparator());
-        // First line is description
-        assertEquals("Showing 5 registers", lines[0]);
+        assertThat(lines[0]).isEqualTo("Showing 5 registers");
 
-        // Lines 1 to end are table borders and rows
         int expectedLength = lines[1].length();
         for (int i = 1; i < lines.length; i++) {
-            assertEquals("Line " + i + " length mismatch: " + lines[i], expectedLength, lines[i].length());
+            assertThat(lines[i].length())
+                .withFailMessage("Line %d length mismatch: %s", i, lines[i])
+                .isEqualTo(expectedLength);
         }
     }
 
-    public void test_terminalWidth_truncatesColumnsWithEllipsis() throws Exception {
+    @Test
+    @DisplayName("Should truncate columns with ellipsis when terminal width is constrained")
+    void test_terminalWidth_truncatesColumnsWithEllipsis() {
         CupOfTea df = createSampleDataFrame(5, 15);
 
         PrinterConfiguration config = new PrinterConfiguration()
@@ -64,18 +73,19 @@ public class PrinterTest extends TestCase {
         String output = df.printToString(config);
         String[] lines = output.split(System.lineSeparator());
 
-        // Check that description shows truncated columns
-        assertTrue(lines[0].contains("columns)"));
-        assertTrue(output.contains("..."));
+        assertThat(lines[0]).contains("columns)");
+        assertThat(output).contains("...");
 
-        // Verify that no line in the table exceeds terminal width
         for (String line : lines) {
-            assertTrue("Line exceeds terminal width: length " + line.length() + " > 60: " + line,
-                    line.length() <= 60);
+            assertThat(line.length())
+                .withFailMessage("Line exceeds terminal width: length %d > 60: %s", line.length(), line)
+                .isLessThanOrEqualTo(60);
         }
     }
 
-    public void test_maxColumns_limitsDisplayedColumns() throws Exception {
+    @Test
+    @DisplayName("Should limit displayed columns with maxColumns configuration")
+    void test_maxColumns_limitsDisplayedColumns() {
         CupOfTea df = createSampleDataFrame(5, 10);
 
         PrinterConfiguration config = new PrinterConfiguration()
@@ -83,23 +93,27 @@ public class PrinterTest extends TestCase {
                 .setMaxColumns(4);
 
         String output = df.printToString(config);
-        assertTrue(output.contains("..."));
-        assertTrue(output.contains("(4 of 10 columns)"));
+        assertThat(output).contains("...");
+        assertThat(output).contains("(4 of 10 columns)");
     }
 
-    public void test_maxRows_limitsDisplayedRows() throws Exception {
+    @Test
+    @DisplayName("Should limit displayed rows with maxRows configuration")
+    void test_maxRows_limitsDisplayedRows() {
         CupOfTea df = createSampleDataFrame(20, 2);
 
         PrinterConfiguration config = new PrinterConfiguration()
                 .setMaxRows(5);
 
         String output = df.printToString(config);
-        assertTrue(output.contains("Showing only the first 5 registers"));
-        assertTrue(output.contains("val_4_0"));
-        assertFalse(output.contains("val_5_0"));
+        assertThat(output).contains("Showing only the first 5 registers");
+        assertThat(output).contains("val_4_0");
+        assertThat(output).doesNotContain("val_5_0");
     }
 
-    public void test_showColumnType_displaysTypeInHeader() throws Exception {
+    @Test
+    @DisplayName("Should display column type in header when showColumnType is enabled")
+    void test_showColumnType_displaysTypeInHeader() {
         CupOfTea df = new CupOfTea();
         df.addColumn("name", String.class, row -> "Alice");
         df.addColumn("age", Integer.class, row -> 30);
@@ -113,11 +127,13 @@ public class PrinterTest extends TestCase {
                 .setShowColumnType(true);
 
         String output = df.printToString(config);
-        assertTrue(output.contains("name (String)"));
-        assertTrue(output.contains("age (Integer)"));
+        assertThat(output).contains("name (String)");
+        assertThat(output).contains("age (Integer)");
     }
 
-    public void test_autoAdjustColumnWidth_disabled() throws Exception {
+    @Test
+    @DisplayName("Should respect fixed defaultColumnWidth when autoAdjustColumnWidth is disabled")
+    void test_autoAdjustColumnWidth_disabled() {
         CupOfTea df = createSampleDataFrame(2, 2);
 
         PrinterConfiguration config = new PrinterConfiguration()
@@ -126,29 +142,34 @@ public class PrinterTest extends TestCase {
 
         String output = df.printToString(config);
         String[] lines = output.split(System.lineSeparator());
-        // Top border should have 1 + 15 + 1 + 15 + 1 = 33 chars
-        assertEquals(33, lines[1].length());
+        assertThat(lines[1].length()).isEqualTo(33);
     }
 
-    public void test_emptyDataFrame_noColumns() {
+    @Test
+    @DisplayName("Should print message for empty DataFrame with no columns")
+    void test_emptyDataFrame_noColumns() {
         CupOfTea df = new CupOfTea();
         String output = df.printToString();
 
-        assertTrue(output.contains("Empty DataFrame (0 rows, 0 columns)"));
+        assertThat(output).contains("Empty DataFrame (0 rows, 0 columns)");
     }
 
-    public void test_emptyDataFrame_withColumnsZeroRows() throws Exception {
+    @Test
+    @DisplayName("Should print headers for empty DataFrame with columns and zero rows")
+    void test_emptyDataFrame_withColumnsZeroRows() {
         CupOfTea df = new CupOfTea();
         df.addColumn("id", Integer.class, row -> 0);
         df.addColumn("title", String.class, row -> "");
 
         String output = df.printToString();
-        assertTrue(output.contains("Showing 0 registers"));
-        assertTrue(output.contains("id"));
-        assertTrue(output.contains("title"));
+        assertThat(output).contains("Showing 0 registers");
+        assertThat(output).contains("id");
+        assertThat(output).contains("title");
     }
 
-    public void test_nullValues_renderedAsConfiguredString() throws Exception {
+    @Test
+    @DisplayName("Should render null values according to configuration")
+    void test_nullValues_renderedAsConfiguredString() {
         CupOfTea df = new CupOfTea();
         df.addColumn("col", String.class, row -> null);
 
@@ -158,14 +179,16 @@ public class PrinterTest extends TestCase {
 
         PrinterConfiguration configDefault = new PrinterConfiguration();
         String outDefault = df.printToString(configDefault);
-        assertTrue(outDefault.contains("null"));
+        assertThat(outDefault).contains("null");
 
         PrinterConfiguration configCustom = new PrinterConfiguration().setStringNull("N/A");
         String outCustom = df.printToString(configCustom);
-        assertTrue(outCustom.contains("N/A"));
+        assertThat(outCustom).contains("N/A");
     }
 
-    public void test_longValues_truncatedWithEllipsis() throws Exception {
+    @Test
+    @DisplayName("Should truncate long cell values with ellipsis")
+    void test_longValues_truncatedWithEllipsis() {
         CupOfTea df = new CupOfTea();
         df.addColumn("description", String.class, row -> null);
 
@@ -177,26 +200,30 @@ public class PrinterTest extends TestCase {
                 .setMaxColumnWidth(15);
 
         String output = df.printToString(config);
-        assertTrue(output.contains("..."));
+        assertThat(output).contains("...");
         String[] lines = output.split(System.lineSeparator());
-        assertEquals(lines[1].length(), lines[2].length());
+        assertThat(lines[1].length()).isEqualTo(lines[2].length());
     }
 
-    public void test_customDescription_and_hideDescription() throws Exception {
+    @Test
+    @DisplayName("Should support custom description or hiding description")
+    void test_customDescription_and_hideDescription() {
         CupOfTea df = createSampleDataFrame(2, 2);
 
         PrinterConfiguration customDescConfig = new PrinterConfiguration()
                 .setDescription("Custom Report Table");
         String customOut = df.printToString(customDescConfig);
-        assertTrue(customOut.startsWith("Custom Report Table"));
+        assertThat(customOut).startsWith("Custom Report Table");
 
         PrinterConfiguration noDescConfig = new PrinterConfiguration()
                 .setShowDescription(false);
         String noDescOut = df.printToString(noDescConfig);
-        assertTrue(noDescOut.startsWith("\u250C"));
+        assertThat(noDescOut).startsWith("\u250C");
     }
 
-    public void test_groupedColumns_filteredOut() throws Exception {
+    @Test
+    @DisplayName("Should filter out Group columns from printed output")
+    void test_groupedColumns_filteredOut() {
         CupOfTea df = new CupOfTea();
         df.addColumn("visibleCol", String.class, row -> "test");
         df.getHeaders().add(new Column("groupedCol", Group.class));
@@ -207,11 +234,13 @@ public class PrinterTest extends TestCase {
         df.getRows().add(r1);
 
         String output = df.printToString();
-        assertTrue(output.contains("visibleCol"));
-        assertFalse(output.contains("groupedCol"));
+        assertThat(output).contains("visibleCol");
+        assertThat(output).doesNotContain("groupedCol");
     }
 
-    public void test_printStream_redirectsOutput() throws Exception {
+    @Test
+    @DisplayName("Should redirect output to configured PrintStream")
+    void test_printStream_redirectsOutput() {
         CupOfTea df = createSampleDataFrame(2, 2);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PrintStream ps = new PrintStream(baos);
@@ -220,14 +249,16 @@ public class PrinterTest extends TestCase {
         df.print(config);
 
         String printed = baos.toString();
-        assertTrue(printed.contains("Showing 2 registers"));
-        assertTrue(printed.contains("col_0"));
+        assertThat(printed).contains("Showing 2 registers");
+        assertThat(printed).contains("col_0");
     }
 
-    public void test_print_overloads_return_this() throws Exception {
+    @Test
+    @DisplayName("Should return this DataFrame from all print overloads")
+    void test_print_overloads_return_this() {
         CupOfTea df = createSampleDataFrame(3, 2);
-        assertSame(df, df.print());
-        assertSame(df, df.print(2));
-        assertSame(df, df.print(new PrinterConfiguration().setMaxRows(1)));
+        assertThat(df.print()).isSameAs(df);
+        assertThat(df.print(2)).isSameAs(df);
+        assertThat(df.print(new PrinterConfiguration().setMaxRows(1))).isSameAs(df);
     }
 }

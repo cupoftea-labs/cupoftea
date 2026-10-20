@@ -1,87 +1,74 @@
 package com.CupOfTea.table.converters;
 
-import static org.junit.Assert.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.CupOfTea.exceptions.ConversionException;
 
-import junit.framework.TestCase;
+public class BooleanConverterTest {
 
-public class BooleanConverterTest extends TestCase {
+    private BooleanConverter converter;
 
-    public void test_GivenAStringTrue_WhenTryingToConvertToBoolean_ShouldReturnABooleanTrue() {
-        
-        Boolean expectedValue = true;
-
-        String valueToConvert = "True";
-
-        BooleanConverter bc = new BooleanConverter();
-
-        Boolean convertedValue = bc.convert(valueToConvert, String.class);
-
-        assertEquals(expectedValue, convertedValue);
-
+    @BeforeEach
+    void setUp() {
+        converter = new BooleanConverter();
     }
 
-    public void test_GivenAStringFalse_WhenTryingToConvertToBoolean_ShouldReturnABooleanFalse() {
-        
-        Boolean expectedValue = false;
-
-        String valueToConvert = "fAlse";
-
-        BooleanConverter bc = new BooleanConverter();
-
-        Boolean convertedValue = bc.convert(valueToConvert, String.class);
-
-        assertEquals(expectedValue, convertedValue);
-
+    @ParameterizedTest(name = "convert string ''{0}'' should return {1}")
+    @CsvSource({
+        "True, true",
+        "true, true",
+        "TRUE, true",
+        "tRuE, true",
+        "False, false",
+        "false, false",
+        "FALSE, false",
+        "fAlse, false"
+    })
+    @DisplayName("Should convert valid string representations to boolean")
+    void testConvertValidStringsToBoolean(String input, boolean expected) {
+        Boolean result = converter.convert(input, String.class);
+        assertThat(result).isEqualTo(expected);
     }
 
-    public void test_GivenAString_WhenTryingToConvertToBoolean_ShouldReturnAException() {
-        
-        String valueToConvert = "AnyValue";
-
-        BooleanConverter bc = new BooleanConverter();
-
-        assertThrows(ConversionException.class, () -> bc.convert(valueToConvert, String.class));
-
+    @ParameterizedTest(name = "convert integer {0} should return {1}")
+    @CsvSource({
+        "1, true",
+        "0, false"
+    })
+    @DisplayName("Should convert integer 1 and 0 to boolean")
+    void testConvertValidIntegersToBoolean(int input, boolean expected) {
+        Boolean result = converter.convert(input, Integer.class);
+        assertThat(result).isEqualTo(expected);
     }
 
-    public void test_GivenAInterger1_WhenTryingToConvertToBoolean_ShouldReturnABooleanTrue() {
-        
-        Boolean expectedValue = true;
-
-        Integer valueToConvert = 1;
-
-        BooleanConverter bc = new BooleanConverter();
-
-        Boolean convertedValue = bc.convert(valueToConvert, Integer.class);
-
-        assertEquals(expectedValue, convertedValue);
-
+    @ParameterizedTest
+    @ValueSource(strings = {"AnyValue", "yes", "no", "2", "-1", "1", "0", "", " "})
+    @DisplayName("Should throw ConversionException for invalid string representations")
+    void testConvertInvalidStringToBooleanThrowsException(String input) {
+        assertThatThrownBy(() -> converter.convert(input, String.class))
+            .isInstanceOf(ConversionException.class);
     }
 
-    public void test_GivenAInteger0_WhenTryingToConvertToBoolean_ShouldReturnABooleanFalse() {
-        
-        Boolean expectedValue = false;
-
-        Integer valueToConvert = 0;
-
-        BooleanConverter bc = new BooleanConverter();
-
-        Boolean convertedValue = bc.convert(valueToConvert, Integer.class);
-
-        assertEquals(expectedValue, convertedValue);
-
+    @ParameterizedTest
+    @ValueSource(ints = {1234, -1, 2, 100})
+    @DisplayName("Should throw ConversionException for invalid integer values")
+    void testConvertInvalidIntegerToBooleanThrowsException(int input) {
+        assertThatThrownBy(() -> converter.convert(input, Integer.class))
+            .isInstanceOf(ConversionException.class);
     }
 
-    public void test_GivenAInteger_WhenTryingToConvertToBoolean_ShouldReturnAException() {
-        
-        Integer valueToConvert = 1234;
-
-        BooleanConverter bc = new BooleanConverter();
-
-        assertThrows(ConversionException.class, () -> bc.convert(valueToConvert, Integer.class));
-
+    @ParameterizedTest
+    @ValueSource(classes = {Double.class, Float.class, Object.class})
+    @DisplayName("Should throw ConversionException for unsupported types")
+    void testConvertUnsupportedTypeThrowsException(Class<?> unsupportedClass) {
+        assertThatThrownBy(() -> converter.convert(12.34, (Class) unsupportedClass))
+            .isInstanceOf(ConversionException.class);
     }
-
 }
