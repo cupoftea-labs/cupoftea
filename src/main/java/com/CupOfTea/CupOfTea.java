@@ -41,6 +41,7 @@ import com.CupOfTea.table.DataFrame;
 import com.CupOfTea.table.Group;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.Printer;
+import com.CupOfTea.utils.configurations.PrinterConfiguration;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
@@ -234,12 +235,32 @@ public class CupOfTea {
         return this;
     }
     
-    public CupOfTea print(){
-        
+    public CupOfTea print() {
         Printer printer = new Printer(this);
         printer.print();
         return this;
+    }
 
+    public CupOfTea print(PrinterConfiguration configuration) {
+        Printer printer = new Printer(this, configuration);
+        printer.print();
+        return this;
+    }
+
+    public CupOfTea print(int maxRows) {
+        Printer printer = new Printer(this, new PrinterConfiguration().setMaxRows(maxRows));
+        printer.print();
+        return this;
+    }
+
+    public String printToString() {
+        Printer printer = new Printer(this);
+        return printer.format();
+    }
+
+    public String printToString(PrinterConfiguration configuration) {
+        Printer printer = new Printer(this, configuration);
+        return printer.format();
     }
 
     public CupOfTea exportToJson(File file) throws Exception {
