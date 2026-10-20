@@ -1,8 +1,14 @@
 package com.CupOfTea.importers;
 
+import static com.CupOfTea.table.Schema.DATE;
+import static com.CupOfTea.table.Schema.DECIMAL;
+import static com.CupOfTea.table.Schema.DOUBLE;
+import static com.CupOfTea.table.Schema.INT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.File;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -13,6 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.table.Column;
+import com.CupOfTea.table.Schema;
 
 public class JsonImporterTest {
 
@@ -171,5 +178,29 @@ public class JsonImporterTest {
 
         assertThat(df.getHeaders()).isEmpty();
         assertThat(df.size()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Should import JSON with explicit Schema.of and coerce types")
+    void test_GivenJsonWithSchemaOf_WhenImporting_ShouldApplySchemaTypes() {
+        String json = """
+            [
+                {"year": "2023", "price": "199.99", "salary": "5000.50", "created": "2023-11-20"},
+                {"year": "2024", "price": "299.99", "salary": "6000.75", "created": "2024-05-10"}
+            ]
+            """;
+
+        Schema schema = Schema.of("year", INT, "price", DOUBLE, "salary", DECIMAL, "created", DATE);
+        CupOfTea df = new CupOfTea().importFromJson(json, schema);
+
+        assertThat(df.getColumnHeader("year").columnType()).isEqualTo(Integer.class);
+        assertThat(df.getColumnHeader("price").columnType()).isEqualTo(Double.class);
+        assertThat(df.getColumnHeader("salary").columnType()).isEqualTo(BigDecimal.class);
+        assertThat(df.getColumnHeader("created").columnType()).isEqualTo(LocalDate.class);
+
+        assertThat(df.getRow(0).get("year")).isEqualTo(2023);
+        assertThat(df.getRow(0).get("price")).isEqualTo(199.99);
+        assertThat(df.getRow(0).get("salary")).isEqualTo(new BigDecimal("5000.50"));
+        assertThat(df.getRow(0).get("created")).isEqualTo(LocalDate.of(2023, 11, 20));
     }
 }

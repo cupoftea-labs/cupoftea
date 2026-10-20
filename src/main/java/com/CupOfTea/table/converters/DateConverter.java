@@ -1,5 +1,6 @@
 package com.CupOfTea.table.converters;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -9,6 +10,11 @@ import java.util.Date;
 import com.CupOfTea.exceptions.ConversionException;
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
 
+/**
+ * @deprecated Use {@link LocalDateConverter}, {@link LocalDateTimeConverter}, or {@link InstantConverter}
+ * based on {@code java.time} instead of legacy {@link java.util.Date}.
+ */
+@Deprecated
 public class DateConverter implements IDataTypeConverter<Date> {
 
     private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -21,6 +27,10 @@ public class DateConverter implements IDataTypeConverter<Date> {
 
         if (value instanceof Date) {
             return (Date) value;
+        }
+
+        if (value instanceof Instant) {
+            return Date.from((Instant) value);
         }
 
         if (value instanceof LocalDate) {

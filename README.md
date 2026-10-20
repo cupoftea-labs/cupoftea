@@ -4,13 +4,17 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 
 ## Features
 - Create DataFrames from arrays, lists, CSV files, and other sources.
-- Column selection, row filtering, and slicing operations.
-- Read and write CSV files.
+- First-class `Schema` definition: `Schema.of("year", INT, "price", DOUBLE)`.
+- Optional automatic type inference on CSV, JSON, and Excel ingest.
+- First-class missing-value model (`NA`) distinct from empty strings (`""`).
+- Full support for `java.time` (`LocalDate`, `LocalDateTime`, `Instant`).
+- Exact currency arithmetic using `BigDecimal` (`Schema.DECIMAL`).
+- Column selection, row filtering, grouping, aggregation, and slicing operations.
+- Read and write CSV, JSON, Excel, and Parquet files.
 
 ## Future Features
 - Statistical and aggregation operations (mean, sum, standard deviation, etc.). (WIP)
 - Support for join and merge operations on DataFrames.
-- Handling of missing data (null values).
 
 ## Installation (WIP)
 
@@ -35,23 +39,36 @@ implementation ''
 Here’s a basic example of how to use the Java DataFrame library:
 
 ```java
-import ...;
+import java.io.File;
+import com.CupOfTea.CupOfTea;
+import com.CupOfTea.table.Schema;
+import static com.CupOfTea.table.Schema.*;
 
 public class Main {
     public static void main(String[] args) {
-        File file = new File("csv_file.csv");
-        CupOfTea df = new CupOfTea();
-        df.importFromCsv(file, true);
+        // Define an explicit schema
+        Schema schema = Schema.of(
+            "name", STRING,
+            "age", INT,
+            "salary", DECIMAL,
+            "hireDate", DATE
+        );
 
-        df.print();  
-        CupOfTea filtered_df = df.filter(row -> row.getInt("age") > 30);
-        filtered_df.print();
+        // Import CSV with schema
+        File file = new File("employees.csv");
+        CupOfTea df = new CupOfTea(schema).importFromCsv(file, schema);
+
+        df.print();
+
+        // Exact aggregation with BigDecimal
+        CupOfTea grouped = df.groupBy("department").sum("salary");
+        grouped.print();
     }
 }
 ```
 
-## Documentation (WIP)
-Full documentation of the library, including all functions and usage examples, can be found here.
+## Documentation
+- [Missing-Value (NA) Model, Schema, and Null Policy](docs/null_policy.md)
 
 ## Contributions
 Contributions are welcome! To contribute, follow these steps:

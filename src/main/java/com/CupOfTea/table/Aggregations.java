@@ -99,7 +99,8 @@ public class Aggregations {
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 int count = 0;
                 for (HashMap<String, Object> row : rows) {
-                    if (row.get(column) != null) {
+                    Object val = row.get(column);
+                    if (val != null && !NA.isNA(val)) {
                         count++;
                     }
                 }
@@ -142,7 +143,7 @@ public class Aggregations {
                 List<Object> values = new ArrayList<>();
                 for (HashMap<String, Object> row : rows) {
                     Object val = row.get(column);
-                    if (val != null) {
+                    if (val != null && !NA.isNA(val)) {
                         values.add(val);
                     }
                 }
@@ -173,7 +174,7 @@ public class Aggregations {
                 List<Object> values = new ArrayList<>();
                 for (HashMap<String, Object> row : rows) {
                     Object val = row.get(column);
-                    if (val != null) {
+                    if (val != null && !NA.isNA(val)) {
                         values.add(val);
                     }
                 }
@@ -203,7 +204,7 @@ public class Aggregations {
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 return rows.stream()
                         .map(r -> r.get(column))
-                        .filter(Objects::nonNull)
+                        .filter(val -> val != null && !NA.isNA(val))
                         .map(Object::toString)
                         .collect(Collectors.joining(separator));
             }
@@ -255,7 +256,7 @@ public class Aggregations {
     }
 
     public static BigDecimal toBigDecimal(Object val) {
-        if (val == null) return null;
+        if (val == null || NA.isNA(val)) return null;
         if (val instanceof BigDecimal) return (BigDecimal) val;
         if (val instanceof BigInteger) return new BigDecimal((BigInteger) val);
         if (val instanceof Double || val instanceof Float) {

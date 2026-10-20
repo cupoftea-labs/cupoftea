@@ -1,5 +1,6 @@
 package com.CupOfTea.table.converters;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -23,6 +24,10 @@ public class LocalDateTimeConverter implements IDataTypeConverter<LocalDateTime>
 
         if (value instanceof LocalDateTime) {
             return (LocalDateTime) value;
+        }
+
+        if (value instanceof Instant) {
+            return ((Instant) value).atZone(ZoneId.systemDefault()).toLocalDateTime();
         }
 
         LocalDateTime convertedValue;

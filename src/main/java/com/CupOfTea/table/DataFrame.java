@@ -1,6 +1,7 @@
 package com.CupOfTea.table;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -16,10 +17,12 @@ import org.jetbrains.annotations.Nullable;
 
 import com.CupOfTea.exceptions.ConversionException;
 import com.CupOfTea.exceptions.SchemaMismatchException;
+import com.CupOfTea.table.converters.BigDecimalConverter;
 import com.CupOfTea.table.converters.BooleanConverter;
 import com.CupOfTea.table.converters.DateConverter;
 import com.CupOfTea.table.converters.DoubleConverter;
 import com.CupOfTea.table.converters.FloatConverter;
+import com.CupOfTea.table.converters.InstantConverter;
 import com.CupOfTea.table.converters.IntegerConverter;
 import com.CupOfTea.table.converters.LocalDateConverter;
 import com.CupOfTea.table.converters.LocalDateTimeConverter;
@@ -43,6 +46,8 @@ public class DataFrame extends IDataFrame {
     private static final DateConverter DATE_CONVERTER = new DateConverter();
     private static final LocalDateConverter LOCAL_DATE_CONVERTER = new LocalDateConverter();
     private static final LocalDateTimeConverter LOCAL_DATE_TIME_CONVERTER = new LocalDateTimeConverter();
+    private static final InstantConverter INSTANT_CONVERTER = new InstantConverter();
+    private static final BigDecimalConverter BIG_DECIMAL_CONVERTER = new BigDecimalConverter();
 
     private static final Map<Class<?>, IDataTypeConverter<?>> CONVERTERS = Map.ofEntries(
         Map.entry(Integer.class, INTEGER_CONVERTER),
@@ -58,7 +63,9 @@ public class DataFrame extends IDataFrame {
         Map.entry(String.class, STRING_CONVERTER),
         Map.entry(Date.class, DATE_CONVERTER),
         Map.entry(LocalDate.class, LOCAL_DATE_CONVERTER),
-        Map.entry(LocalDateTime.class, LOCAL_DATE_TIME_CONVERTER)
+        Map.entry(LocalDateTime.class, LOCAL_DATE_TIME_CONVERTER),
+        Map.entry(Instant.class, INSTANT_CONVERTER),
+        Map.entry(BigDecimal.class, BIG_DECIMAL_CONVERTER)
     );
 
     private final HashMap<String, IColumnCreator> columnCreators = new HashMap<>();
@@ -66,6 +73,38 @@ public class DataFrame extends IDataFrame {
 
     public DataFrame(){
         super();
+    }
+
+    public DataFrame(Schema schema){
+        super(schema);
+    }
+
+    @Override
+    public Schema getSchema() {
+        return Schema.fromHeader(this.header);
+    }
+
+    @Override
+    public IDataFrame setSchema(Schema schema) {
+        if (schema == null) {
+            return this;
+        }
+        ArrayList<Column> newHeaders = new ArrayList<>(schema.getColumns());
+        this.setHeaders(newHeaders);
+        for (Column col : schema.getColumns()) {
+            if (col.columnType() != null && !this.rows.isEmpty()) {
+                IDataTypeConverter<?> converter = CONVERTERS.get(col.columnType());
+                if (converter != null) {
+                    for (var row : this.rows) {
+                        Object val = row.get(col.columnName());
+                        if (val != null && !col.columnType().isInstance(val)) {
+                            row.put(col.columnName(), converter.convert(val, val.getClass()));
+                        }
+                    }
+                }
+            }
+        }
+        return this;
     }
 
     @Override
@@ -420,6 +459,16 @@ public class DataFrame extends IDataFrame {
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
     private int compareValues(Object rawA, Object rawB, Class<?> declaredType) {
+        if (NA.isNA(rawA) && NA.isNA(rawB)) {
+            return 0;
+        }
+        if (NA.isNA(rawA)) {
+            return 1;
+        }
+        if (NA.isNA(rawB)) {
+            return -1;
+        }
+
         Object valA = this.coerceToDeclaredType(rawA, declaredType);
         Object valB = this.coerceToDeclaredType(rawB, declaredType);
 
@@ -443,6 +492,18 @@ public class DataFrame extends IDataFrame {
         }
         if (valA instanceof Boolean boolA && valB instanceof Boolean boolB) {
             return Boolean.compare(boolA, boolB);
+        }
+        if (valA instanceof Instant instA && valB instanceof Instant instB) {
+            return instA.compareTo(instB);
+        }
+        if (valA instanceof LocalDate dateA && valB instanceof LocalDate dateB) {
+            return dateA.compareTo(dateB);
+        }
+        if (valA instanceof LocalDateTime dtA && valB instanceof LocalDateTime dtB) {
+            return dtA.compareTo(dtB);
+        }
+        if (valA instanceof BigDecimal decA && valB instanceof BigDecimal decB) {
+            return decA.compareTo(decB);
         }
         if (valA instanceof Date dateA && valB instanceof Date dateB) {
             return Long.compare(dateA.getTime(), dateB.getTime());
@@ -471,6 +532,10 @@ public class DataFrame extends IDataFrame {
             if (declaredType == Short.class) return Short.valueOf(str);
             if (declaredType == Byte.class) return Byte.valueOf(str);
             if (declaredType == Boolean.class) return Boolean.valueOf(str);
+            if (declaredType == BigDecimal.class) return new BigDecimal(str);
+            if (declaredType == Instant.class) return Instant.parse(str);
+            if (declaredType == LocalDate.class) return LocalDate.parse(str);
+            if (declaredType == LocalDateTime.class) return LocalDateTime.parse(str);
         }
         return value;
     }

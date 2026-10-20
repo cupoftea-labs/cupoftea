@@ -2,9 +2,13 @@ package com.CupOfTea.importers;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -22,6 +26,7 @@ import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exceptions.ImportException;
 import com.CupOfTea.importers.interfaces.IJsonImporter;
 import com.CupOfTea.table.Column;
+import com.CupOfTea.table.Schema;
 
 public class JsonImporter implements IJsonImporter {
 
@@ -300,6 +305,30 @@ public class JsonImporter implements IJsonImporter {
             }
             if (value instanceof Number number) {
                 return number.intValue() != 0;
+            }
+        }
+        if (columnType == BigDecimal.class) {
+            if (value instanceof BigDecimal bd) {
+                return bd;
+            }
+            return new BigDecimal(value.toString().trim());
+        }
+        if (columnType == LocalDate.class) {
+            if (value instanceof String str) {
+                return LocalDate.parse(str.trim());
+            }
+        }
+        if (columnType == LocalDateTime.class) {
+            if (value instanceof String str) {
+                return LocalDateTime.parse(str.trim());
+            }
+        }
+        if (columnType == Instant.class) {
+            if (value instanceof String str) {
+                return Instant.parse(str.trim());
+            }
+            if (value instanceof Number num) {
+                return Instant.ofEpochMilli(num.longValue());
             }
         }
         if (columnType == String.class) {

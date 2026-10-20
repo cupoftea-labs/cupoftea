@@ -3,13 +3,20 @@ package com.CupOfTea.importers.interfaces;
 import java.io.File;
 
 import com.CupOfTea.importers.configurations.CSVImporterConfiguration;
+import com.CupOfTea.table.Schema;
 
 public interface ICSVImporter {
     
-    public void importFromCsv(File file);
+    void importFromCsv(File file);
 
-    public void importFromCsv(File file, boolean hasHeaders);
+    void importFromCsv(File file, boolean hasHeaders);
 
-    public void importFromCsv(File file, CSVImporterConfiguration configuration);
+    default void importFromCsv(File file, Schema schema) {
+        importFromCsv(file, true, schema);
+    }
+
+    void importFromCsv(File file, boolean hasHeaders, Schema schema);
+
+    void importFromCsv(File file, CSVImporterConfiguration configuration);
 
 }
