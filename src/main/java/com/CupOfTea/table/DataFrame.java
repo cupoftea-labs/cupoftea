@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 import org.jetbrains.annotations.NotNull;
@@ -33,6 +34,9 @@ public class DataFrame extends IDataFrame {
         Integer.class, new IntegerConverter(),
         String.class, new StringConverter()
     );
+
+    private final HashMap<String, IColumnCreator> columnCreators = new HashMap<>();
+    private final HashSet<String> pendingTypeInferenceColumns = new HashSet<>();
 
     public DataFrame(){
         super();
@@ -82,6 +86,12 @@ public class DataFrame extends IDataFrame {
         for (var row : this.getRows()) {
             row.put(newName, row.get(oldName));
             row.remove(oldName);
+        }
+        if (this.columnCreators.containsKey(oldName)) {
+            this.columnCreators.put(newName, this.columnCreators.remove(oldName));
+        }
+        if (this.pendingTypeInferenceColumns.remove(oldName)) {
+            this.pendingTypeInferenceColumns.add(newName);
         }
     }
 
@@ -167,19 +177,58 @@ public class DataFrame extends IDataFrame {
      */
     @Override
     public IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception {
-        int index = header.columnCount();
+        return this.addColumn(this.header.columnCount(), columnName, (Class<?>) null, columnCreator);
+    }
 
-        this.header.addColumn(index, new Column(columnName, columnCreator.createColumn(this.getRows().get(0)).getClass()));
+    @Override
+    public IDataFrame addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+        return this.addColumn(this.header.columnCount(), columnName, columnType, columnCreator);
+    }
 
-        for(var row : this.getRows()){
-            row.put(columnName, columnCreator.createColumn(row));
+    @Override
+    public IDataFrame addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+        return this.addColumn(this.header.columnCount(), columnName, columnType, columnCreator);
+    }
+
+    @Override
+    public IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator) throws Exception {
+        return this.addColumn(index, columnName, (Class<?>) null, columnCreator);
+    }
+
+    @Override
+    public IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+        return this.addColumn(index, columnName, columnType, columnCreator);
+    }
+
+    @Override
+    public IDataFrame addColumn(int index, String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+        Class<?> resolvedType = columnType;
+
+        for (var row : this.getRows()) {
+            Object value = columnCreator.createColumn(row);
+            row.put(columnName, value);
+            if (resolvedType == null && value != null) {
+                resolvedType = value.getClass();
+            }
         }
+
+        if (resolvedType == null) {
+            resolvedType = Object.class;
+            this.pendingTypeInferenceColumns.add(columnName);
+        } else {
+            this.pendingTypeInferenceColumns.remove(columnName);
+        }
+
+        this.columnCreators.put(columnName, columnCreator);
+        this.header.addColumn(index, new Column(columnName, resolvedType));
         return this;
     }
 
     @Override
     public IDataFrame removeColumn(String columnName) {
         this.header.removeColumn(columnName);
+        this.columnCreators.remove(columnName);
+        this.pendingTypeInferenceColumns.remove(columnName);
         for(var row : this.rows) {
             row.remove(columnName);
         }
@@ -213,6 +262,7 @@ public class DataFrame extends IDataFrame {
 
         }
             
+        this.pendingTypeInferenceColumns.remove(columnName);
         this.header.alterColumnType(columnName, newColumnType);
 
         return this;
@@ -227,8 +277,26 @@ public class DataFrame extends IDataFrame {
     private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) throws Exception {
         // ToDo Verificar se todas as colunas batem com as colunas do header
         // ToDo Realizar o cast dos tipos de coluna para bater com o do header
-        if (clone) rows.add(this.cloneRow(row));
-        else rows.add(row);
+        HashMap<String, Object> rowToAdd = clone ? this.cloneRow(row) : row;
+        for (var entry : this.columnCreators.entrySet()) {
+            String columnName = entry.getKey();
+            IColumnCreator creator = entry.getValue();
+            if (!rowToAdd.containsKey(columnName)) {
+                rowToAdd.put(columnName, creator.createColumn(rowToAdd));
+            }
+        }
+        if (!this.pendingTypeInferenceColumns.isEmpty()) {
+            var iterator = this.pendingTypeInferenceColumns.iterator();
+            while (iterator.hasNext()) {
+                String columnName = iterator.next();
+                Object value = rowToAdd.get(columnName);
+                if (value != null) {
+                    this.header.alterColumnType(columnName, value.getClass());
+                    iterator.remove();
+                }
+            }
+        }
+        rows.add(rowToAdd);
         return this;
     }
 
@@ -270,6 +338,8 @@ public class DataFrame extends IDataFrame {
         DataFrame filteredDF = new DataFrame();
 
         filteredDF.setHeaders(new ArrayList<>(this.getHeaders()));
+        filteredDF.columnCreators.putAll(this.columnCreators);
+        filteredDF.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
 
         for(var row : this.rows){
             if(filter.filter(row)){
