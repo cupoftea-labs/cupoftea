@@ -38,9 +38,11 @@ import com.CupOfTea.importers.interfaces.IJsonImporter;
 import com.CupOfTea.importers.interfaces.IParquetImporter;
 import com.CupOfTea.importers.interfaces.IXmlImporter;
 import com.CupOfTea.importers.interfaces.IYamlImporter;
+import com.CupOfTea.table.Aggregate;
+import com.CupOfTea.table.Aggregations;
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.DataFrame;
-import com.CupOfTea.table.Group;
+import com.CupOfTea.table.GroupBy;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.Printer;
 import com.CupOfTea.utils.configurations.PrinterConfiguration;
@@ -70,7 +72,7 @@ public class CupOfTea {
         this.dataFrame = new DataFrame();
     }
 
-    private CupOfTea(IDataFrame dataFrame){
+    public CupOfTea(IDataFrame dataFrame){
         this.dataFrame = dataFrame;
     }
 
@@ -533,282 +535,48 @@ public class CupOfTea {
 
 
     /**
-     * Retorna um novo DataFrame com colunas de dados agrupados, que podem ser tratados posteriormente
-     * 
+     * Retorna um objeto GroupBy para realizar particionamento e agregacoes hash.
+     *
+     * @param columns colunas pelas quais agrupar
+     * @return GroupBy
      */
-    public CupOfTea groupBy(String... columns) {
-
-        CupOfTea groupedDataFrame = new CupOfTea();
-
-        List<Column> columnsToGroup = this.getHeaders().stream().filter((a) -> {
-            for(var column : columns){
-                if(a.columnName().equals(column)) return false;
-            }
-            return true;
-            })
-            .collect(Collectors.toList());
-
-        ArrayList<Column> groupedHeaders = new ArrayList<>();
-        for(var column : columns) {
-            Column colHeader = this.getColumnHeader(column);
-            if (colHeader == null) {
-                throw new SchemaMismatchException("Column not found for groupBy: " + column);
-            }
-            groupedHeaders.add(new Column(colHeader.columnName(), colHeader.columnType()));
-        }
-
-        for(var row : this.getRows()){
-            HashMap<String, Object> existingGroupRow = null;
-            for (var candidate : groupedDataFrame.getRows()) {
-                boolean matches = true;
-                for (var column : columns) {
-                    if (!Objects.equals(candidate.get(column), row.get(column))) {
-                        matches = false;
-                        break;
-                    }
-                }
-                if (matches) {
-                    existingGroupRow = candidate;
-                    break;
-                }
-            }
-
-            if(existingGroupRow != null) {
-                for(var column : columnsToGroup) {
-                    Object value = row.get(column.columnName());
-                    Group groupedValue = (Group) existingGroupRow.get(column.columnName());
-                    groupedValue.groupedValues.add(value);
-                }
-            } else {
-                HashMap<String, Object> groupedRow = new HashMap<>();
-
-                for (var column : columnsToGroup) {
-                    Group group = new Group(row.get(column.columnName()), column.columnType());
-                    groupedRow.put(column.columnName(), group);
-                }
-                for (var column : columns) {
-                    groupedRow.put(column, row.get(column));
-                }
-                groupedDataFrame.addRow(groupedRow);
-            }
-        }
-
-        columnsToGroup.stream()
-            .map((a) -> new Column(a.columnName(), Group.class))
-            .forEach(groupedHeaders::add);
-
-        groupedDataFrame.setHeaders(groupedHeaders);
-
-        return groupedDataFrame;
+    public GroupBy groupBy(String... columns) {
+        return new GroupBy(this, columns);
     }
 
-    public CupOfTea sum(String column) { 
-
-        Column groupedColumn = this.getColumnHeader(column);
-        if (groupedColumn == null) {
-            throw new SchemaMismatchException("Column not found: " + column);
-        }
-        Class<?> finalColumnType = null;
-        String columnName = column+"Sum";
-
-        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
-
-        for(var row : this.getRows()) {
-            Object sum = null;
-            Group value = (Group) row.get(column);
-
-            if(value.getColumnType() == Integer.class) {
-                Integer integerSum = 0;
-                finalColumnType = Integer.class;
-                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
-                    integerSum += (Integer) valuesToSum;
-                }             
-                sum = integerSum;    
-            } else if (value.getColumnType() == Double.class){
-                finalColumnType = Double.class;
-                Double doubleSum = 0.0;
-                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
-                    doubleSum += (Double) valuesToSum;
-                }             
-                sum = doubleSum;
-            }
-
-            row.put(columnName, sum);
-        }
-
-        this.getHeaders().add(new Column(columnName, finalColumnType));
-
-        return this;
+    public CupOfTea sum(String column) {
+        Column col = this.getColumnHeader(column);
+        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
+        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
     }
 
     public CupOfTea average(String column) {
-
-        Column groupedColumn = this.getColumnHeader(column);
-        if (groupedColumn == null) {
-            throw new SchemaMismatchException("Column not found: " + column);
-        }
-        Class<?> finalColumnType = null;
-        String columnName = column+"Average";
-
-        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
-
-        for(var row : this.getRows()) {
-            Object average = null;
-            Group value = (Group) row.get(column);
-
-            if(value.getColumnType() == Integer.class) {
-                finalColumnType = Double.class;
-                Integer integerSum = 0;
-                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
-                    integerSum += (Integer) valuesToSum;
-                }
-                
-                average = Double.valueOf(integerSum) / Double.valueOf(((Group) row.get(column)).groupedValues.size());
-
-            } else if (value.getColumnType() == Double.class){
-                finalColumnType = Double.class;
-                Double doubleSum = 0.0;
-                for(var valuesToSum : ((Group) row.get(column)).groupedValues) {
-                    doubleSum += (Double) valuesToSum;
-                }             
-                average = doubleSum / Double.valueOf(((Group) row.get(column)).groupedValues.size());
-            }
-
-
-            row.put(columnName, average);
-        }
-
-        this.getHeaders().add(new Column(columnName, finalColumnType));
-
-        return this;
+        Column col = this.getColumnHeader(column);
+        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
+        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
     }
 
     public CupOfTea maximum(String column) {
-
-        Column groupedColumn = this.getColumnHeader(column);
-        if (groupedColumn == null) {
-            throw new SchemaMismatchException("Column not found: " + column);
-        }
-        Class<?> finalColumnType = null;
-        String columnName = column+"Maximum";
-
-        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
-
-        for(var row : this.getRows()) {
-            Object maximum = null;
-            Group value = (Group) row.get(column);
-
-            if(value.getColumnType() == Integer.class) {
-                Integer maximumValue = 0;
-                finalColumnType = Integer.class;
-
-                maximumValue = Collections.max(((Group) row.get(column)).groupedValues.stream().map(a -> (Integer) a).collect(Collectors.toList()));
-        
-                maximum = maximumValue;    
-
-            } else if (value.getColumnType() == Double.class){
-                Double maximumValue = 0.0;
-                finalColumnType = Double.class;
-
-                maximumValue = Collections.max(((Group) row.get(column)).groupedValues.stream().map(a -> (Double) a).collect(Collectors.toList()));
-        
-                maximum = maximumValue;    
-            }
-
-            row.put(columnName, maximum);
-        }
-
-        this.getHeaders().add(new Column(columnName, finalColumnType));
-
-        return this;
+        Column col = this.getColumnHeader(column);
+        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
+        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
     }
 
-    public CupOfTea minimum (String column) {
-
-        Column groupedColumn = this.getColumnHeader(column);
-        if (groupedColumn == null) {
-            throw new SchemaMismatchException("Column not found: " + column);
-        }
-        Class<?> finalColumnType = null;
-        String columnName = column+"Minimum";
-
-        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
-
-        for(var row : this.getRows()) {
-            Object minimum = null;
-            Group value = (Group) row.get(column);
-
-            if(value.getColumnType() == Integer.class) {
-                Integer minimumValue = 0;
-                finalColumnType = Integer.class;
-
-                minimumValue = Collections.min(((Group) row.get(column)).groupedValues.stream().map(a -> (Integer) a).collect(Collectors.toList()));
-        
-                minimum = minimumValue;    
-
-            } else if (value.getColumnType() == Double.class){
-                Double minimumValue = 0.0;
-                finalColumnType = Double.class;
-
-                minimumValue = Collections.min(((Group) row.get(column)).groupedValues.stream().map(a -> (Double) a).collect(Collectors.toList()));
-        
-                minimum = minimumValue;    
-            }
-
-            row.put(columnName, minimum);
-        }
-
-        this.getHeaders().add(new Column(columnName, finalColumnType));
-
-        return this;
+    public CupOfTea minimum(String column) {
+        Column col = this.getColumnHeader(column);
+        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
+        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
     }
 
     public CupOfTea count(String column) {
-        Column groupedColumn = this.getColumnHeader(column);
-        if (groupedColumn == null) {
-            throw new SchemaMismatchException("Column not found: " + column);
-        }
-        Class<?> finalColumnType = null;
-        String columnName = column+"Count";
-
-        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
-
-        for(var row : this.getRows()) {
-            Object count = null;
-            Group value = (Group) row.get(column);
-
-            finalColumnType = Integer.class;
-
-            count = ((Group) row.get(column)).groupedValues.size();   
-            
-            row.put(columnName, count);
-        }
-
-        this.getHeaders().add(new Column(columnName, finalColumnType));
-
-        return this;
+        Column col = this.getColumnHeader(column);
+        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
+        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
     }
 
     public CupOfTea aggregate(String column, String separator) {
-        Column groupedColumn = this.getColumnHeader(column);
-        if (groupedColumn == null) {
-            throw new SchemaMismatchException("Column not found: " + column);
-        }
-        Class<?> finalColumnType = String.class;
-        String columnName = column+"Aggregate";
-
-        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
-
-        for(var row : this.getRows()) {
-            Group value = (Group) row.get(column);
-
-            String aggValue = value.groupedValues.stream().map(a -> a.toString()).collect(Collectors.joining(separator));
-
-            row.put(columnName, aggValue);
-        }
-        
-        this.getHeaders().add(new Column(columnName, finalColumnType));
-
-        return this;
+        Column col = this.getColumnHeader(column);
+        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
+        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
     }
 }

@@ -380,9 +380,8 @@ public class DataFrameTest {
         int originalHeaderCount = df.getHeaders().size();
         int originalRowCount = df.size();
 
-        CupOfTea grouped = df.groupBy("car");
-        grouped.sum("price")
-            .renameColumn("car", "brand")
+        CupOfTea grouped = df.groupBy("car").sum("price");
+        grouped.renameColumn("car", "brand")
             .addColumn("note");
         grouped.getRow(0).put("brand", "ModifiedBrand");
 
@@ -405,16 +404,16 @@ public class DataFrameTest {
         CupOfTea df = new CupOfTea();
         df.importFromJson(testData).alterColumnType("price", Double.class);
 
-        CupOfTea grouped = df.groupBy("car");
+        GroupBy grouped = df.groupBy("car");
 
         df.renameColumn("car", "brand");
         df.removeColumn("price");
         df.getRow(0).put("brand", "Changed");
 
-        grouped.sum("price");
-        CupOfTea mitsubishi = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
+        CupOfTea result = grouped.sum("price");
+        CupOfTea mitsubishi = result.filter(row -> "Mitsubishi".equals(row.get("car")));
         assertThat(((Number) mitsubishi.getRow(0).get("priceSum")).doubleValue()).isCloseTo(123750.20, offset(1e-4));
-        assertThat(grouped.getColumnHeader("car").columnName()).isEqualTo("car");
+        assertThat(result.getColumnHeader("car").columnName()).isEqualTo("car");
     }
 
     @Test
@@ -423,15 +422,11 @@ public class DataFrameTest {
         CupOfTea df = new CupOfTea();
         df.importFromJson(testData).alterColumnType("price", Double.class);
 
-        CupOfTea grouped = df.groupBy("car");
+        CupOfTea grouped = df.groupBy("car").sum("price");
         CupOfTea filteredGroup = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
 
-        Group filteredPrices = (Group) filteredGroup.getRow(0).get("price");
-        filteredPrices.groupedValues.add(100000.0);
-        filteredGroup.sum("price");
+        filteredGroup.getRow(0).put("priceSum", 223750.20);
 
-        assertThat(grouped.getHeaders()).doesNotContain(new Column("priceSum", null));
-        grouped.sum("price");
         CupOfTea originalMitsubishi = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
         assertThat(((Number) originalMitsubishi.getRow(0).get("priceSum")).doubleValue()).isCloseTo(123750.20, offset(1e-4));
         assertThat(((Number) filteredGroup.getRow(0).get("priceSum")).doubleValue()).isCloseTo(223750.20, offset(1e-4));
@@ -457,7 +452,7 @@ public class DataFrameTest {
             .count();
 
         assertThat(averageHeaderCount).isEqualTo(1L);
-        assertThat(gdf.getHeaders()).hasSize(5);
+        assertThat(gdf.getHeaders()).hasSize(2);
         assertThat(gdf.getColumnHeader(averageColumnName).columnType()).isEqualTo(Double.class);
 
         Object mitsubishiAverage = gdf.filter(a -> a.get(columnToGroupBy).equals("Mitsubishi"))
@@ -488,7 +483,7 @@ public class DataFrameTest {
             .count();
 
         assertThat(averageHeaderCount).isEqualTo(1L);
-        assertThat(gdf.getHeaders()).hasSize(5);
+        assertThat(gdf.getHeaders()).hasSize(2);
         assertThat(gdf.getColumnHeader(averageColumnName).columnType()).isEqualTo(Double.class);
 
         Object mitsubishiAverage = gdf.filter(a -> a.get(columnToGroupBy).equals("Mitsubishi"))
