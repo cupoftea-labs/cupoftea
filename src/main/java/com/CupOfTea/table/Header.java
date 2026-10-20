@@ -92,7 +92,7 @@ public class Header {
     }
 
     public void setHeader(ArrayList<Column> header){
-        this.header = header;
+        this.header = new ArrayList<>(header);
     }
 
     public void alterColumnType(String columnName, Class columnType){

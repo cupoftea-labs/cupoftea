@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
@@ -372,10 +373,12 @@ public class CupOfTea {
      */
 	public CupOfTea setHeaders(ArrayList<?> arrayList) throws Exception {
         ArrayList<Column> columns;
-        if(arrayList.get(0) instanceof String) {
+        if(arrayList.isEmpty()) {
+            columns = new ArrayList<>();
+        } else if(arrayList.get(0) instanceof String) {
             columns = (ArrayList<Column>) ((ArrayList<String>) arrayList).stream().map(column -> new Column(column, null)).collect(Collectors.toList());
         } else if(arrayList.get(0) instanceof Column) {
-            columns = (ArrayList<Column>) arrayList;
+            columns = new ArrayList<>((ArrayList<Column>) arrayList);
         } else {
             throw new Exception("Tipo de array nao suportado");
         }
@@ -390,11 +393,7 @@ public class CupOfTea {
      */
     public CupOfTea groupBy(String... columns) throws Exception {
 
-        // ToDo Garantir que o Novo DataFrame não influencia o antigo
-
         CupOfTea groupedDataFrame = new CupOfTea();
-
-        // groupedDataFrame.setHeaders(this.getHeaders());
 
         List<Column> columnsToGroup = this.getHeaders().stream().filter((a) -> {
             for(var column : columns){
@@ -402,28 +401,34 @@ public class CupOfTea {
             }
             return true;
             })
-            // .map((a) -> new Column(a.columnName(), Group.class))
             .collect(Collectors.toList());
 
+        ArrayList<Column> groupedHeaders = new ArrayList<>();
         for(var column : columns) {
-            groupedDataFrame.getHeaders().add(this.getColumnHeader(column));
+            Column columnHeader = this.getColumnHeader(column);
+            groupedHeaders.add(new Column(columnHeader.columnName(), columnHeader.columnType()));
         }
-        
 
         for(var row : this.getRows()){
-
-            var temp_df = groupedDataFrame.filter((a) -> {
-                for(var column : columns){
-                    if(!a.get(column).equals(row.get(column))) return false;
+            HashMap<String, Object> existingGroupRow = null;
+            for (var candidate : groupedDataFrame.getRows()) {
+                boolean matches = true;
+                for (var column : columns) {
+                    if (!Objects.equals(candidate.get(column), row.get(column))) {
+                        matches = false;
+                        break;
+                    }
                 }
-                return true;
-                
-            });
+                if (matches) {
+                    existingGroupRow = candidate;
+                    break;
+                }
+            }
 
-            if(temp_df.getRows().size() == 1) {
+            if(existingGroupRow != null) {
                 for(var column : columnsToGroup) {
                     Object value = row.get(column.columnName());
-                    Group groupedValue = (Group) temp_df.getRow(0).get(column.columnName());
+                    Group groupedValue = (Group) existingGroupRow.get(column.columnName());
                     groupedValue.groupedValues.add(value);
                 }
             } else {
@@ -442,7 +447,9 @@ public class CupOfTea {
 
         columnsToGroup.stream()
             .map((a) -> new Column(a.columnName(), Group.class))
-            .forEach((a) -> groupedDataFrame.getHeaders().add(a));        
+            .forEach(groupedHeaders::add);
+
+        groupedDataFrame.setHeaders(groupedHeaders);
 
         return groupedDataFrame;
     }

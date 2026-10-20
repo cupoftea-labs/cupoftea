@@ -202,9 +202,19 @@ public class DataFrame extends IDataFrame {
     private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) throws Exception {
         // ToDo Verificar se todas as colunas batem com as colunas do header
         // ToDo Realizar o cast dos tipos de coluna para bater com o do header
-        if (clone) rows.add((HashMap<String, Object>) row.clone());
+        if (clone) rows.add(this.cloneRow(row));
         else rows.add(row);
         return this;
+    }
+
+    private HashMap<String, Object> cloneRow(@NotNull HashMap<String, Object> row) {
+        HashMap<String, Object> clonedRow = (HashMap<String, Object>) row.clone();
+        for (var entry : clonedRow.entrySet()) {
+            if (entry.getValue() instanceof Group group) {
+                entry.setValue(new Group(group));
+            }
+        }
+        return clonedRow;
     }
 
     @Override
@@ -234,11 +244,11 @@ public class DataFrame extends IDataFrame {
 
         DataFrame filteredDF = new DataFrame();
 
-        filteredDF.setHeaders(this.getHeaders());
+        filteredDF.setHeaders(new ArrayList<>(this.getHeaders()));
 
         for(var row : this.rows){
             if(filter.filter(row)){
-                filteredDF.addRow(row, false);
+                filteredDF.addRow(row, true);
             }
         }
 

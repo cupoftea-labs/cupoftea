@@ -15,6 +15,11 @@ public class Group {
         this.columnType = columnType;
     }
 
+    public Group(Group other){
+        this.groupedValues = new ArrayList<>(other.groupedValues);
+        this.columnType = other.columnType;
+    }
+
     @Override
     public String toString(){
         return this.groupedValues.toString();
