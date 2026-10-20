@@ -51,7 +51,7 @@ public class DataFrameTest extends TestCase {
 
     public void test_GivenADataFrame_WhenTryingToRemoveSomeFilteredRows_ThenShouldRemoveTheCorrectRowsOutOfTheDataFrame() throws Exception {
 
-        int expectedRowsNumber = 4;
+        int expectedRowsNumber = 3;
 
         CupOfTea df = new CupOfTea();
 
@@ -59,6 +59,7 @@ public class DataFrameTest extends TestCase {
         ;
 
         assertEquals(expectedRowsNumber, df.getRows().size());
+        assertTrue(df.getRows().stream().noneMatch(a -> Integer.parseInt(a.get("year").toString()) > 2010));
 
     }
 
