@@ -88,8 +88,24 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
+    public IDataFrame addColumn(String columnName, Class<?> columnType) throws Exception {
+        int index = this.header.columnCount();
+        this.addColumn(index, columnName, columnType);
+        return this;
+    }
+
+    @Override
     public IDataFrame addColumn(int index, String columnName) throws Exception {
         this.addColumn(index, columnName, (Object) null);
+        return this;
+    }
+
+    @Override
+    public IDataFrame addColumn(int index, String columnName, Class<?> columnType) throws Exception {
+        header.addColumn(index, new Column(columnName, columnType));
+        for (HashMap<String, Object> row : this.rows) {
+            row.put(columnName, null);
+        }
         return this;
     }
 
@@ -109,8 +125,14 @@ public class DataFrame extends IDataFrame {
         if (data == null) return this.addColumn(index, columnName, (Object) data);
         if (data.size() != this.size()) throw new ArrayIndexOutOfBoundsException();
 
-        // ToDo Definir o tipo de coluna
-        header.addColumn(index, new Column(columnName, String.class)); 
+        Class<?> columnType = String.class;
+        for (Object value : data) {
+            if (value != null) {
+                columnType = value.getClass();
+                break;
+            }
+        }
+        header.addColumn(index, new Column(columnName, columnType)); 
         int i = 0;
         for (HashMap<String, Object> row : this.rows) {
             row.put(columnName, data.get(i));

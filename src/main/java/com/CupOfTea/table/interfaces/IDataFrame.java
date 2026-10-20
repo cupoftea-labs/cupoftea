@@ -42,7 +42,9 @@ public abstract class IDataFrame {
     public abstract IDataFrame renameColumn(int index, String newName);
     public abstract IDataFrame renameColumn(HashMap<String,String> name);
     public abstract IDataFrame addColumn(String columnName) throws Exception;
+    public abstract IDataFrame addColumn(String columnName, Class<?> columnType) throws Exception;
     public abstract IDataFrame addColumn(int index, String columnName) throws Exception;
+    public abstract IDataFrame addColumn(int index, String columnName, Class<?> columnType) throws Exception;
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception;
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception;
     public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception;

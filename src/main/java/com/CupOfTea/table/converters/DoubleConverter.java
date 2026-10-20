@@ -10,7 +10,7 @@ public class DoubleConverter implements IDataTypeConverter<Double> {
 
         Double convertedValue;
 
-        if (oldColumnType == Class.forName("java.lang.Integer")) convertedValue = (Double) value;
+        if (oldColumnType == Class.forName("java.lang.Integer")) convertedValue = ((Integer) value).doubleValue();
         else if(oldColumnType == Class.forName("java.lang.String")) convertedValue = Double.valueOf((String) value);
         else if(oldColumnType == Class.forName("java.lang.Float")) convertedValue = ((Float) value).doubleValue();
         else throw new Exception("Column Type not Suported for Conversion");
