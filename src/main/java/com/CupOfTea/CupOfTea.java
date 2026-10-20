@@ -28,6 +28,7 @@ import com.CupOfTea.importers.JsonImporter;
 import com.CupOfTea.importers.ParquetImporter;
 import com.CupOfTea.importers.XmlImporter;
 import com.CupOfTea.importers.YamlImporter;
+import com.CupOfTea.importers.configurations.CSVImporterConfiguration;
 import com.CupOfTea.importers.interfaces.ICSVImporter;
 import com.CupOfTea.importers.interfaces.IHTMLImporter;
 import com.CupOfTea.importers.interfaces.IJsonImporter;
@@ -238,10 +239,26 @@ public class CupOfTea {
     }
 
     
+    public CupOfTea importFromCsv(File file) throws Exception {
+
+        csvImporter = new CSVImporter(this);
+        csvImporter.importFromCsv(file);
+        return this;
+
+    }
+
     public CupOfTea importFromCsv(File file, boolean hasHeaders) throws Exception {
 
         csvImporter = new CSVImporter(this);
         csvImporter.importFromCsv(file, hasHeaders);
+        return this;
+
+    }
+
+    public CupOfTea importFromCsv(File file, CSVImporterConfiguration configuration) throws Exception {
+
+        csvImporter = new CSVImporter(this, configuration);
+        csvImporter.importFromCsv(file, configuration);
         return this;
 
     }
