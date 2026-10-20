@@ -11,16 +11,14 @@ public class FloatConverter implements IDataTypeConverter<Float> {
             return null;
         }
 
-        if (Float.class.isAssignableFrom(value.getClass())) {
+        if (value instanceof Float) {
             return (Float) value;
         }
 
         Float convertedValue;
 
-        if (oldColumnType == Integer.class || (value instanceof Number && !(value instanceof Float))) {
+        if (value instanceof Number) {
             convertedValue = ((Number) value).floatValue();
-        } else if (oldColumnType == Double.class) {
-            convertedValue = ((Double) value).floatValue();
         } else if (oldColumnType == String.class) {
             try {
                 convertedValue = Float.valueOf((String) value);

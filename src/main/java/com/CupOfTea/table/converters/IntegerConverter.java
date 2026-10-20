@@ -11,7 +11,7 @@ public class IntegerConverter implements IDataTypeConverter<Integer> {
             return null;
         }
 
-        if (Integer.class.isAssignableFrom(value.getClass())) {
+        if (value instanceof Integer) {
             return (Integer) value;
         }
 
@@ -23,7 +23,7 @@ public class IntegerConverter implements IDataTypeConverter<Integer> {
             } catch (NumberFormatException e) {
                 throw new ConversionException("Cannot convert string '" + value + "' to Integer", e);
             }
-        } else if (Number.class.isAssignableFrom(value.getClass())) {
+        } else if (value instanceof Number) {
             convertedValue = ((Number) value).intValue();
         } else {
             throw new ConversionException("Column type not supported for Integer conversion: "

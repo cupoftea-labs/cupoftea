@@ -11,7 +11,7 @@ public class StringConverter implements IDataTypeConverter<String> {
             return null;
         }
 
-        if (String.class.isAssignableFrom(value.getClass())) {
+        if (value instanceof String) {
             return (String) value;
         }
 

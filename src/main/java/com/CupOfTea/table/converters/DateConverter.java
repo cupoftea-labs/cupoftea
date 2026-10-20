@@ -1,7 +1,9 @@
 package com.CupOfTea.table.converters;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 
 import com.CupOfTea.exceptions.ConversionException;
@@ -9,25 +11,33 @@ import com.CupOfTea.table.interfaces.IDataTypeConverter;
 
 public class DateConverter implements IDataTypeConverter<Date> {
 
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
     @Override
     public Date convert(Object value, Class<?> oldColumnType) throws ConversionException {
         if (value == null) {
             return null;
         }
 
-        if (Date.class.isAssignableFrom(value.getClass())) {
+        if (value instanceof Date) {
             return (Date) value;
+        }
+
+        if (value instanceof LocalDate) {
+            return Date.from(((LocalDate) value).atStartOfDay(ZoneId.systemDefault()).toInstant());
         }
 
         Date convertedValue;
 
         if (oldColumnType == String.class) {
             try {
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                convertedValue = sdf.parse((String) value);
-            } catch (ParseException e) {
+                LocalDate localDate = LocalDate.parse((String) value, FORMATTER);
+                convertedValue = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+            } catch (DateTimeParseException e) {
                 throw new ConversionException("Cannot convert date string '" + value + "' using pattern 'yyyy-MM-dd'", e);
             }
+        } else if (oldColumnType == LocalDate.class) {
+            convertedValue = Date.from(((LocalDate) value).atStartOfDay(ZoneId.systemDefault()).toInstant());
         } else {
             throw new ConversionException("Column type not supported for Date conversion: "
                     + (oldColumnType != null ? oldColumnType.getName() : "null"));
