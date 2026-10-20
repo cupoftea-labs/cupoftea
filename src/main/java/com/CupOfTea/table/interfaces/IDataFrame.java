@@ -48,6 +48,11 @@ public abstract class IDataFrame {
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception;
     public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception;
     public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception;
+    public abstract IDataFrame addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception;
+    public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception;
+    public abstract IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator) throws Exception;
+    public abstract IDataFrame addColumn(int index, String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception;
+    public abstract IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception;
     public abstract IDataFrame removeColumn(String columnName) throws Exception;
     public abstract IDataFrame removeColumn(int index);
     public abstract IDataFrame alterColumnType(String columnName, Class<?> newColumnType) throws Exception;

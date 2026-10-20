@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.utils.interfaces.Order;
@@ -692,5 +693,93 @@ public class DataFrameTest extends TestCase {
         assertEquals("Mitsubishi", df.getRow(4).get("car"));
         assertEquals(Integer.valueOf(2014), df.getRow(4).get("year"));
         assertEquals("Renault", df.getRow(5).get("car"));
+    }
+
+    public void test_givenAnEmptyDataFrame_WhenAddingAColumnWithColumnCreator_ThenShouldNotThrowAndDefaultTypeToObject() throws Exception {
+        CupOfTea df = new CupOfTea();
+
+        df.addColumn("FullName", row -> row.get("car") + " " + row.get("model"));
+
+        assertEquals(0, df.size().intValue());
+        assertEquals(1, df.getHeaders().size());
+        assertEquals("FullName", df.getColumnHeader("FullName").columnName());
+        assertEquals(Object.class, df.getColumnHeader("FullName").columnType());
+    }
+
+    public void test_givenAnEmptyDataFrame_WhenAddingAColumnWithColumnCreatorAndExplicitType_ThenShouldUseExplicitColumnType() throws Exception {
+        CupOfTea df = new CupOfTea();
+
+        df.addColumn("FullName", String.class, row -> row.get("car") + " " + row.get("model"))
+            .addColumn("AgeIn2030", row -> 2030 - (Integer) row.get("year"), Integer.class)
+            .addColumn(0, "Tag", String.class, row -> "CAR-" + row.get("car"));
+
+        assertEquals(0, df.size().intValue());
+        assertEquals(3, df.getHeaders().size());
+        assertEquals("Tag", df.getHeaders().get(0).columnName());
+        assertEquals(String.class, df.getColumnHeader("Tag").columnType());
+        assertEquals(String.class, df.getColumnHeader("FullName").columnType());
+        assertEquals(Integer.class, df.getColumnHeader("AgeIn2030").columnType());
+    }
+
+    public void test_givenAnEmptyDataFrameWithComputedColumn_WhenAddingFirstRow_ThenShouldComputeColumnValueAndInferTypeFromFirstRow() throws Exception {
+        CupOfTea df = new CupOfTea();
+
+        df.addColumn("car", String.class)
+            .addColumn("model", String.class)
+            .addColumn("FullName", row -> row.get("car") + " " + row.get("model"));
+
+        assertEquals(Object.class, df.getColumnHeader("FullName").columnType());
+
+        HashMap<String, Object> firstRow = new HashMap<>();
+        firstRow.put("car", "Lexus");
+        firstRow.put("model", "LFA");
+        df.addRow(firstRow);
+
+        assertEquals(1, df.size().intValue());
+        assertEquals("Lexus LFA", df.getRow(0).get("FullName"));
+        assertEquals(String.class, df.getColumnHeader("FullName").columnType());
+    }
+
+    public void test_givenADataFrameWhereFirstRowComputesNull_WhenAddingColumnWithColumnCreator_ThenShouldInferTypeFromFirstNonNullRow() throws Exception {
+        CupOfTea df = new CupOfTea();
+
+        df.importFromJson(testData)
+            .addColumn("NonLexusYear", row -> "Lexus".equals(row.get("car")) ? null : Integer.valueOf(row.get("year").toString()));
+
+        assertNull(df.getRow(0).get("NonLexusYear"));
+        assertEquals(Integer.valueOf(2006), df.getRow(1).get("NonLexusYear"));
+        assertEquals(Integer.class, df.getColumnHeader("NonLexusYear").columnType());
+    }
+
+    public void test_givenADataFrameWhereAllRowsComputeNull_WhenAddingColumnWithColumnCreator_ThenShouldDefaultTypeToObjectUntilNonNullRowAdded() throws Exception {
+        CupOfTea df = new CupOfTea();
+
+        df.importFromJson(testData)
+            .addColumn("OptionalTag", row -> "Porsche".equals(row.get("car")) ? "SPORT" : null);
+
+        assertEquals(Object.class, df.getColumnHeader("OptionalTag").columnType());
+        assertTrue(df.getRows().stream().allMatch(row -> row.get("OptionalTag") == null));
+
+        HashMap<String, Object> porscheRow = new HashMap<>();
+        porscheRow.put("car", "Porsche");
+        porscheRow.put("model", "911");
+        porscheRow.put("year", 2022);
+        porscheRow.put("price", 150000.0);
+        df.addRow(porscheRow);
+
+        assertEquals("SPORT", df.getRow(df.size() - 1).get("OptionalTag"));
+        assertEquals(String.class, df.getColumnHeader("OptionalTag").columnType());
+    }
+
+    public void test_givenADataFrame_WhenAddingColumnWithColumnCreator_ThenCreatorShouldBeInvokedOncePerRow() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData);
+        AtomicInteger invocations = new AtomicInteger(0);
+
+        df.addColumn("RowNumber", row -> invocations.incrementAndGet());
+
+        assertEquals(df.size().intValue(), invocations.get());
+        assertEquals(Integer.class, df.getColumnHeader("RowNumber").columnType());
+        assertEquals(Integer.valueOf(1), df.getRow(0).get("RowNumber"));
     }
 }

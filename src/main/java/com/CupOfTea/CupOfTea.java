@@ -163,6 +163,31 @@ public class CupOfTea {
         return this;
     }
 
+    public CupOfTea addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+        this.dataFrame.addColumn(columnName, columnType, columnCreator);
+        return this;
+    }
+
+    public CupOfTea addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+        this.dataFrame.addColumn(columnName, columnCreator, columnType);
+        return this;
+    }
+
+    public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator) throws Exception {
+        this.dataFrame.addColumn(index, columnName, columnCreator);
+        return this;
+    }
+
+    public CupOfTea addColumn(int index, String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+        this.dataFrame.addColumn(index, columnName, columnType, columnCreator);
+        return this;
+    }
+
+    public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+        this.dataFrame.addColumn(index, columnName, columnCreator, columnType);
+        return this;
+    }
+
     public CupOfTea removeColumn(String columnName) throws Exception {
         this.dataFrame.removeColumn(columnName);
         return this;
