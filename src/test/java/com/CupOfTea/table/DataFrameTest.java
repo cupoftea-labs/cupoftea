@@ -148,6 +148,68 @@ public class DataFrameTest extends TestCase {
         assertEquals(expectedLastRowYear, df.getRows().get(df.getRows().size() - 1).get(columnToChangeType));
     }
 
+    public void test_givenADataFrame_WhenRenamingAColumnByName_ThenRowKeysAndHeaderShouldUseTheNewName() throws Exception {
+        String oldName = "year";
+        String newName = "modelYear";
+        Integer expectedFirstRowYear = 2018;
+
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData)
+            .alterColumnType(oldName, Integer.class)
+            .renameColumn(oldName, newName);
+
+        assertEquals(newName, df.getColumnHeader(newName).columnName());
+        assertEquals(Integer.class, df.getColumnHeader(newName).columnType());
+        assertNull(df.getRow(0).get(oldName));
+        assertEquals(expectedFirstRowYear, df.getRow(0).get(newName));
+        assertEquals(Integer.valueOf(2006), df.getRow(1).get(newName));
+        assertEquals(df.size().longValue(), df.getRows().stream().filter(row -> row.containsKey(newName)).count());
+        assertEquals(0L, df.getRows().stream().filter(row -> row.containsKey(oldName)).count());
+    }
+
+    public void test_givenADataFrame_WhenRenamingAColumnByIndex_ThenRowKeysShouldUseTheNewName() throws Exception {
+        String oldName = "car";
+        String newName = "brand";
+
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData);
+        int columnIndex = 0;
+        for (int i = 0; i < df.getHeaders().size(); i++) {
+            if (oldName.equals(df.getHeaders().get(i).columnName())) {
+                columnIndex = i;
+                break;
+            }
+        }
+
+        df.renameColumn(columnIndex, newName);
+
+        assertEquals("Lexus", df.getRow(0).get(newName));
+        assertNull(df.getRow(0).get(oldName));
+        assertEquals(newName, df.getHeaders().get(columnIndex).columnName());
+    }
+
+    public void test_givenADataFrame_WhenRenamingSeveralColumnsAtOnce_ThenAllRowKeysShouldBeUpdated() throws Exception {
+        CupOfTea df = new CupOfTea();
+        HashMap<String, String> renames = new HashMap<>();
+        renames.put("car", "brand");
+        renames.put("model", "version");
+
+        df.importFromJson(testData).renameColumn(renames);
+
+        assertEquals("Lexus", df.getRow(0).get("brand"));
+        assertEquals("LFA", df.getRow(0).get("version"));
+        assertNull(df.getRow(0).get("car"));
+        assertNull(df.getRow(0).get("model"));
+    }
+
+    public void test_givenADataFrame_WhenRenamingAColumnToTheSameName_ThenRowValuesShouldBeKept() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData).renameColumn("car", "car");
+
+        assertEquals("Lexus", df.getRow(0).get("car"));
+        assertEquals("car", df.getColumnHeader("car").columnName());
+    }
+
     public void test_givenADataFrame_WhenGroupingByAndSumingValues_ThenShouldCreateANewColumnWithTheSumOfTheValues() throws Exception {
 
         String columnToSum = "price";

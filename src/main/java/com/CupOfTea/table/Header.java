@@ -64,7 +64,8 @@ public class Header {
     }
 
     public void renameColumn(int index, String newName) {
-        this.header.set(index, new Column(newName, null));
+        Column current = this.header.get(index);
+        this.header.set(index, new Column(newName, current.columnType()));
     }
 
     public void removeColumn(String columnName) {

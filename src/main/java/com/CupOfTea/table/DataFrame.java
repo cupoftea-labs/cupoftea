@@ -46,6 +46,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame renameColumn(String oldName, String newName) {
         this.header.renameColumn(oldName, newName);
+        this.renameRowKeys(oldName, newName);
         return this;
     }
 
@@ -53,11 +54,18 @@ public class DataFrame extends IDataFrame {
     public IDataFrame renameColumn(int index, String newName) {
         String oldName = this.header.get(index).columnName();
         this.header.renameColumn(index, newName);
-        for(var row : this.getRows()){
+        this.renameRowKeys(oldName, newName);
+        return this;
+    }
+
+    private void renameRowKeys(String oldName, String newName) {
+        if (oldName.equals(newName)) {
+            return;
+        }
+        for (var row : this.getRows()) {
             row.put(newName, row.get(oldName));
             row.remove(oldName);
         }
-        return this;
     }
 
     @Override
