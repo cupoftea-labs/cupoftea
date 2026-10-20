@@ -11,6 +11,11 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Added
 
+### Added
+
+- Split IO into modular, optional Maven modules under parent coordinates `com.cupoftea` (`cupoftea-core`, `cupoftea-csv`, `cupoftea-json`, `cupoftea-excel`, `cupoftea-parquet`, `cupoftea-html`, `cupoftea-yaml`, `cupoftea-xml`, and `cupoftea-all`) ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
+- ServiceLoader SPI (`FormatReader` and `FormatWriter`) for format decoupling and runtime discovery with informative diagnostics when a format dependency is absent ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
+- Fluent reading and writing API: `CupOfTea.read().<format>(...)` and `df.write().<format>(...)` ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
 - Introduced `MutationMode` (`IN_PLACE` fluent builder as default, and `COPY_ON_WRITE`) with `.asCopyOnWrite()` and `.asInPlace()` controls on `CupOfTea` ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
 - Implemented explicit `.copy()` deep-copy method on `CupOfTea` and `IDataFrame` / `DataFrame` ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
 - Introduced immutable `Row` class implementing `Map<String, Object>` with typed accessors (`getInt`, `getInteger`, `getLong`, `getDouble`, `getFloat`, `getBoolean`, `getString`, `getDate`, `getLocalDate`, `getLocalDateTime`, `getInstant`, `getBigDecimal`, `getAs`) and defensive encapsulation ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
@@ -24,6 +29,10 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Changed
 
+- Standardized package coordinates to lowercase `com.cupoftea` ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
+- Switched JSON parser engine to Jackson (`jackson-databind`) in `cupoftea-json` while retaining full type inference and backward-compatible `JSONArray` support ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
+- Aligned Apache POI versions in `cupoftea-excel` (`poi` 5.5.1 and `poi-ooxml` 5.5.1) ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
+- Decoupled `cupoftea-core` from Hadoop, POI, OpenCSV, and Jsoup compile dependencies so consumers only pull formats they actually use ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
 - Encapsulated DataFrame internal storage: `getRows()` returns an unmodifiable list of `Row` objects and `getRow(int)` returns an unmodifiable `Row`, preventing internal map leaks and mutation side-effects ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
 - Updated `IFilter` and `IColumnCreator` functional interfaces to accept `Row` instead of raw `Map<String, Object>` ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
 - Rewrote `groupBy` as an O(n) hash aggregate with Pandas-style `.agg(...)` API instead of storing `Group` objects in cells ([#140](https://github.com/filippo-pequini/CupOfTea/issues/140)).
