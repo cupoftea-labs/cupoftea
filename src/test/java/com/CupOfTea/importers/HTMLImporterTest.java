@@ -6,6 +6,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URL;
+import java.net.http.HttpTimeoutException;
 import java.nio.charset.StandardCharsets;
 
 import org.jsoup.Jsoup;
@@ -114,8 +115,8 @@ public class HTMLImporterTest extends TestCase {
             CupOfTea cupOfTea = new CupOfTea();
             try {
                 cupOfTea.importFromHtml(url, 50, HTMLImporter.DEFAULT_MAX_BODY_SIZE_BYTES);
-                fail("Expected SocketTimeoutException when URL response exceeds timeout");
-            } catch (SocketTimeoutException expected) {
+                fail("Expected SocketTimeoutException or HttpTimeoutException when URL response exceeds timeout");
+            } catch (SocketTimeoutException | HttpTimeoutException expected) {
                 // expected
             }
         } finally {
