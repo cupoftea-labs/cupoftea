@@ -366,10 +366,48 @@ public class CupOfTea {
 
     }
 
+    /**
+     * Imports an HTML table from a URL using default connect/read timeout and max body size limits.
+     * <p>
+     * <b>Security warning:</b> Fetching arbitrary or user-supplied URLs on a server is unsafe
+     * (SSRF / slowloris risk). Prefer {@link #importFromHtml(org.jsoup.nodes.Document)} or
+     * {@link #importFromHtml(String)} in untrusted environments.
+     */
     public CupOfTea importFromHtml(URL url) throws Exception {
 
         htmlImporter = new HTMLImporter(this);
         htmlImporter.importFromHtml(url);
+        return this;
+
+    }
+
+    /**
+     * Imports an HTML table from a URL using explicit connect/read timeout and max body size limits.
+     * <p>
+     * <b>Security warning:</b> Fetching arbitrary or user-supplied URLs on a server is unsafe
+     * (SSRF / slowloris risk). Prefer {@link #importFromHtml(org.jsoup.nodes.Document)} or
+     * {@link #importFromHtml(String)} in untrusted environments.
+     */
+    public CupOfTea importFromHtml(URL url, int timeoutMillis, int maxBodySizeBytes) throws Exception {
+
+        htmlImporter = new HTMLImporter(this, timeoutMillis, maxBodySizeBytes);
+        htmlImporter.importFromHtml(url, timeoutMillis, maxBodySizeBytes);
+        return this;
+
+    }
+
+    public CupOfTea importFromHtml(String html) throws Exception {
+
+        htmlImporter = new HTMLImporter(this);
+        htmlImporter.importFromHtml(html);
+        return this;
+
+    }
+
+    public CupOfTea importFromHtml(org.jsoup.nodes.Document doc) throws Exception {
+
+        htmlImporter = new HTMLImporter(this);
+        htmlImporter.importFromHtml(doc);
         return this;
 
     }
