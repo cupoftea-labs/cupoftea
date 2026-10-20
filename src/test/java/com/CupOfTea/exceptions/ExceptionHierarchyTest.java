@@ -1,12 +1,16 @@
 package com.CupOfTea.exceptions;
 
-import static org.junit.Assert.assertThrows;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.File;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exporters.CSVExporter;
@@ -40,51 +44,54 @@ import com.CupOfTea.table.converters.IntegerConverter;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
 
-import junit.framework.TestCase;
+public class ExceptionHierarchyTest {
 
-public class ExceptionHierarchyTest extends TestCase {
-
-    public void testExceptionHierarchyInheritance() {
-        assertTrue(RuntimeException.class.isAssignableFrom(CupOfTeaException.class));
-        assertTrue(CupOfTeaException.class.isAssignableFrom(SchemaMismatchException.class));
-        assertTrue(CupOfTeaException.class.isAssignableFrom(ConversionException.class));
-        assertTrue(CupOfTeaException.class.isAssignableFrom(ImportException.class));
-        assertTrue(ImportException.class.isAssignableFrom(CsvParseException.class));
-        assertTrue(CupOfTeaException.class.isAssignableFrom(ExportException.class));
+    @Test
+    @DisplayName("Should verify exception inheritance and constructor messages")
+    void testExceptionHierarchyInheritance() {
+        assertThat(RuntimeException.class).isAssignableFrom(CupOfTeaException.class);
+        assertThat(CupOfTeaException.class).isAssignableFrom(SchemaMismatchException.class);
+        assertThat(CupOfTeaException.class).isAssignableFrom(ConversionException.class);
+        assertThat(CupOfTeaException.class).isAssignableFrom(ImportException.class);
+        assertThat(ImportException.class).isAssignableFrom(CsvParseException.class);
+        assertThat(CupOfTeaException.class).isAssignableFrom(ExportException.class);
 
         // Test constructors
         CupOfTeaException base = new CupOfTeaException("base error");
-        assertEquals("base error", base.getMessage());
+        assertThat(base.getMessage()).isEqualTo("base error");
 
         Throwable cause = new IllegalArgumentException("cause");
         CupOfTeaException baseWithCause = new CupOfTeaException("base error", cause);
-        assertEquals(cause, baseWithCause.getCause());
+        assertThat(baseWithCause.getMessage()).isEqualTo("base error");
+        assertThat(baseWithCause.getCause()).isSameAs(cause);
 
         CupOfTeaException baseCauseOnly = new CupOfTeaException(cause);
-        assertEquals(cause, baseCauseOnly.getCause());
+        assertThat(baseCauseOnly.getCause()).isSameAs(cause);
 
         SchemaMismatchException sme = new SchemaMismatchException("schema error", cause);
-        assertEquals("schema error", sme.getMessage());
-        assertEquals(cause, sme.getCause());
+        assertThat(sme.getMessage()).isEqualTo("schema error");
+        assertThat(sme.getCause()).isSameAs(cause);
 
         ConversionException ce = new ConversionException("conv error", cause);
-        assertEquals("conv error", ce.getMessage());
-        assertEquals(cause, ce.getCause());
+        assertThat(ce.getMessage()).isEqualTo("conv error");
+        assertThat(ce.getCause()).isSameAs(cause);
 
         ImportException ie = new ImportException("import error", cause);
-        assertEquals("import error", ie.getMessage());
-        assertEquals(cause, ie.getCause());
+        assertThat(ie.getMessage()).isEqualTo("import error");
+        assertThat(ie.getCause()).isSameAs(cause);
 
         CsvParseException cpe = new CsvParseException("csv error", cause);
-        assertEquals("csv error", cpe.getMessage());
-        assertEquals(cause, cpe.getCause());
+        assertThat(cpe.getMessage()).isEqualTo("csv error");
+        assertThat(cpe.getCause()).isSameAs(cause);
 
         ExportException ee = new ExportException("export error", cause);
-        assertEquals("export error", ee.getMessage());
-        assertEquals(cause, ee.getCause());
+        assertThat(ee.getMessage()).isEqualTo("export error");
+        assertThat(ee.getCause()).isSameAs(cause);
     }
 
-    public void testPublicApiDoesNotDeclareThrowsException() {
+    @Test
+    @DisplayName("Should ensure public API methods do not declare throws Exception or Throwable")
+    void testPublicApiDoesNotDeclareThrowsException() {
         Class<?>[] publicApiClasses = new Class<?>[]{
             CupOfTea.class,
             IDataFrame.class,
@@ -122,22 +129,22 @@ public class ExceptionHierarchyTest extends TestCase {
         for (Class<?> clazz : publicApiClasses) {
             for (Method method : clazz.getDeclaredMethods()) {
                 for (Class<?> exceptionType : method.getExceptionTypes()) {
-                    assertFalse(
-                        "Method " + clazz.getSimpleName() + "." + method.getName()
-                                + " should not declare throws java.lang.Exception",
-                        exceptionType.equals(Exception.class)
-                    );
-                    assertFalse(
-                        "Method " + clazz.getSimpleName() + "." + method.getName()
-                                + " should not declare throws java.lang.Throwable",
-                        exceptionType.equals(Throwable.class)
-                    );
+                    assertThat(exceptionType)
+                        .withFailMessage("Method %s.%s should not declare throws java.lang.Exception",
+                            clazz.getSimpleName(), method.getName())
+                        .isNotEqualTo(Exception.class);
+                    assertThat(exceptionType)
+                        .withFailMessage("Method %s.%s should not declare throws java.lang.Throwable",
+                            clazz.getSimpleName(), method.getName())
+                        .isNotEqualTo(Throwable.class);
                 }
             }
         }
     }
 
-    public void testSchemaMismatchOnAddColumnSizeMismatch() {
+    @Test
+    @DisplayName("Should throw SchemaMismatchException on addColumn size mismatch")
+    void testSchemaMismatchOnAddColumnSizeMismatch() {
         DataFrame df = new DataFrame();
         df.addColumn("col1");
         HashMap<String, Object> row = new HashMap<>();
@@ -148,218 +155,190 @@ public class ExceptionHierarchyTest extends TestCase {
         invalidData.add("item1");
         invalidData.add("item2"); // Size is 2, but DataFrame has 1 row
 
-        SchemaMismatchException ex = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.addColumn(1, "col2", invalidData)
-        );
-        assertTrue(ex.getMessage().contains("does not match DataFrame size"));
+        assertThatThrownBy(() -> df.addColumn(1, "col2", invalidData))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("does not match DataFrame size");
     }
 
-    public void testSchemaMismatchOnInvalidHeaderTypes() {
+    @Test
+    @DisplayName("Should throw SchemaMismatchException on invalid header types")
+    void testSchemaMismatchOnInvalidHeaderTypes() {
         CupOfTea df = new CupOfTea();
         ArrayList<Object> invalidHeaders = new ArrayList<>();
         invalidHeaders.add(12345); // Not String or Column
 
-        SchemaMismatchException ex = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.setHeaders(invalidHeaders)
-        );
-        assertTrue(ex.getMessage().contains("Unsupported header array type"));
+        assertThatThrownBy(() -> df.setHeaders(invalidHeaders))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("Unsupported header array type");
     }
 
-    public void testSchemaMismatchOnAggregationWithoutGrouping() {
+    @Test
+    @DisplayName("Should throw SchemaMismatchException on aggregations without grouping")
+    void testSchemaMismatchOnAggregationWithoutGrouping() {
         CupOfTea df = new CupOfTea();
         df.addColumn("price");
         HashMap<String, Object> row = new HashMap<>();
         row.put("price", 100);
         df.addRow(row);
 
-        SchemaMismatchException sumEx = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.sum("price")
-        );
-        assertTrue(sumEx.getMessage().contains("is not a grouped column"));
+        assertThatThrownBy(() -> df.sum("price"))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("is not a grouped column");
 
-        SchemaMismatchException avgEx = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.average("price")
-        );
-        assertTrue(avgEx.getMessage().contains("is not a grouped column"));
+        assertThatThrownBy(() -> df.average("price"))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("is not a grouped column");
 
-        SchemaMismatchException maxEx = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.maximum("price")
-        );
-        assertTrue(maxEx.getMessage().contains("is not a grouped column"));
+        assertThatThrownBy(() -> df.maximum("price"))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("is not a grouped column");
 
-        SchemaMismatchException minEx = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.minimum("price")
-        );
-        assertTrue(minEx.getMessage().contains("is not a grouped column"));
+        assertThatThrownBy(() -> df.minimum("price"))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("is not a grouped column");
 
-        SchemaMismatchException countEx = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.count("price")
-        );
-        assertTrue(countEx.getMessage().contains("is not a grouped column"));
+        assertThatThrownBy(() -> df.count("price"))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("is not a grouped column");
 
-        SchemaMismatchException aggEx = assertThrows(
-            SchemaMismatchException.class,
-            () -> df.aggregate("price", ",")
-        );
-        assertTrue(aggEx.getMessage().contains("is not a grouped column"));
+        assertThatThrownBy(() -> df.aggregate("price", ","))
+            .isInstanceOf(SchemaMismatchException.class)
+            .hasMessageContaining("is not a grouped column");
     }
 
-    public void testSchemaMismatchOnNonExistentColumnAggregation() {
+    @Test
+    @DisplayName("Should throw SchemaMismatchException on non-existent column aggregations")
+    void testSchemaMismatchOnNonExistentColumnAggregation() {
         CupOfTea df = new CupOfTea();
-        assertThrows(SchemaMismatchException.class, () -> df.sum("non_existent"));
-        assertThrows(SchemaMismatchException.class, () -> df.average("non_existent"));
-        assertThrows(SchemaMismatchException.class, () -> df.maximum("non_existent"));
-        assertThrows(SchemaMismatchException.class, () -> df.minimum("non_existent"));
-        assertThrows(SchemaMismatchException.class, () -> df.count("non_existent"));
-        assertThrows(SchemaMismatchException.class, () -> df.aggregate("non_existent", ","));
+        assertThatThrownBy(() -> df.sum("non_existent")).isInstanceOf(SchemaMismatchException.class);
+        assertThatThrownBy(() -> df.average("non_existent")).isInstanceOf(SchemaMismatchException.class);
+        assertThatThrownBy(() -> df.maximum("non_existent")).isInstanceOf(SchemaMismatchException.class);
+        assertThatThrownBy(() -> df.minimum("non_existent")).isInstanceOf(SchemaMismatchException.class);
+        assertThatThrownBy(() -> df.count("non_existent")).isInstanceOf(SchemaMismatchException.class);
+        assertThatThrownBy(() -> df.aggregate("non_existent", ",")).isInstanceOf(SchemaMismatchException.class);
     }
 
-    public void testSchemaMismatchOnGroupByMissingColumn() {
+    @Test
+    @DisplayName("Should throw SchemaMismatchException on groupBy with missing column")
+    void testSchemaMismatchOnGroupByMissingColumn() {
         CupOfTea df = new CupOfTea();
         df.addColumn("a");
-        assertThrows(SchemaMismatchException.class, () -> df.groupBy("non_existent"));
+        assertThatThrownBy(() -> df.groupBy("non_existent")).isInstanceOf(SchemaMismatchException.class);
     }
 
-    public void testConversionExceptionsOnConverters() {
+    @Test
+    @DisplayName("Should throw ConversionException on converter parse failures and unsupported types")
+    void testConversionExceptionsOnConverters() {
         // BooleanConverter
         BooleanConverter bc = new BooleanConverter();
-        ConversionException bEx = assertThrows(
-            ConversionException.class,
-            () -> bc.convert("not_a_boolean", String.class)
-        );
-        assertTrue(bEx.getMessage().contains("Value cannot be converted to Boolean"));
+        assertThatThrownBy(() -> bc.convert("not_a_boolean", String.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Value cannot be converted to Boolean");
 
-        ConversionException bIntEx = assertThrows(
-            ConversionException.class,
-            () -> bc.convert(99, Integer.class)
-        );
-        assertTrue(bIntEx.getMessage().contains("Value cannot be converted to Boolean"));
+        assertThatThrownBy(() -> bc.convert(99, Integer.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Value cannot be converted to Boolean");
 
-        ConversionException bTypeEx = assertThrows(
-            ConversionException.class,
-            () -> bc.convert(12.34, Double.class)
-        );
-        assertTrue(bTypeEx.getMessage().contains("Column type not supported for Boolean conversion"));
+        assertThatThrownBy(() -> bc.convert(12.34, Double.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Column type not supported for Boolean conversion");
 
         // IntegerConverter
         IntegerConverter ic = new IntegerConverter();
-        ConversionException iEx = assertThrows(
-            ConversionException.class,
-            () -> ic.convert("abc", String.class)
-        );
-        assertTrue(iEx.getMessage().contains("Cannot convert string 'abc' to Integer"));
+        assertThatThrownBy(() -> ic.convert("abc", String.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Cannot convert string 'abc' to Integer");
 
-        ConversionException iTypeEx = assertThrows(
-            ConversionException.class,
-            () -> ic.convert(true, Boolean.class)
-        );
-        assertTrue(iTypeEx.getMessage().contains("Column type not supported for Integer conversion"));
+        assertThatThrownBy(() -> ic.convert(true, Boolean.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Column type not supported for Integer conversion");
 
         // DoubleConverter
         DoubleConverter dc = new DoubleConverter();
-        ConversionException dEx = assertThrows(
-            ConversionException.class,
-            () -> dc.convert("xyz", String.class)
-        );
-        assertTrue(dEx.getMessage().contains("Cannot convert string 'xyz' to Double"));
+        assertThatThrownBy(() -> dc.convert("xyz", String.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Cannot convert string 'xyz' to Double");
 
-        ConversionException dTypeEx = assertThrows(
-            ConversionException.class,
-            () -> dc.convert(true, Boolean.class)
-        );
-        assertTrue(dTypeEx.getMessage().contains("Column type not supported for Double conversion"));
+        assertThatThrownBy(() -> dc.convert(true, Boolean.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Column type not supported for Double conversion");
 
         // FloatConverter
         FloatConverter fc = new FloatConverter();
-        ConversionException fEx = assertThrows(
-            ConversionException.class,
-            () -> fc.convert("invalid_float", String.class)
-        );
-        assertTrue(fEx.getMessage().contains("Cannot convert string 'invalid_float' to Float"));
+        assertThatThrownBy(() -> fc.convert("invalid_float", String.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Cannot convert string 'invalid_float' to Float");
 
-        ConversionException fTypeEx = assertThrows(
-            ConversionException.class,
-            () -> fc.convert(true, Boolean.class)
-        );
-        assertTrue(fTypeEx.getMessage().contains("Column type not supported for Float conversion"));
+        assertThatThrownBy(() -> fc.convert(true, Boolean.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Column type not supported for Float conversion");
 
         // DateConverter
         DateConverter dateC = new DateConverter();
-        ConversionException dateEx = assertThrows(
-            ConversionException.class,
-            () -> dateC.convert("not-a-date", String.class)
-        );
-        assertTrue(dateEx.getMessage().contains("Cannot convert date string"));
+        assertThatThrownBy(() -> dateC.convert("not-a-date", String.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Cannot convert date string");
 
-        ConversionException dateTypeEx = assertThrows(
-            ConversionException.class,
-            () -> dateC.convert(1234, Integer.class)
-        );
-        assertTrue(dateTypeEx.getMessage().contains("Column type not supported for Date conversion"));
+        assertThatThrownBy(() -> dateC.convert(1234, Integer.class))
+            .isInstanceOf(ConversionException.class)
+            .hasMessageContaining("Column type not supported for Date conversion");
     }
 
-    public void testAlterColumnTypeExceptions() {
+    @Test
+    @DisplayName("Should throw appropriate exceptions on alterColumnType")
+    void testAlterColumnTypeExceptions() {
         CupOfTea df = new CupOfTea();
         df.addColumn("col1");
 
         // Non-existent column
-        assertThrows(
-            SchemaMismatchException.class,
-            () -> df.alterColumnType("non_existent", Integer.class)
-        );
+        assertThatThrownBy(() -> df.alterColumnType("non_existent", Integer.class))
+            .isInstanceOf(SchemaMismatchException.class);
 
         // Missing converter for type (e.g. List.class)
-        assertThrows(
-            ConversionException.class,
-            () -> df.alterColumnType("col1", List.class)
-        );
+        assertThatThrownBy(() -> df.alterColumnType("col1", List.class))
+            .isInstanceOf(ConversionException.class);
     }
 
-    public void testImportExceptions() {
+    @Test
+    @DisplayName("Should throw ImportException / CsvParseException on invalid import inputs")
+    void testImportExceptions() {
         CupOfTea df = new CupOfTea();
 
         // Null checks
-        assertThrows(ImportException.class, () -> df.importFromCsv(null, true));
-        assertThrows(ImportException.class, () -> df.importFromExcel(null, true));
-        assertThrows(ImportException.class, () -> df.importFromJson((String) null));
-        assertThrows(ImportException.class, () -> df.importFromJson((File) null));
-        assertThrows(ImportException.class, () -> df.importFromXml((File) null));
-        assertThrows(ImportException.class, () -> df.importFromYaml((File) null));
+        assertThatThrownBy(() -> df.importFromCsv(null, true)).isInstanceOf(ImportException.class);
+        assertThatThrownBy(() -> df.importFromExcel(null, true)).isInstanceOf(ImportException.class);
+        assertThatThrownBy(() -> df.importFromJson((String) null)).isInstanceOf(ImportException.class);
+        assertThatThrownBy(() -> df.importFromJson((File) null)).isInstanceOf(ImportException.class);
+        assertThatThrownBy(() -> df.importFromXml((File) null)).isInstanceOf(ImportException.class);
+        assertThatThrownBy(() -> df.importFromYaml((File) null)).isInstanceOf(ImportException.class);
 
         // Non-existent CSV file throws CsvParseException
         File missingFile = new File("non_existent_file.csv");
-        assertThrows(CsvParseException.class, () -> df.importFromCsv(missingFile, true));
+        assertThatThrownBy(() -> df.importFromCsv(missingFile, true)).isInstanceOf(CsvParseException.class);
 
         // Invalid JSON
-        assertThrows(ImportException.class, () -> df.importFromJson("{ invalid json }"));
+        assertThatThrownBy(() -> df.importFromJson("{ invalid json }")).isInstanceOf(ImportException.class);
 
         // Invalid XML
-        assertThrows(ImportException.class, () -> df.importFromXml("<unclosed>"));
+        assertThatThrownBy(() -> df.importFromXml("<unclosed>")).isInstanceOf(ImportException.class);
 
         // Non-excel file extension
-        assertThrows(ImportException.class, () -> df.importFromExcel(new File("test.txt"), false));
+        assertThatThrownBy(() -> df.importFromExcel(new File("test.txt"), false)).isInstanceOf(ImportException.class);
     }
 
-    public void testExportExceptions() {
+    @Test
+    @DisplayName("Should throw ExportException on invalid export inputs")
+    void testExportExceptions() {
         CupOfTea df = new CupOfTea();
 
         // Null file checks
-        assertThrows(ExportException.class, () -> df.exportToCsv(null));
-        assertThrows(ExportException.class, () -> df.exportToJson((File) null));
-        assertThrows(ExportException.class, () -> df.exportToParquet(null));
+        assertThatThrownBy(() -> df.exportToCsv(null)).isInstanceOf(ExportException.class);
+        assertThatThrownBy(() -> df.exportToJson((File) null)).isInstanceOf(ExportException.class);
+        assertThatThrownBy(() -> df.exportToParquet(null)).isInstanceOf(ExportException.class);
 
         // Yaml export not supported
-        ExportException yamlEx = assertThrows(
-            ExportException.class,
-            () -> new YamlExporter().exportToYaml(new File("out.yaml"))
-        );
-        assertTrue(yamlEx.getMessage().contains("YAML export is not supported yet"));
+        assertThatThrownBy(() -> new YamlExporter().exportToYaml(new File("out.yaml")))
+            .isInstanceOf(ExportException.class)
+            .hasMessageContaining("YAML export is not supported yet");
     }
 }

@@ -1,11 +1,11 @@
 package com.CupOfTea.exporters;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class JsonExporterTest extends TestCase {
+public class JsonExporterTest {
 
-    public void test() {
-        
+    @Test
+    void test() {
     }
 
 }

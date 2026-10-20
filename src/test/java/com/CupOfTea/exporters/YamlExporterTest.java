@@ -1,11 +1,11 @@
 package com.CupOfTea.exporters;
 
-import junit.framework.TestCase;
+import org.junit.jupiter.api.Test;
 
-public class YamlExporterTest extends TestCase {
+public class YamlExporterTest {
 
-    public void test() {
-        
+    @Test
+    void test() {
     }
 
 }
