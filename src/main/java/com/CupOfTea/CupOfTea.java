@@ -521,10 +521,10 @@ public class CupOfTea {
             }
 
 
-            
-            this.getHeaders().add(new Column(columnName,finalColumnType));
             row.put(columnName, average);
         }
+
+        this.getHeaders().add(new Column(columnName, finalColumnType));
 
         return this;
     }
