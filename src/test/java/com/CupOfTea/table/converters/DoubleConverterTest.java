@@ -44,6 +44,7 @@ public class DoubleConverterTest {
             Arguments.of(42, Integer.class, 42.0),
             Arguments.of(0, Integer.class, 0.0),
             Arguments.of(-10, Integer.class, -10.0),
+            Arguments.of(42L, Long.class, 42.0),
             Arguments.of(2.5f, Float.class, 2.5),
             Arguments.of(0.0f, Float.class, 0.0),
             Arguments.of(9.99d, Double.class, 9.99),
@@ -53,7 +54,7 @@ public class DoubleConverterTest {
 
     @ParameterizedTest(name = "convert {0} of type {1} should return {2}")
     @MethodSource("numericInputsProvider")
-    @DisplayName("Should convert numeric types (Integer, Float, Double) to Double")
+    @DisplayName("Should convert numeric types (Integer, Long, Float, Double) to Double")
     void testConvertNumericsToDouble(Object input, Class<?> type, double expected) {
         Double result = converter.convert(input, (Class) type);
         assertThat(result).isCloseTo(expected, offset(1e-9));

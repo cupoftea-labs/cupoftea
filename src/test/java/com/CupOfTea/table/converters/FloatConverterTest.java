@@ -43,6 +43,7 @@ public class FloatConverterTest {
             Arguments.of(42, Integer.class, 42.0f),
             Arguments.of(0, Integer.class, 0.0f),
             Arguments.of(-10, Integer.class, -10.0f),
+            Arguments.of(42L, Long.class, 42.0f),
             Arguments.of(3.5d, Double.class, 3.5f),
             Arguments.of(0.0d, Double.class, 0.0f),
             Arguments.of(1.5f, Float.class, 1.5f),
@@ -52,7 +53,7 @@ public class FloatConverterTest {
 
     @ParameterizedTest(name = "convert {0} of type {1} should return {2}f")
     @MethodSource("numericInputsProvider")
-    @DisplayName("Should convert numeric types (Integer, Double, Float) to Float")
+    @DisplayName("Should convert numeric types (Integer, Long, Double, Float) to Float")
     void testConvertNumericsToFloat(Object input, Class<?> type, float expected) {
         Float result = converter.convert(input, (Class) type);
         assertThat(result).isCloseTo(expected, offset(1e-5f));

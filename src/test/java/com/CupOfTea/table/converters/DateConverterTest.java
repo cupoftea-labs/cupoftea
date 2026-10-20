@@ -3,7 +3,8 @@ package com.CupOfTea.table.converters;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Date;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -26,8 +27,9 @@ public class DateConverterTest {
     @ParameterizedTest(name = "convert date string ''{0}'' should return parsed Date")
     @ValueSource(strings = {"2024-05-15", "2000-01-01", "1999-12-31"})
     @DisplayName("Should convert valid date strings (yyyy-MM-dd) to Date")
-    void testConvertValidDateStringsToDate(String dateString) throws Exception {
-        Date expected = new SimpleDateFormat("yyyy-MM-dd").parse(dateString);
+    void testConvertValidDateStringsToDate(String dateString) {
+        LocalDate localDate = LocalDate.parse(dateString);
+        Date expected = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
         Date result = converter.convert(dateString, String.class);
         assertThat(result).isEqualTo(expected);
     }
@@ -38,6 +40,15 @@ public class DateConverterTest {
         Date now = new Date();
         Date result = converter.convert(now, Date.class);
         assertThat(result).isEqualTo(now);
+    }
+
+    @Test
+    @DisplayName("Should convert LocalDate to corresponding Date")
+    void testConvertLocalDateToDate() {
+        LocalDate localDate = LocalDate.of(2023, 5, 15);
+        Date expectedDate = Date.from(localDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+        Date result = converter.convert(localDate, LocalDate.class);
+        assertThat(result).isEqualTo(expectedDate);
     }
 
     @ParameterizedTest

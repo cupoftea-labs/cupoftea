@@ -3,10 +3,14 @@ package com.CupOfTea.table.converters;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.CupOfTea.exceptions.ConversionException;
@@ -40,6 +44,22 @@ public class IntegerConverterTest {
     void testConvertIntegerToSameInteger(int input) {
         Integer result = converter.convert(input, Integer.class);
         assertThat(result).isEqualTo(input);
+    }
+
+    static Stream<Arguments> numericInputsProvider() {
+        return Stream.of(
+            Arguments.of(42.9, Double.class, 42),
+            Arguments.of(42.9f, Float.class, 42),
+            Arguments.of(42L, Long.class, 42)
+        );
+    }
+
+    @ParameterizedTest(name = "convert {0} of type {1} should return {2}")
+    @MethodSource("numericInputsProvider")
+    @DisplayName("Should convert numeric types (Double, Float, Long) to Integer")
+    void testConvertNumericsToInteger(Object input, Class<?> type, int expected) {
+        Integer result = converter.convert(input, (Class) type);
+        assertThat(result).isEqualTo(expected);
     }
 
     @ParameterizedTest(name = "convert invalid string ''{0}'' should throw ConversionException")

@@ -16,11 +16,12 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 - Added regression tests for consecutive `removeRows` (#126), rename-by-name row key updates (#125), schema independence after `filter` (#127), empty frame `addColumn` (#134), quoted CSV parsing (#130), and static converter registry lookup (#132) ([#145](https://github.com/filippo-pequini/CupOfTea/issues/145)).
 - Replaced `throws Exception` on public APIs with typed runtime exceptions in `com.CupOfTea.exceptions` (`CupOfTeaException`, `SchemaMismatchException`, `ConversionException`, `ImportException`, `CsvParseException`, `ExportException`) ([#137](https://github.com/filippo-pequini/CupOfTea/issues/137)).
 - Standardized all exception messages to English.
+- Registered `java.time` (`LocalDate`, `LocalDateTime`), `Long`, and primitive type converters statically in `DataFrame` ([#138](https://github.com/filippo-pequini/CupOfTea/issues/138)).
+- Replaced `SimpleDateFormat` with thread-safe `java.time.format.DateTimeFormatter` in `DateConverter` ([#138](https://github.com/filippo-pequini/CupOfTea/issues/138)).
 
 ### Fixed
 
 - `Printer` now adjusts column widths dynamically based on content, fits table output within terminal width (defaulting to `COLUMNS` env var or 80) by truncating overflowing columns with an ellipsis column, supports rich customization via `PrinterConfiguration` (`maxRows`, `maxColumns`, `terminalWidth`, `showColumnType`, `autoAdjustColumnWidth`, etc.), improves table summary descriptions, and handles empty frames ([#100](https://github.com/filippo-pequini/CupOfTea/issues/100)).
-
 - `DataFrame.orderBy` now compares using the column's declared or `Comparable` type with `Comparator.nullsLast`, supports numeric, string, temporal, and boolean columns without integer subtraction overflow, and treats empty frames as a no-op ([#133](https://github.com/filippo-pequini/CupOfTea/issues/133)).
 - `DataFrame.alterColumnType` now uses a static converter map instead of scanning `target/classes` via `ClassFinder`, removing `ClassFinder`, the unused `org.reflections` dependency, `Class.forName` lookups, and broken numeric casts in `FloatConverter` and `DoubleConverter` ([#132](https://github.com/filippo-pequini/CupOfTea/issues/132)).
 - `renameColumn(String, String)` and `renameColumn(HashMap)` now update row keys, not only the header ([#125](https://github.com/filippo-pequini/CupOfTea/issues/125)).

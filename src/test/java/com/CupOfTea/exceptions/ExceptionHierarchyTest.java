@@ -41,6 +41,9 @@ import com.CupOfTea.table.converters.DateConverter;
 import com.CupOfTea.table.converters.DoubleConverter;
 import com.CupOfTea.table.converters.FloatConverter;
 import com.CupOfTea.table.converters.IntegerConverter;
+import com.CupOfTea.table.converters.LocalDateConverter;
+import com.CupOfTea.table.converters.LocalDateTimeConverter;
+import com.CupOfTea.table.converters.LongConverter;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
 
@@ -123,7 +126,10 @@ public class ExceptionHierarchyTest {
             IntegerConverter.class,
             DoubleConverter.class,
             FloatConverter.class,
-            DateConverter.class
+            DateConverter.class,
+            LongConverter.class,
+            LocalDateConverter.class,
+            LocalDateTimeConverter.class
         };
 
         for (Class<?> clazz : publicApiClasses) {

@@ -11,7 +11,7 @@ public class BooleanConverter implements IDataTypeConverter<Boolean> {
             return null;
         }
 
-        if (Boolean.class.isAssignableFrom(value.getClass())) {
+        if (value instanceof Boolean) {
             return (Boolean) value;
         }
 
@@ -23,7 +23,7 @@ public class BooleanConverter implements IDataTypeConverter<Boolean> {
                 case "false" -> convertedValue = false;
                 default -> throw new ConversionException("Value cannot be converted to Boolean: " + value);
             }
-        } else if (oldColumnType == Integer.class) {
+        } else if (oldColumnType == Integer.class || oldColumnType == int.class) {
             switch ((Integer) value) {
                 case 1 -> convertedValue = true;
                 case 0 -> convertedValue = false;

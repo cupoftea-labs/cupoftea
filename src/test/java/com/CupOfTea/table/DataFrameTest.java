@@ -862,4 +862,73 @@ public class DataFrameTest {
         assertThat(df.getColumnHeader("RowNumber").columnType()).isEqualTo(Integer.class);
         assertThat(df.getRow(0).get("RowNumber")).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("Should alter column type to LocalDate")
+    void test_givenADataFrame_WhenAlteringColumnTypeToLocalDate_ShouldSuccessfullyConvert() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("date");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("date", "2023-05-15");
+        df.addRow(row);
+        df.alterColumnType("date", LocalDate.class);
+
+        assertThat(df.getColumnHeader("date").columnType()).isEqualTo(LocalDate.class);
+        assertThat(df.getRow(0).get("date")).isEqualTo(LocalDate.of(2023, 5, 15));
+    }
+
+    @Test
+    @DisplayName("Should alter column type to Date")
+    void test_givenADataFrame_WhenAlteringColumnTypeToDate_ShouldSuccessfullyConvert() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("date");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("date", "2023-05-15");
+        df.addRow(row);
+        df.alterColumnType("date", Date.class);
+
+        assertThat(df.getColumnHeader("date").columnType()).isEqualTo(Date.class);
+        assertThat(df.getRow(0).get("date")).isInstanceOf(Date.class);
+    }
+
+    @Test
+    @DisplayName("Should alter column type to Long")
+    void test_givenADataFrame_WhenAlteringColumnTypeToLong_ShouldSuccessfullyConvert() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("id");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("id", "123456789");
+        df.addRow(row);
+        df.alterColumnType("id", Long.class);
+
+        assertThat(df.getColumnHeader("id").columnType()).isEqualTo(Long.class);
+        assertThat(df.getRow(0).get("id")).isEqualTo(123456789L);
+    }
+
+    @Test
+    @DisplayName("Should alter column type to primitive int")
+    void test_givenADataFrame_WhenAlteringColumnTypeToPrimitiveInt_ShouldSuccessfullyConvert() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("count");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("count", "42");
+        df.addRow(row);
+        df.alterColumnType("count", int.class);
+
+        assertThat(df.getColumnHeader("count").columnType()).isEqualTo(int.class);
+        assertThat(df.getRow(0).get("count")).isEqualTo(42);
+    }
+
+    @Test
+    @DisplayName("Should throw ConversionException when altering column type to unsupported type")
+    void test_givenADataFrame_WhenAlteringColumnTypeToUnsupportedType_ShouldThrowException() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("value");
+        HashMap<String, Object> row = new HashMap<>();
+        row.put("value", "abc");
+        df.addRow(row);
+
+        assertThatThrownBy(() -> df.alterColumnType("value", java.util.List.class))
+            .isInstanceOf(ConversionException.class);
+    }
 }
