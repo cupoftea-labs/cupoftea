@@ -223,11 +223,7 @@ public class DataFrame extends IDataFrame {
      */
     @Override
     public IDataFrame removeRows(IFilter filter) throws Exception {
-        for(int i = 0; i < this.rows.size(); i++){
-            if(filter.filter(this.rows.get(i))){
-                this.removeRow(i);
-            }
-        }
+        this.rows.removeIf(filter::filter);
         return this;
     }
 
