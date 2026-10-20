@@ -403,4 +403,73 @@ public class DataFrameTest extends TestCase {
         assertEquals(Double.valueOf(123750.20000000001), originalMitsubishi.getRow(0).get("priceSum"));
         assertEquals(Double.valueOf(223750.20000000001), filteredGroup.getRow(0).get("priceSum"));
     }
+
+    public void test_givenADataFrame_WhenGroupingByAndAveragingDoubleValues_ThenShouldAddHeaderOnceAndCalculateAverage() throws Exception {
+        String columnToAverage = "price";
+        String columnToGroupBy = "car";
+        String averageColumnName = columnToAverage + "Average";
+        Double expectedMitsubishiAverage = (58749.87 + 65000.33) / 2.0;
+
+        CupOfTea df = new CupOfTea();
+
+        CupOfTea gdf = df.importFromJson(testData)
+            .alterColumnType(columnToAverage, Double.class)
+            .groupBy(columnToGroupBy)
+            .average(columnToAverage);
+
+        long averageHeaderCount = gdf.getHeaders().stream()
+            .filter(header -> averageColumnName.equals(header.columnName()))
+            .count();
+
+        assertEquals(1L, averageHeaderCount);
+        assertEquals(5, gdf.getHeaders().size());
+        assertEquals(Double.class, gdf.getColumnHeader(averageColumnName).columnType());
+
+        Object mitsubishiAverage = gdf.filter(a -> a.get(columnToGroupBy).equals("Mitsubishi"))
+            .getRow(0).get(averageColumnName);
+        Object lexusAverage = gdf.filter(a -> a.get(columnToGroupBy).equals("Lexus"))
+            .getRow(0).get(averageColumnName);
+
+        assertEquals(expectedMitsubishiAverage, (Double) mitsubishiAverage, 1e-9);
+        assertEquals(3500000.99, (Double) lexusAverage, 1e-9);
+    }
+
+    public void test_givenADataFrame_WhenGroupingByAndAveragingIntegerValues_ThenShouldAddHeaderOnceAndCalculateDoubleAverage() throws Exception {
+        String columnToAverage = "year";
+        String columnToGroupBy = "car";
+        String averageColumnName = columnToAverage + "Average";
+
+        CupOfTea df = new CupOfTea();
+
+        CupOfTea gdf = df.importFromJson(testData)
+            .alterColumnType(columnToAverage, Integer.class)
+            .groupBy(columnToGroupBy)
+            .average(columnToAverage);
+
+        long averageHeaderCount = gdf.getHeaders().stream()
+            .filter(header -> averageColumnName.equals(header.columnName()))
+            .count();
+
+        assertEquals(1L, averageHeaderCount);
+        assertEquals(5, gdf.getHeaders().size());
+        assertEquals(Double.class, gdf.getColumnHeader(averageColumnName).columnType());
+
+        Object mitsubishiAverage = gdf.filter(a -> a.get(columnToGroupBy).equals("Mitsubishi"))
+            .getRow(0).get(averageColumnName);
+
+        assertEquals(2015.0, (Double) mitsubishiAverage, 1e-9);
+    }
+
+    public void test_givenADataFrame_WhenCallingAverageOnNonGroupedColumn_ThenShouldThrowException() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData)
+            .alterColumnType("price", Double.class);
+
+        try {
+            df.average("price");
+            fail("Expected Exception when calling average on a non-grouped column");
+        } catch (Exception e) {
+            assertEquals("This is not a grouped column", e.getMessage());
+        }
+    }
 }
