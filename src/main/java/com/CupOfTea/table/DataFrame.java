@@ -1,6 +1,8 @@
 package com.CupOfTea.table;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -18,6 +20,7 @@ import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
+import com.CupOfTea.utils.interfaces.Order;
 import com.CupOfTea.utils.interfaces.Orderer;
 
 public class DataFrame extends IDataFrame {
@@ -288,26 +291,104 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame orderBy(Orderer... orderer) throws Exception {
-        this.rows.sort((a, b) -> {
-                int result = 0;
-                for(var order : orderer) {
-                    if(rows.get(0).get(order.column()) instanceof Integer) {
+        if (this.rows.isEmpty() || orderer == null || orderer.length == 0) {
+            return this;
+        }
 
-                        result = order.type().value * ((Integer)a.get(order.column()) - (Integer)b.get(order.column()));
-
-                    } else if (rows.get(0).get(order.column()) instanceof String) {
-
-                        result = order.type().value * ((String) a.get(order.column())).compareTo((String)b.get(order.column()));
-
-                    }
-                    if (result != 0) {
-                        return result;
-                    }
-                }
-                return result;
+        Comparator<HashMap<String, Object>> rowComparator = (a, b) -> 0;
+        for (var order : orderer) {
+            if (order == null || order.column() == null) {
+                continue;
             }
-        );
+            String columnName = order.column();
+            Class<?> declaredType = this.findDeclaredColumnType(columnName);
+            Comparator<Object> valueComparator = (valA, valB) -> this.compareValues(valA, valB, declaredType);
+            if (order.type() == Order.DESCENDING) {
+                valueComparator = valueComparator.reversed();
+            }
+            Comparator<Object> nullSafeComparator = Comparator.nullsLast(valueComparator);
+            rowComparator = rowComparator.thenComparing(row -> row.get(columnName), nullSafeComparator);
+        }
+
+        this.rows.sort(rowComparator);
         return this;
+    }
+
+    private Class<?> findDeclaredColumnType(String columnName) {
+        for (Column column : this.header.getHeader()) {
+            if (column != null && columnName.equals(column.columnName())) {
+                return column.columnType();
+            }
+        }
+        return null;
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private int compareValues(Object rawA, Object rawB, Class<?> declaredType) {
+        Object valA = this.coerceToDeclaredType(rawA, declaredType);
+        Object valB = this.coerceToDeclaredType(rawB, declaredType);
+
+        if (valA instanceof Integer intA && valB instanceof Integer intB) {
+            return Integer.compare(intA, intB);
+        }
+        if (valA instanceof Long longA && valB instanceof Long longB) {
+            return Long.compare(longA, longB);
+        }
+        if (valA instanceof Double doubleA && valB instanceof Double doubleB) {
+            return Double.compare(doubleA, doubleB);
+        }
+        if (valA instanceof Float floatA && valB instanceof Float floatB) {
+            return Float.compare(floatA, floatB);
+        }
+        if (valA instanceof Short shortA && valB instanceof Short shortB) {
+            return Short.compare(shortA, shortB);
+        }
+        if (valA instanceof Byte byteA && valB instanceof Byte byteB) {
+            return Byte.compare(byteA, byteB);
+        }
+        if (valA instanceof Boolean boolA && valB instanceof Boolean boolB) {
+            return Boolean.compare(boolA, boolB);
+        }
+        if (valA instanceof Date dateA && valB instanceof Date dateB) {
+            return Long.compare(dateA.getTime(), dateB.getTime());
+        }
+        if (valA instanceof Number numA && valB instanceof Number numB) {
+            return this.compareNumbers(numA, numB);
+        }
+        if (valA instanceof Comparable comparableA && valB instanceof Comparable) {
+            return comparableA.compareTo(valB);
+        }
+        throw new IllegalArgumentException(
+            "Unsupported or incompatible column values for orderBy: "
+                + valA.getClass().getName() + " and " + valB.getClass().getName()
+        );
+    }
+
+    private Object coerceToDeclaredType(Object value, Class<?> declaredType) {
+        if (value == null || declaredType == null || declaredType == String.class || declaredType.isInstance(value)) {
+            return value;
+        }
+        if (value instanceof String str) {
+            if (declaredType == Integer.class) return Integer.valueOf(str);
+            if (declaredType == Long.class) return Long.valueOf(str);
+            if (declaredType == Double.class) return Double.valueOf(str);
+            if (declaredType == Float.class) return Float.valueOf(str);
+            if (declaredType == Short.class) return Short.valueOf(str);
+            if (declaredType == Byte.class) return Byte.valueOf(str);
+            if (declaredType == Boolean.class) return Boolean.valueOf(str);
+        }
+        return value;
+    }
+
+    private int compareNumbers(Number numA, Number numB) {
+        if (numA instanceof Double || numB instanceof Double || numA instanceof Float || numB instanceof Float) {
+            double dA = numA.doubleValue();
+            double dB = numB.doubleValue();
+            if (Double.isNaN(dA) || Double.isNaN(dB) || Double.isInfinite(dA) || Double.isInfinite(dB)) {
+                return Double.compare(dA, dB);
+            }
+        }
+        return new BigDecimal(numA.toString()).compareTo(new BigDecimal(numB.toString()));
     }
 
     
