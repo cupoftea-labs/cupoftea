@@ -1,8 +1,14 @@
 package com.CupOfTea.table;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.utils.interfaces.Order;
+import com.CupOfTea.utils.interfaces.Orderer;
 
 import junit.framework.TestCase;
 
@@ -500,5 +506,191 @@ public class DataFrameTest extends TestCase {
         df.alterColumnType("year", String.class);
         assertEquals(String.class, df.getColumnHeader("year").columnType());
         assertEquals("2018.0", df.getRow(0).get("year"));
+    }
+
+    public void test_givenAnEmptyDataFrame_WhenOrderingByAnyColumn_ThenShouldBeANoOp() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("year");
+
+        df.orderBy(new Orderer("year", Order.ASCENDING));
+
+        assertEquals(Integer.valueOf(0), df.size());
+    }
+
+    public void test_givenADataFrameWithExtremeIntegers_WhenOrderingAscendingAndDescending_ThenShouldNotOverflow() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.setHeaders(new ArrayList<>(List.of(new Column("value", Integer.class))));
+
+        for (int v : new int[] { Integer.MAX_VALUE, -2_000_000_000, 0, Integer.MIN_VALUE, 2_000_000_000 }) {
+            HashMap<String, Object> row = new HashMap<>();
+            row.put("value", v);
+            df.addRow(row);
+        }
+
+        df.orderBy(new Orderer("value", Order.ASCENDING));
+        assertEquals(Integer.valueOf(Integer.MIN_VALUE), df.getRow(0).get("value"));
+        assertEquals(Integer.valueOf(-2_000_000_000), df.getRow(1).get("value"));
+        assertEquals(Integer.valueOf(0), df.getRow(2).get("value"));
+        assertEquals(Integer.valueOf(2_000_000_000), df.getRow(3).get("value"));
+        assertEquals(Integer.valueOf(Integer.MAX_VALUE), df.getRow(4).get("value"));
+
+        df.orderBy(new Orderer("value", Order.DESCENDING));
+        assertEquals(Integer.valueOf(Integer.MAX_VALUE), df.getRow(0).get("value"));
+        assertEquals(Integer.valueOf(2_000_000_000), df.getRow(1).get("value"));
+        assertEquals(Integer.valueOf(0), df.getRow(2).get("value"));
+        assertEquals(Integer.valueOf(-2_000_000_000), df.getRow(3).get("value"));
+        assertEquals(Integer.valueOf(Integer.MIN_VALUE), df.getRow(4).get("value"));
+    }
+
+    public void test_givenADataFrameWithDoubleFloatAndLongColumns_WhenOrderingByEach_ThenShouldOrderCorrectly() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData)
+            .alterColumnType("price", Double.class)
+            .orderBy(new Orderer("price", Order.ASCENDING));
+
+        assertEquals(Double.valueOf(500.01), df.getRow(0).get("price"));
+        assertEquals(Double.valueOf(25000.00), df.getRow(1).get("price"));
+        assertEquals(Double.valueOf(7000000.77), df.getRow(df.size() - 1).get("price"));
+
+        df.orderBy(new Orderer("price", Order.DESCENDING));
+        assertEquals(Double.valueOf(7000000.77), df.getRow(0).get("price"));
+        assertEquals(Double.valueOf(500.01), df.getRow(df.size() - 1).get("price"));
+
+        CupOfTea longDf = new CupOfTea();
+        longDf.setHeaders(new ArrayList<>(List.of(
+            new Column("id", Long.class),
+            new Column("rating", Float.class)
+        )));
+
+        long[] ids = { Long.MAX_VALUE, Long.MIN_VALUE, 0L, -100L };
+        float[] ratings = { 4.5f, 1.2f, 9.9f, 3.3f };
+        for (int i = 0; i < ids.length; i++) {
+            HashMap<String, Object> row = new HashMap<>();
+            row.put("id", ids[i]);
+            row.put("rating", ratings[i]);
+            longDf.addRow(row);
+        }
+
+        longDf.orderBy(new Orderer("id", Order.ASCENDING));
+        assertEquals(Long.valueOf(Long.MIN_VALUE), longDf.getRow(0).get("id"));
+        assertEquals(Long.valueOf(-100L), longDf.getRow(1).get("id"));
+        assertEquals(Long.valueOf(0L), longDf.getRow(2).get("id"));
+        assertEquals(Long.valueOf(Long.MAX_VALUE), longDf.getRow(3).get("id"));
+
+        longDf.orderBy(new Orderer("rating", Order.DESCENDING));
+        assertEquals(Float.valueOf(9.9f), longDf.getRow(0).get("rating"));
+        assertEquals(Float.valueOf(4.5f), longDf.getRow(1).get("rating"));
+        assertEquals(Float.valueOf(3.3f), longDf.getRow(2).get("rating"));
+        assertEquals(Float.valueOf(1.2f), longDf.getRow(3).get("rating"));
+    }
+
+    public void test_givenADataFrameWithTemporalAndBooleanColumns_WhenOrderingByThem_ThenShouldOrderCorrectly() throws Exception {
+        String datedJson = """
+            [
+                { "event": "C", "date": "2024-12-31", "active": "true" },
+                { "event": "A", "date": "2020-01-15", "active": "false" },
+                { "event": "B", "date": "2022-06-01", "active": "true" }
+            ]
+            """;
+
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(datedJson)
+            .alterColumnType("date", Date.class)
+            .alterColumnType("active", Boolean.class)
+            .orderBy(new Orderer("date", Order.ASCENDING));
+
+        assertEquals("A", df.getRow(0).get("event"));
+        assertEquals("B", df.getRow(1).get("event"));
+        assertEquals("C", df.getRow(2).get("event"));
+
+        df.orderBy(
+            new Orderer("active", Order.ASCENDING),
+            new Orderer("date", Order.DESCENDING)
+        );
+        assertEquals("A", df.getRow(0).get("event"));
+        assertEquals("C", df.getRow(1).get("event"));
+        assertEquals("B", df.getRow(2).get("event"));
+
+        CupOfTea localDateDf = new CupOfTea();
+        localDateDf.setHeaders(new ArrayList<>(List.of(new Column("day", LocalDate.class))));
+        for (LocalDate d : List.of(LocalDate.of(2025, 5, 1), LocalDate.of(2021, 1, 1), LocalDate.of(2023, 3, 15))) {
+            HashMap<String, Object> row = new HashMap<>();
+            row.put("day", d);
+            localDateDf.addRow(row);
+        }
+
+        localDateDf.orderBy(new Orderer("day", Order.ASCENDING));
+        assertEquals(LocalDate.of(2021, 1, 1), localDateDf.getRow(0).get("day"));
+        assertEquals(LocalDate.of(2023, 3, 15), localDateDf.getRow(1).get("day"));
+        assertEquals(LocalDate.of(2025, 5, 1), localDateDf.getRow(2).get("day"));
+    }
+
+    public void test_givenADataFrameWithNullValuesincludingInFirstRow_WhenOrdering_ThenNullsShouldBePlacedLast() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.setHeaders(new ArrayList<>(List.of(
+            new Column("score", Integer.class),
+            new Column("name", String.class)
+        )));
+
+        HashMap<String, Object> row1 = new HashMap<>();
+        row1.put("score", null);
+        row1.put("name", "Bravo");
+
+        HashMap<String, Object> row2 = new HashMap<>();
+        row2.put("score", 20);
+        row2.put("name", "Charlie");
+
+        HashMap<String, Object> row3 = new HashMap<>();
+        row3.put("score", 10);
+        row3.put("name", "Alpha");
+
+        HashMap<String, Object> row4 = new HashMap<>();
+        row4.put("score", null);
+        row4.put("name", "AlphaNull");
+
+        df.addRow(row1).addRow(row2).addRow(row3).addRow(row4);
+
+        df.orderBy(
+            new Orderer("score", Order.ASCENDING),
+            new Orderer("name", Order.ASCENDING)
+        );
+
+        assertEquals(Integer.valueOf(10), df.getRow(0).get("score"));
+        assertEquals(Integer.valueOf(20), df.getRow(1).get("score"));
+        assertNull(df.getRow(2).get("score"));
+        assertEquals("AlphaNull", df.getRow(2).get("name"));
+        assertNull(df.getRow(3).get("score"));
+        assertEquals("Bravo", df.getRow(3).get("name"));
+
+        df.orderBy(
+            new Orderer("score", Order.DESCENDING),
+            new Orderer("name", Order.ASCENDING)
+        );
+
+        assertEquals(Integer.valueOf(20), df.getRow(0).get("score"));
+        assertEquals(Integer.valueOf(10), df.getRow(1).get("score"));
+        assertNull(df.getRow(2).get("score"));
+        assertEquals("AlphaNull", df.getRow(2).get("name"));
+        assertNull(df.getRow(3).get("score"));
+        assertEquals("Bravo", df.getRow(3).get("name"));
+    }
+
+    public void test_givenADataFrame_WhenOrderingByMultipleColumns_ThenShouldBreakTiesWithSubsequentOrderers() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData)
+            .alterColumnType("year", Integer.class)
+            .orderBy(
+                new Orderer("car", Order.ASCENDING),
+                new Orderer("year", Order.DESCENDING)
+            );
+
+        assertEquals("Bugatti", df.getRow(0).get("car"));
+        assertEquals("Fiat", df.getRow(1).get("car"));
+        assertEquals("Lexus", df.getRow(2).get("car"));
+        assertEquals("Mitsubishi", df.getRow(3).get("car"));
+        assertEquals(Integer.valueOf(2016), df.getRow(3).get("year"));
+        assertEquals("Mitsubishi", df.getRow(4).get("car"));
+        assertEquals(Integer.valueOf(2014), df.getRow(4).get("year"));
+        assertEquals("Renault", df.getRow(5).get("car"));
     }
 }
