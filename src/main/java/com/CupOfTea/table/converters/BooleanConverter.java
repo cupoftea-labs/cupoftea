@@ -1,14 +1,13 @@
 package com.CupOfTea.table.converters;
 
-
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
 
 public class BooleanConverter implements IDataTypeConverter<Boolean> {
 
     @Override
     public Boolean convert(Object value, Class<?> oldColumnType) throws Exception {
-        
-        if(Class.forName("java.lang.Boolean").isAssignableFrom(value.getClass())) return (Boolean) value;
+
+        if (Boolean.class.isAssignableFrom(value.getClass())) return (Boolean) value;
 
         Boolean convertedValue;
 

@@ -1,21 +1,35 @@
 package com.CupOfTea.table;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Map;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.CupOfTea.table.converters.BooleanConverter;
+import com.CupOfTea.table.converters.DateConverter;
+import com.CupOfTea.table.converters.DoubleConverter;
+import com.CupOfTea.table.converters.FloatConverter;
+import com.CupOfTea.table.converters.IntegerConverter;
+import com.CupOfTea.table.converters.StringConverter;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.table.interfaces.IDataTypeConverter;
-import com.CupOfTea.utils.ClassFinder;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
 public class DataFrame extends IDataFrame {
+
+    private static final Map<Class<?>, IDataTypeConverter<?>> CONVERTERS = Map.of(
+        Boolean.class, new BooleanConverter(),
+        Date.class, new DateConverter(),
+        Double.class, new DoubleConverter(),
+        Float.class, new FloatConverter(),
+        Integer.class, new IntegerConverter(),
+        String.class, new StringConverter()
+    );
 
     public DataFrame(){
         super();
@@ -182,13 +196,16 @@ public class DataFrame extends IDataFrame {
         
         Class<?> oldColumnType = this.header.get(columnName).columnType();
 
-        HashMap<Class<?>, IDataTypeConverter<?>> converters = this.findConverters();
+        IDataTypeConverter<?> converter = CONVERTERS.get(newColumnType);
+        if (converter == null) {
+            throw new Exception("Column Type not Suported for Conversion");
+        }
         
         for(var row : this.rows){
 
             Object value = row.get(columnName);
             if(value == null) continue;
-            Object convertedValue = converters.get(newColumnType).convert(value, oldColumnType);
+            Object convertedValue = converter.convert(value, oldColumnType);
             row.put(columnName, convertedValue);
 
         }
@@ -196,23 +213,6 @@ public class DataFrame extends IDataFrame {
         this.header.alterColumnType(columnName, newColumnType);
 
         return this;
-    }
-
-    private HashMap<Class<?>, IDataTypeConverter<?>> findConverters() throws Exception {
-
-        ClassFinder finder = new ClassFinder();
-        List<Class<?>> classes = finder.findClasses("com.CupOfTea.table.converters");
-
-        HashMap<Class<?>, IDataTypeConverter<?>> converters = new HashMap<>();
-
-        for(var clazz : classes) {
-            Method method = clazz.getMethod("convert", Object.class, Class.class);
-            Class<?> returnType = method.getReturnType();
-            converters.put(returnType, (IDataTypeConverter<?>) clazz.newInstance());
-        }
-
-        return converters;
-
     }
 
     @Override

@@ -6,7 +6,7 @@ public class StringConverter implements IDataTypeConverter<String> {
 
     @Override
     public String convert(Object value, Class<?> oldColumnType) throws Exception {
-        if(Class.forName("java.lang.String").isAssignableFrom(value.getClass())) return (String) value;
+        if (String.class.isAssignableFrom(value.getClass())) return (String) value;
 
         String convertedValue;
         convertedValue = value.toString();
