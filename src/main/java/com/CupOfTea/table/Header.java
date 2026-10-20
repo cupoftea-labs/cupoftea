@@ -9,6 +9,10 @@ public class Header {
     @Getter
     private ArrayList<Column> header;
 
+    public ArrayList<Column> getHeader() {
+        return this.header;
+    }
+
     public Header(){
         this.header = new ArrayList<>();
     }
@@ -25,12 +29,12 @@ public class Header {
      * @params columnName
      * The column will be created in the last position with null value
      */
-    public void addColumn(String columnName) throws Exception {
+    public void addColumn(String columnName) {
         int index = header.size();
         this.addColumn(index, columnName);
     }
 
-    public void addColumn(int index, String columnName) throws Exception {
+    public void addColumn(int index, String columnName) {
         header.add(index, new Column(columnName, null));
     }
 
@@ -41,7 +45,7 @@ public class Header {
      * @param columnName Name of the new Column
      * @param columnCreator Function that defines the values of the new column
      */
-    public void addColumn(String columnName, Class<?> columnType) throws Exception {
+    public void addColumn(String columnName, Class<?> columnType) {
         int index = header.size();
         header.add(index, new Column(columnName, columnType));
     }
@@ -88,7 +92,11 @@ public class Header {
     }
 
     public Column get(String columnName) {
-        return this.header.get(header.indexOf(new Column(columnName, null)));
+        int index = header.indexOf(new Column(columnName, null));
+        if (index == -1) {
+            return null;
+        }
+        return this.header.get(index);
     }
 
     public void setHeader(ArrayList<Column> header){

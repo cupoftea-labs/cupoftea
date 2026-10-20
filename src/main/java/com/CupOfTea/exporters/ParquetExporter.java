@@ -1,6 +1,7 @@
 package com.CupOfTea.exporters;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -17,6 +18,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.ExportException;
 import com.CupOfTea.exporters.interfaces.IParquetExporter;
 import com.CupOfTea.table.Column;
 
@@ -34,58 +36,69 @@ public class ParquetExporter implements IParquetExporter {
      * Create a PARQUET file from the data frame.
      * 
      * @param file path to your PARQUET file. Can't be null.
-     * @throws if the file already exists throws an Exception
      */
     @Override
-    public void exportToParquet(File file) throws Exception {
-
-        ArrayList<Column> headers = this.dataFrame.getHeaders();
-
-        JSONArray fields = new JSONArray();
-
-        for(var column : this.dataFrame.getHeaders()){
-            Class<?> columnType = column.columnType();
-            String type;
-
-            if(columnType == String.class){
-                type = "string";
-            } else if (columnType == Integer.class) {
-                type = "int";
-            } else {
-                type = "union";
-            }
-
-            fields.put(new JSONObject().put("name", column.columnName()).put("type", type));
+    public void exportToParquet(File file) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
         }
-        
-        JSONObject schemaJson = new JSONObject();
 
-        schemaJson
-                .put("type", "record")
-                .put("name", "DataFrame")
-                .put("fields", fields)
-            ;
+        try {
+            ArrayList<Column> headers = this.dataFrame.getHeaders();
 
-        Schema schema = new Schema.Parser().parse(schemaJson.toString());
-        
-        Path path = new Path(file.toString());
-        Configuration conf = new Configuration();
+            JSONArray fields = new JSONArray();
 
-        HadoopOutputFile outputFile = HadoopOutputFile.fromPath(path, conf);
-        try (ParquetWriter<GenericRecord> writer = AvroParquetWriter.<GenericRecord>builder(outputFile)
-                .withSchema(schema)
-                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                .withPageSize(1 * 1024 * 1024)
-                .withConf(conf)
-                .build()) {
-            for (HashMap<String, Object> data :  this.dataFrame.getRows()){
-                GenericRecord record = new GenericData.Record(schema);
-                for (int i = 0; i < data.size(); i++){
-                    String header = headers.get(i).columnName();
-                    record.put(header, data.get(header));
+            for(var column : this.dataFrame.getHeaders()){
+                Class<?> columnType = column.columnType();
+                String type;
+
+                if(columnType == String.class){
+                    type = "string";
+                } else if (columnType == Integer.class) {
+                    type = "int";
+                } else {
+                    type = "union";
                 }
-                writer.write(record);
+
+                fields.put(new JSONObject().put("name", column.columnName()).put("type", type));
             }
+            
+            JSONObject schemaJson = new JSONObject();
+
+            schemaJson
+                    .put("type", "record")
+                    .put("name", "DataFrame")
+                    .put("fields", fields)
+                ;
+
+            Schema schema = new Schema.Parser().parse(schemaJson.toString());
+            
+            Path path = new Path(file.toString());
+            Configuration conf = new Configuration();
+
+            HadoopOutputFile outputFile = HadoopOutputFile.fromPath(path, conf);
+            try (ParquetWriter<GenericRecord> writer = AvroParquetWriter.<GenericRecord>builder(outputFile)
+                    .withSchema(schema)
+                    .withCompressionCodec(CompressionCodecName.SNAPPY)
+                    .withPageSize(1 * 1024 * 1024)
+                    .withConf(conf)
+                    .build()) {
+                for (HashMap<String, Object> data :  this.dataFrame.getRows()){
+                    GenericRecord record = new GenericData.Record(schema);
+                    for (int i = 0; i < data.size(); i++){
+                        String header = headers.get(i).columnName();
+                        record.put(header, data.get(header));
+                    }
+                    writer.write(record);
+                }
+            }
+        } catch (IOException e) {
+            throw new ExportException("Failed to export to Parquet file: " + file.getPath(), e);
+        } catch (Exception e) {
+            if (e instanceof ExportException) {
+                throw (ExportException) e;
+            }
+            throw new ExportException("Failed to export to Parquet file: " + file.getPath(), e);
         }
     }
 

@@ -15,9 +15,11 @@ import org.jetbrains.annotations.Nullable;
 import org.json.JSONArray;
 import org.w3c.dom.Document;
 
+import com.CupOfTea.exceptions.SchemaMismatchException;
 import com.CupOfTea.exporters.CSVExporter;
 import com.CupOfTea.exporters.JsonExporter;
 import com.CupOfTea.exporters.ParquetExporter;
+import com.CupOfTea.exporters.YamlExporter;
 import com.CupOfTea.exporters.configurations.CSVExporterConfiguration;
 import com.CupOfTea.exporters.interfaces.IJsonExporter;
 import com.CupOfTea.exporters.interfaces.IParquetExporter;
@@ -117,37 +119,37 @@ public class CupOfTea {
         return this;
     }
     
-    public CupOfTea addColumn(String columnName) throws Exception {
+    public CupOfTea addColumn(String columnName) {
         this.dataFrame.addColumn(columnName);
         return this;
     }
 
-    public CupOfTea addColumn(String columnName, Class<?> columnType) throws Exception {
+    public CupOfTea addColumn(String columnName, Class<?> columnType) {
         this.dataFrame.addColumn(columnName, columnType);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName) throws Exception{
+    public CupOfTea addColumn(int index, String columnName) {
         this.dataFrame.addColumn(index, columnName);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, Class<?> columnType) throws Exception{
+    public CupOfTea addColumn(int index, String columnName, Class<?> columnType) {
         this.dataFrame.addColumn(index, columnName, columnType);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, @Nullable Object data) throws Exception{
+    public CupOfTea addColumn(int index, String columnName, @Nullable Object data) {
         this.dataFrame.addColumn(index, columnName, data);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception{
+    public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
         this.dataFrame.addColumn(index, columnName, data);
         return this;
     }
 
-    public CupOfTea alterColumnType(String columnName, Class newColumnType) throws Exception {
+    public CupOfTea alterColumnType(String columnName, Class newColumnType) {
         this.dataFrame.alterColumnType(columnName, newColumnType);
         return this;
     }
@@ -159,37 +161,37 @@ public class CupOfTea {
      * @param columnName Name of the new Column
      * @param columnCreator Function that defines the values of the new column
      */
-    public CupOfTea addColumn(String columnName, IColumnCreator columnCreator) throws Exception {
+    public CupOfTea addColumn(String columnName, IColumnCreator columnCreator) {
         this.dataFrame.addColumn(columnName, columnCreator);
         return this;
     }
 
-    public CupOfTea addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+    public CupOfTea addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) {
         this.dataFrame.addColumn(columnName, columnType, columnCreator);
         return this;
     }
 
-    public CupOfTea addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+    public CupOfTea addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) {
         this.dataFrame.addColumn(columnName, columnCreator, columnType);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator) throws Exception {
+    public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator) {
         this.dataFrame.addColumn(index, columnName, columnCreator);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception {
+    public CupOfTea addColumn(int index, String columnName, Class<?> columnType, IColumnCreator columnCreator) {
         this.dataFrame.addColumn(index, columnName, columnType, columnCreator);
         return this;
     }
 
-    public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception {
+    public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) {
         this.dataFrame.addColumn(index, columnName, columnCreator, columnType);
         return this;
     }
 
-    public CupOfTea removeColumn(String columnName) throws Exception {
+    public CupOfTea removeColumn(String columnName) {
         this.dataFrame.removeColumn(columnName);
         return this;
     }
@@ -199,7 +201,7 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea addRow(@NotNull HashMap<String, Object> row) throws Exception{
+    public CupOfTea addRow(@NotNull HashMap<String, Object> row) {
         this.dataFrame.addRow(row);
         return this;
     }
@@ -215,22 +217,21 @@ public class CupOfTea {
      * 
      * @param filter the rows mathing this condition will be removed out of the DataFrame
      * @return the same DataFrame but without the filtered rows
-     * @throws Exception
      */
-    public CupOfTea removeRows(IFilter filter) throws Exception {
+    public CupOfTea removeRows(IFilter filter) {
         this.dataFrame.removeRows(filter);
         return this;
     }
 
-    public CupOfTea filter(IFilter filter) throws Exception{
+    public CupOfTea filter(IFilter filter) {
         return new CupOfTea(this.dataFrame.filter(filter));
     }
 
-    public CupOfTea update(HashMap<String, Object> updateColumns) throws Exception {
+    public CupOfTea update(HashMap<String, Object> updateColumns) {
         return new CupOfTea(this.dataFrame.update(updateColumns));
     }
 
-    public CupOfTea orderBy(Orderer... orderer) throws Exception{
+    public CupOfTea orderBy(Orderer... orderer) {
         this.dataFrame.orderBy(orderer);
         return this;
     }
@@ -263,7 +264,7 @@ public class CupOfTea {
         return printer.format();
     }
 
-    public CupOfTea exportToJson(File file) throws Exception {
+    public CupOfTea exportToJson(File file) {
 
         jsonExporter = new JsonExporter(this);
         jsonExporter.exportToJson(file);
@@ -271,7 +272,7 @@ public class CupOfTea {
 
     }
 
-    public JSONArray exportToJson() throws Exception {
+    public JSONArray exportToJson() {
 
         jsonExporter = new JsonExporter(this);
         JSONArray json = jsonExporter.exportToJson();
@@ -279,7 +280,7 @@ public class CupOfTea {
 
     }
     
-    public CupOfTea exportToCsv(File file) throws Exception {
+    public CupOfTea exportToCsv(File file) {
 
         csvExporter = new CSVExporter(this);
         csvExporter.exportToCsv(file);
@@ -287,7 +288,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea exportToCsv(File file, CSVExporterConfiguration configuration) throws Exception {
+    public CupOfTea exportToCsv(File file, CSVExporterConfiguration configuration) {
 
         csvExporter = new CSVExporter(this);
         csvExporter.exportToCsv(file, configuration);
@@ -296,7 +297,7 @@ public class CupOfTea {
     }
 
     
-    public CupOfTea importFromCsv(File file) throws Exception {
+    public CupOfTea importFromCsv(File file) {
 
         csvImporter = new CSVImporter(this);
         csvImporter.importFromCsv(file);
@@ -304,7 +305,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromCsv(File file, boolean hasHeaders) throws Exception {
+    public CupOfTea importFromCsv(File file, boolean hasHeaders) {
 
         csvImporter = new CSVImporter(this);
         csvImporter.importFromCsv(file, hasHeaders);
@@ -312,7 +313,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromCsv(File file, CSVImporterConfiguration configuration) throws Exception {
+    public CupOfTea importFromCsv(File file, CSVImporterConfiguration configuration) {
 
         csvImporter = new CSVImporter(this, configuration);
         csvImporter.importFromCsv(file, configuration);
@@ -320,7 +321,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromExcel(File file, boolean hasHeaders) throws Exception {
+    public CupOfTea importFromExcel(File file, boolean hasHeaders) {
 
         ExcelImporter excelImporter = new ExcelImporter(this);
         excelImporter.importFromExcel(file, hasHeaders);
@@ -328,7 +329,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromParquet(File file) throws Exception {
+    public CupOfTea importFromParquet(File file) {
 
         parquetImporter = new ParquetImporter(this);
         parquetImporter.importFromParquet(file);
@@ -336,23 +337,23 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea exportToParquet(File file) throws Exception { 
-        
+    public CupOfTea exportToParquet(File file) { 
+
         parquetExporter = new ParquetExporter(this);
         parquetExporter.exportToParquet(file);
         return this;
 
     }
 
-    public CupOfTea importFromJson(String json) throws Exception {
-
+    public CupOfTea importFromJson(String json) {
+        
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json);
         return this;
 
     }
 
-    public CupOfTea importFromJson(String json, Map<String, Class<?>> schema) throws Exception {
+    public CupOfTea importFromJson(String json, Map<String, Class<?>> schema) {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json, schema);
@@ -361,10 +362,12 @@ public class CupOfTea {
     }
 
     /**
-     * @param file
-     * @throws Exception 
+     * Dumps the Data from a JSON file into the CupOfTea data frame.
+     * The json must be a json array for this method to work.
+     * 
+     * @param file JSON file.
      */
-    public CupOfTea importFromJson(File file) throws Exception{
+    public CupOfTea importFromJson(File file) {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file);
@@ -372,7 +375,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromJson(File file, Map<String, Class<?>> schema) throws Exception{
+    public CupOfTea importFromJson(File file, Map<String, Class<?>> schema) {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file, schema);
@@ -380,7 +383,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromXml(File file) throws Exception{
+    public CupOfTea importFromXml(File file) {
 
         xmlImporter = new XmlImporter(this);
         xmlImporter.importFromXml(file);
@@ -388,7 +391,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromXml(String xml) throws Exception{
+    public CupOfTea importFromXml(String xml) {
 
         xmlImporter = new XmlImporter(this);
         xmlImporter.importFromXml(xml);
@@ -396,7 +399,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromXml(Document doc) throws Exception{
+    public CupOfTea importFromXml(Document doc) {
 
         xmlImporter = new XmlImporter(this);
         xmlImporter.importFromXml(doc);
@@ -404,7 +407,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromHtml(File file) throws Exception{
+    public CupOfTea importFromHtml(File file) {
 
         htmlImporter = new HTMLImporter(this);
         htmlImporter.importFromHtml(file);
@@ -419,7 +422,7 @@ public class CupOfTea {
      * (SSRF / slowloris risk). Prefer {@link #importFromHtml(org.jsoup.nodes.Document)} or
      * {@link #importFromHtml(String)} in untrusted environments.
      */
-    public CupOfTea importFromHtml(URL url) throws Exception {
+    public CupOfTea importFromHtml(URL url) {
 
         htmlImporter = new HTMLImporter(this);
         htmlImporter.importFromHtml(url);
@@ -434,7 +437,7 @@ public class CupOfTea {
      * (SSRF / slowloris risk). Prefer {@link #importFromHtml(org.jsoup.nodes.Document)} or
      * {@link #importFromHtml(String)} in untrusted environments.
      */
-    public CupOfTea importFromHtml(URL url, int timeoutMillis, int maxBodySizeBytes) throws Exception {
+    public CupOfTea importFromHtml(URL url, int timeoutMillis, int maxBodySizeBytes) {
 
         htmlImporter = new HTMLImporter(this, timeoutMillis, maxBodySizeBytes);
         htmlImporter.importFromHtml(url, timeoutMillis, maxBodySizeBytes);
@@ -442,7 +445,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromHtml(String html) throws Exception {
+    public CupOfTea importFromHtml(String html) {
 
         htmlImporter = new HTMLImporter(this);
         htmlImporter.importFromHtml(html);
@@ -450,7 +453,7 @@ public class CupOfTea {
 
     }
 
-    public CupOfTea importFromHtml(org.jsoup.nodes.Document doc) throws Exception {
+    public CupOfTea importFromHtml(org.jsoup.nodes.Document doc) {
 
         htmlImporter = new HTMLImporter(this);
         htmlImporter.importFromHtml(doc);
@@ -459,18 +462,19 @@ public class CupOfTea {
     }
 
     /**
-     * @param json
-     * @throws Exception 
+     * Dumps the Data from a JSONArray Object into the CupOfTea data frame.
+     * 
+     * @param json JSONArray Object.
      */
-    public CupOfTea importFromJson(JSONArray json) throws Exception{
-        
+    public CupOfTea importFromJson(JSONArray json) {
+
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json);
         return this;
 
     }
 
-    public CupOfTea importFromJson(JSONArray json, Map<String, Class<?>> schema) throws Exception{
+    public CupOfTea importFromJson(JSONArray json, Map<String, Class<?>> schema) {
         
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json, schema);
@@ -479,22 +483,24 @@ public class CupOfTea {
     }
 
     /**
-     * @param yamlText
-     * @throws Exception 
+     * Dumps the Data from a Yaml Text into the CupOfTea data frame.
+     * 
+     * @param yamlText Yaml Text.
      */
-    public CupOfTea importFromYaml(String yamlText) throws Exception{
-        
+    public CupOfTea importFromYaml(String yamlText) {
+
         yamlImporter = new YamlImporter(this);
         yamlImporter.importFromYaml(yamlText);
         return this;
- 
+
     }
 
     /**
-     * @param file
-     * @throws Exception 
+     * Dumps the Data from a Yaml File into the CupOfTea data frame.
+     * 
+     * @param file Yaml File.
      */
-    public CupOfTea importFromYaml(File file) throws Exception{
+    public CupOfTea importFromYaml(File file) {
         
         yamlImporter = new YamlImporter(this);
         yamlImporter.importFromYaml(file);
@@ -505,9 +511,12 @@ public class CupOfTea {
     /**
      * Set the Headers of the Data Frame
      * 
-     * @param arrayList Suports Column and String ArrayList Types
+     * @param arrayList Supports Column and String ArrayList Types
      */
-	public CupOfTea setHeaders(ArrayList<?> arrayList) throws Exception {
+	public CupOfTea setHeaders(ArrayList<?> arrayList) {
+        if (arrayList == null || arrayList.isEmpty()) {
+            throw new SchemaMismatchException("Headers list cannot be null or empty");
+        }
         ArrayList<Column> columns;
         if(arrayList.isEmpty()) {
             columns = new ArrayList<>();
@@ -516,7 +525,7 @@ public class CupOfTea {
         } else if(arrayList.get(0) instanceof Column) {
             columns = new ArrayList<>((ArrayList<Column>) arrayList);
         } else {
-            throw new Exception("Tipo de array nao suportado");
+            throw new SchemaMismatchException("Unsupported header array type: elements must be String or Column instances");
         }
 		this.dataFrame.setHeaders(columns);
         return this;
@@ -527,7 +536,7 @@ public class CupOfTea {
      * Retorna um novo DataFrame com colunas de dados agrupados, que podem ser tratados posteriormente
      * 
      */
-    public CupOfTea groupBy(String... columns) throws Exception {
+    public CupOfTea groupBy(String... columns) {
 
         CupOfTea groupedDataFrame = new CupOfTea();
 
@@ -541,8 +550,11 @@ public class CupOfTea {
 
         ArrayList<Column> groupedHeaders = new ArrayList<>();
         for(var column : columns) {
-            Column columnHeader = this.getColumnHeader(column);
-            groupedHeaders.add(new Column(columnHeader.columnName(), columnHeader.columnType()));
+            Column colHeader = this.getColumnHeader(column);
+            if (colHeader == null) {
+                throw new SchemaMismatchException("Column not found for groupBy: " + column);
+            }
+            groupedHeaders.add(new Column(colHeader.columnName(), colHeader.columnType()));
         }
 
         for(var row : this.getRows()){
@@ -590,13 +602,16 @@ public class CupOfTea {
         return groupedDataFrame;
     }
 
-    public CupOfTea sum(String column) throws Exception { 
+    public CupOfTea sum(String column) { 
 
         Column groupedColumn = this.getColumnHeader(column);
+        if (groupedColumn == null) {
+            throw new SchemaMismatchException("Column not found: " + column);
+        }
         Class<?> finalColumnType = null;
         String columnName = column+"Sum";
 
-        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
 
         for(var row : this.getRows()) {
             Object sum = null;
@@ -626,13 +641,16 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea average(String column) throws Exception {
+    public CupOfTea average(String column) {
 
         Column groupedColumn = this.getColumnHeader(column);
+        if (groupedColumn == null) {
+            throw new SchemaMismatchException("Column not found: " + column);
+        }
         Class<?> finalColumnType = null;
         String columnName = column+"Average";
 
-        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
 
         for(var row : this.getRows()) {
             Object average = null;
@@ -665,13 +683,16 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea maximum(String column) throws Exception {
+    public CupOfTea maximum(String column) {
 
         Column groupedColumn = this.getColumnHeader(column);
+        if (groupedColumn == null) {
+            throw new SchemaMismatchException("Column not found: " + column);
+        }
         Class<?> finalColumnType = null;
         String columnName = column+"Maximum";
 
-        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
 
         for(var row : this.getRows()) {
             Object maximum = null;
@@ -702,14 +723,16 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea minimum (String column) throws Exception {
+    public CupOfTea minimum (String column) {
 
-        
         Column groupedColumn = this.getColumnHeader(column);
+        if (groupedColumn == null) {
+            throw new SchemaMismatchException("Column not found: " + column);
+        }
         Class<?> finalColumnType = null;
         String columnName = column+"Minimum";
 
-        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
 
         for(var row : this.getRows()) {
             Object minimum = null;
@@ -740,12 +763,15 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea count(String column) throws Exception {
+    public CupOfTea count(String column) {
         Column groupedColumn = this.getColumnHeader(column);
+        if (groupedColumn == null) {
+            throw new SchemaMismatchException("Column not found: " + column);
+        }
         Class<?> finalColumnType = null;
         String columnName = column+"Count";
 
-        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
 
         for(var row : this.getRows()) {
             Object count = null;
@@ -763,12 +789,15 @@ public class CupOfTea {
         return this;
     }
 
-    public CupOfTea aggregate(String column, String separator) throws Exception {
+    public CupOfTea aggregate(String column, String separator) {
         Column groupedColumn = this.getColumnHeader(column);
+        if (groupedColumn == null) {
+            throw new SchemaMismatchException("Column not found: " + column);
+        }
         Class<?> finalColumnType = String.class;
         String columnName = column+"Aggregate";
 
-        if(groupedColumn.columnType() != Group.class) throw new Exception("This is not a grouped column");
+        if(groupedColumn.columnType() != Group.class) throw new SchemaMismatchException("This is not a grouped column");
 
         for(var row : this.getRows()) {
             Group value = (Group) row.get(column);

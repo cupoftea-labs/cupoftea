@@ -4,6 +4,6 @@ import java.io.File;
 
 public interface IExcelImporter {
 
-    public void importFromExcel(File file, boolean hasHeaders) throws Exception;
+    public void importFromExcel(File file, boolean hasHeaders);
 
 }

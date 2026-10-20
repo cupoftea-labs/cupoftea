@@ -33,6 +33,34 @@ public class CSVExporterConfiguration {
     private String escapeString = "\\";
     private String stringNull = "null";
 
+    public String getDelimiter() {
+        return delimiter;
+    }
+
+    public QuoteBehaviour getQuoteBehaviour() {
+        return quoteBehaviour;
+    }
+
+    public HeadersPlacement getHeadersPlacement() {
+        return headersPlacement;
+    }
+
+    public String getQuoteString() {
+        return quoteString;
+    }
+
+    public String getLineEndString() {
+        return lineEndString;
+    }
+
+    public String getEscapeString() {
+        return escapeString;
+    }
+
+    public String getStringNull() {
+        return stringNull;
+    }
+
 
     public CSVExporterConfiguration setDelimiter (String delimiter) {
 

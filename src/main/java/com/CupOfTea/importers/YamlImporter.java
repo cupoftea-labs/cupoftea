@@ -1,6 +1,7 @@
 package com.CupOfTea.importers;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -9,6 +10,7 @@ import java.util.HashMap;
 import org.yaml.snakeyaml.Yaml;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.exceptions.ImportException;
 import com.CupOfTea.importers.interfaces.IYamlImporter;
 
 public class YamlImporter implements IYamlImporter {
@@ -25,9 +27,21 @@ public class YamlImporter implements IYamlImporter {
      * @param file Yaml File.
      */
     @Override
-    public void importFromYaml(final File file) throws Exception {
-        String yamlText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
-        this.importFromYaml(yamlText);
+    public void importFromYaml(final File file) {
+        if (file == null) {
+            throw new ImportException("File cannot be null");
+        }
+        try {
+            String yamlText = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            this.importFromYaml(yamlText);
+        } catch (IOException e) {
+            throw new ImportException("Failed to read YAML file: " + file.getPath(), e);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
+            }
+            throw new ImportException("Failed to import YAML file: " + file.getPath(), e);
+        }
     }
 
     /**
@@ -36,18 +50,30 @@ public class YamlImporter implements IYamlImporter {
      * @param yamlText Yaml Text.
      */
     @Override
-    public void importFromYaml(final String yamlText) throws Exception {
-        Yaml yaml = new Yaml();
-        Iterable<Object> list = yaml.loadAll(yamlText);
+    public void importFromYaml(final String yamlText) {
+        if (yamlText == null) {
+            throw new ImportException("YAML text cannot be null");
+        }
+        try {
+            Yaml yaml = new Yaml();
+            Iterable<Object> list = yaml.loadAll(yamlText);
 
-        for(var element: list){
-            ArrayList<HashMap<String, Object>> array = (ArrayList<HashMap<String, Object>>) element;
-            for (var key : (array.get(0)).keySet()){
-                this.dataFrame.addColumn(key);
+            for(var element: list){
+                ArrayList<HashMap<String, Object>> array = (ArrayList<HashMap<String, Object>>) element;
+                if (array != null && !array.isEmpty()) {
+                    for (var key : (array.get(0)).keySet()){
+                        this.dataFrame.addColumn(key);
+                    }
+                    for(var row : array){
+                        this.dataFrame.addRow(row);
+                    }
+                }
             }
-            for(var row : array){
-                this.dataFrame.addRow(row);
+        } catch (Exception e) {
+            if (e instanceof ImportException) {
+                throw (ImportException) e;
             }
+            throw new ImportException("Failed to parse YAML text", e);
         }
     }
 

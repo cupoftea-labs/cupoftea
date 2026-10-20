@@ -9,6 +9,11 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ## [Unreleased]
 
+### Changed
+
+- Replaced `throws Exception` on public APIs with typed runtime exceptions in `com.CupOfTea.exceptions` (`CupOfTeaException`, `SchemaMismatchException`, `ConversionException`, `ImportException`, `CsvParseException`, `ExportException`) ([#137](https://github.com/filippo-pequini/CupOfTea/issues/137)).
+- Standardized all exception messages to English.
+
 ### Fixed
 
 - `Printer` now adjusts column widths dynamically based on content, fits table output within terminal width (defaulting to `COLUMNS` env var or 80) by truncating overflowing columns with an ellipsis column, supports rich customization via `PrinterConfiguration` (`maxRows`, `maxColumns`, `terminalWidth`, `showColumnType`, `autoAdjustColumnWidth`, etc.), improves table summary descriptions, and handles empty frames ([#100](https://github.com/filippo-pequini/CupOfTea/issues/100)).

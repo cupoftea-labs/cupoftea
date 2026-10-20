@@ -26,6 +26,10 @@ public abstract class IDataFrame {
     @Getter
     protected ArrayList<HashMap<String, Object>> rows;
 
+    public ArrayList<HashMap<String, Object>> getRows() {
+        return this.rows;
+    }
+
     public IDataFrame(){
         // ToDo lidar com o limite de memoria do Java com (sun.misc.Unsafe class)
         // https://blogs.oracle.com/javamagazine/post/the-unsafe-class-unsafe-at-any-speed
@@ -41,27 +45,27 @@ public abstract class IDataFrame {
     public abstract IDataFrame renameColumn(String oldName, String newName);
     public abstract IDataFrame renameColumn(int index, String newName);
     public abstract IDataFrame renameColumn(HashMap<String,String> name);
-    public abstract IDataFrame addColumn(String columnName) throws Exception;
-    public abstract IDataFrame addColumn(String columnName, Class<?> columnType) throws Exception;
-    public abstract IDataFrame addColumn(int index, String columnName) throws Exception;
-    public abstract IDataFrame addColumn(int index, String columnName, Class<?> columnType) throws Exception;
-    public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data) throws Exception;
-    public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) throws Exception;
-    public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator) throws Exception;
-    public abstract IDataFrame addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception;
-    public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception;
-    public abstract IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator) throws Exception;
-    public abstract IDataFrame addColumn(int index, String columnName, Class<?> columnType, IColumnCreator columnCreator) throws Exception;
-    public abstract IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) throws Exception;
-    public abstract IDataFrame removeColumn(String columnName) throws Exception;
+    public abstract IDataFrame addColumn(String columnName);
+    public abstract IDataFrame addColumn(String columnName, Class<?> columnType);
+    public abstract IDataFrame addColumn(int index, String columnName);
+    public abstract IDataFrame addColumn(int index, String columnName, Class<?> columnType);
+    public abstract IDataFrame addColumn(int index, String columnName, @Nullable Object data);
+    public abstract IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data);
+    public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator);
+    public abstract IDataFrame addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator);
+    public abstract IDataFrame addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType);
+    public abstract IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator);
+    public abstract IDataFrame addColumn(int index, String columnName, Class<?> columnType, IColumnCreator columnCreator);
+    public abstract IDataFrame addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType);
+    public abstract IDataFrame removeColumn(String columnName);
     public abstract IDataFrame removeColumn(int index);
-    public abstract IDataFrame alterColumnType(String columnName, Class<?> newColumnType) throws Exception;
-    public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row) throws Exception;
+    public abstract IDataFrame alterColumnType(String columnName, Class<?> newColumnType);
+    public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row);
     public abstract IDataFrame removeRow(int index);
-    public abstract IDataFrame removeRows(IFilter filter) throws Exception;
-    public abstract IDataFrame filter(IFilter filter) throws Exception;
-    public abstract IDataFrame update(HashMap<String, Object> updateColumns) throws Exception;
-    public abstract IDataFrame orderBy(Orderer... orderer) throws Exception;
+    public abstract IDataFrame removeRows(IFilter filter);
+    public abstract IDataFrame filter(IFilter filter);
+    public abstract IDataFrame update(HashMap<String, Object> updateColumns);
+    public abstract IDataFrame orderBy(Orderer... orderer);
     
 
     public Integer size(){
