@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -120,8 +121,18 @@ public class CupOfTea {
         return this;
     }
 
+    public CupOfTea addColumn(String columnName, Class<?> columnType) throws Exception {
+        this.dataFrame.addColumn(columnName, columnType);
+        return this;
+    }
+
     public CupOfTea addColumn(int index, String columnName) throws Exception{
         this.dataFrame.addColumn(index, columnName);
+        return this;
+    }
+
+    public CupOfTea addColumn(int index, String columnName, Class<?> columnType) throws Exception{
+        this.dataFrame.addColumn(index, columnName, columnType);
         return this;
     }
 
@@ -295,6 +306,14 @@ public class CupOfTea {
 
     }
 
+    public CupOfTea importFromJson(String json, Map<String, Class<?>> schema) throws Exception {
+
+        jsonImporter = new JsonImporter(this);
+        jsonImporter.importFromJson(json, schema);
+        return this;
+
+    }
+
     /**
      * @param file
      * @throws Exception 
@@ -303,6 +322,14 @@ public class CupOfTea {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file);
+        return this;
+
+    }
+
+    public CupOfTea importFromJson(File file, Map<String, Class<?>> schema) throws Exception{
+
+        jsonImporter = new JsonImporter(this);
+        jsonImporter.importFromJson(file, schema);
         return this;
 
     }
@@ -355,6 +382,14 @@ public class CupOfTea {
         
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json);
+        return this;
+
+    }
+
+    public CupOfTea importFromJson(JSONArray json, Map<String, Class<?>> schema) throws Exception{
+        
+        jsonImporter = new JsonImporter(this);
+        jsonImporter.importFromJson(json, schema);
         return this;
 
     }

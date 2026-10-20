@@ -71,7 +71,7 @@ public class DataFrameTest extends TestCase {
         CupOfTea df = new CupOfTea();
 
         df.importFromJson(testData)
-            .addColumn("FullName", (row) -> (String) row.get("car") + " " + (String) row.get("model") + " " + (Integer.valueOf((String) row.get("year"))).toString())
+            .addColumn("FullName", (row) -> (String) row.get("car") + " " + (String) row.get("model") + " " + row.get("year").toString())
         ;
 
         assertEquals(expectedFirstRow, (String) df.getRow(0).get("FullName"));
@@ -263,7 +263,6 @@ public class DataFrameTest extends TestCase {
         CupOfTea df = new CupOfTea();
 
         CupOfTea gdf = df.importFromJson(testData)
-            .alterColumnType(columnToSum, expectedColumnType)
             .groupBy(columnToGroupBy)
             .sum(columnToSum)
             .print()
@@ -285,19 +284,19 @@ public class DataFrameTest extends TestCase {
         filtered.renameColumn("car", "brand")
             .addColumn("extra")
             .removeColumn("price")
-            .alterColumnType("year", Integer.class);
+            .alterColumnType("year", String.class);
 
         assertNotSame(df.getHeaders(), filtered.getHeaders());
         assertEquals(originalHeaderCount, df.getHeaders().size());
         assertEquals("car", df.getColumnHeader("car").columnName());
         assertEquals("price", df.getColumnHeader("price").columnName());
-        assertEquals(String.class, df.getColumnHeader("year").columnType());
+        assertEquals(Integer.class, df.getColumnHeader("year").columnType());
         assertFalse(df.getHeaders().contains(new Column("brand", null)));
         assertFalse(df.getHeaders().contains(new Column("extra", null)));
 
         assertEquals("brand", filtered.getColumnHeader("brand").columnName());
         assertEquals("extra", filtered.getColumnHeader("extra").columnName());
-        assertEquals(Integer.class, filtered.getColumnHeader("year").columnType());
+        assertEquals(String.class, filtered.getColumnHeader("year").columnType());
         assertFalse(filtered.getHeaders().contains(new Column("car", null)));
         assertFalse(filtered.getHeaders().contains(new Column("price", null)));
     }
@@ -312,18 +311,18 @@ public class DataFrameTest extends TestCase {
 
         filtered.getRow(0).put("model", "IS300");
         HashMap<String, Object> updates = new HashMap<>();
-        updates.put("year", "2024");
+        updates.put("year", 2024);
         filtered.update(updates);
         filtered.renameColumn("car", "brand");
 
         assertEquals("Lexus", df.getRow(0).get("car"));
         assertEquals("LFA", df.getRow(0).get("model"));
-        assertEquals("2018", df.getRow(0).get("year"));
+        assertEquals(Integer.valueOf(2018), df.getRow(0).get("year"));
         assertNull(df.getRow(0).get("brand"));
 
         assertEquals("Lexus", filtered.getRow(0).get("brand"));
         assertEquals("IS300", filtered.getRow(0).get("model"));
-        assertEquals("2024", filtered.getRow(0).get("year"));
+        assertEquals(Integer.valueOf(2024), filtered.getRow(0).get("year"));
         assertNull(filtered.getRow(0).get("car"));
     }
 
@@ -335,11 +334,11 @@ public class DataFrameTest extends TestCase {
 
         df.renameColumn("car", "brand");
         df.removeColumn("model");
-        df.getRow(0).put("year", "1990");
+        df.getRow(0).put("year", 1990);
 
         assertEquals("Lexus", filtered.getRow(0).get("car"));
         assertEquals("LFA", filtered.getRow(0).get("model"));
-        assertEquals("2018", filtered.getRow(0).get("year"));
+        assertEquals(Integer.valueOf(2018), filtered.getRow(0).get("year"));
         assertNull(filtered.getRow(0).get("brand"));
         assertEquals("car", filtered.getColumnHeader("car").columnName());
         assertEquals("model", filtered.getColumnHeader("model").columnName());

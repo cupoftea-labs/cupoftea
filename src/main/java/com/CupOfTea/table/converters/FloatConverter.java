@@ -10,8 +10,8 @@ public class FloatConverter implements IDataTypeConverter<Float> {
 
         Float convertedValue;
 
-        if(oldColumnType == Class.forName("java.lang.Integer")) convertedValue = (Float) value;
-        else if(oldColumnType == Class.forName("java.lang.Double")) convertedValue = Float.valueOf((Float) value);
+        if(oldColumnType == Class.forName("java.lang.Integer")) convertedValue = ((Integer) value).floatValue();
+        else if(oldColumnType == Class.forName("java.lang.Double")) convertedValue = ((Double) value).floatValue();
         else if(oldColumnType == Class.forName("java.lang.String")) convertedValue = Float.valueOf((String) value);
         else throw new Exception("Column Type not Suported for Conversion");
 
