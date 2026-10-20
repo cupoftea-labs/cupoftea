@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.Header;
+import com.CupOfTea.table.Schema;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
@@ -35,11 +36,19 @@ public abstract class IDataFrame {
         // https://blogs.oracle.com/javamagazine/post/the-unsafe-class-unsafe-at-any-speed
         this.rows = new ArrayList<>();
         this.header = new Header();
-        
+    }
+
+    public IDataFrame(Schema schema) {
+        this();
+        if (schema != null) {
+            this.header = schema.toHeader();
+        }
     }
 
     public abstract ArrayList<Column> getHeaders();
     public abstract Column getColumnHeader(String columnName);
+    public abstract Schema getSchema();
+    public abstract IDataFrame setSchema(Schema schema);
     public abstract IDataFrame moveColumn(String columnName, int finalIndex);
     public abstract IDataFrame moveColumn(int inicialIndex, int finalIndex);
     public abstract IDataFrame renameColumn(String oldName, String newName);

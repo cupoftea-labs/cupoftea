@@ -5,9 +5,15 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.CupOfTea.CupOfTea;
@@ -16,6 +22,7 @@ import com.CupOfTea.exceptions.ImportException;
 import com.CupOfTea.importers.configurations.CSVImporterConfiguration;
 import com.CupOfTea.importers.interfaces.ICSVImporter;
 import com.CupOfTea.table.Column;
+import com.CupOfTea.table.Schema;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVReader;
@@ -45,8 +52,8 @@ public class CSVImporter implements ICSVImporter {
 
     /**
      * Dumps the data from the CSV file into a CupOfTea data frame using the current configuration.
-     * By default, values are imported as {@link String} (unless {@code inferNumericTypes} is enabled
-     * on {@link CSVImporterConfiguration}) and read using UTF-8 encoding.
+     * By default, values are imported as {@link String} (unless {@code inferNumericTypes} or
+     * {@code inferTypes} is enabled on {@link CSVImporterConfiguration}) and read using UTF-8 encoding.
      * Any previous data in the data frame will be lost!
      *
      * All the lines of the CSV must have the same amount of columns, otherwise an {@link IllegalArgumentException} will be thrown.
@@ -116,9 +123,29 @@ public class CSVImporter implements ICSVImporter {
             throw new CsvParseException("Failed to parse CSV file: " + file.getPath(), e);
         }
 
+        Schema explicitSchema = this.configuration.getSchema() != null
+                ? this.configuration.getSchema()
+                : this.dataFrame.getSchema();
+
         Class<?>[] columnTypes = new Class<?>[columnCount];
         for (int i = 0; i < columnCount; i++) {
-            columnTypes[i] = inferColumnType(rawRows, i, this.configuration.isInferNumericTypes());
+            String colName = headerNames[i];
+            Class<?> schemaType = null;
+            if (explicitSchema != null && explicitSchema.hasColumn(colName)) {
+                schemaType = explicitSchema.getType(colName);
+            } else if (explicitSchema != null && i < explicitSchema.size() && !this.configuration.isHasHeaders()) {
+                schemaType = explicitSchema.getColumn(i).columnType();
+            }
+
+            if (schemaType != null) {
+                columnTypes[i] = schemaType;
+            } else if (this.configuration.isInferTypes()) {
+                columnTypes[i] = inferFullColumnType(rawRows, i, this.configuration.getNaStrings());
+            } else if (this.configuration.isInferNumericTypes()) {
+                columnTypes[i] = inferNumericColumnType(rawRows, i, this.configuration.getNaStrings());
+            } else {
+                columnTypes[i] = String.class;
+            }
         }
 
         ArrayList<Column> columns = new ArrayList<>(columnCount);
@@ -132,7 +159,7 @@ public class CSVImporter implements ICSVImporter {
         for (String[] rawRow : rawRows) {
             HashMap<String, Object> row = new HashMap<>();
             for (int i = 0; i < columnCount; i++) {
-                row.put(headerNames[i], convertValue(rawRow[i], columnTypes[i]));
+                row.put(headerNames[i], convertValue(rawRow[i], columnTypes[i], this.configuration));
             }
             this.dataFrame.addRow(row);
         }
@@ -150,6 +177,13 @@ public class CSVImporter implements ICSVImporter {
     @Override
     public void importFromCsv(File file, boolean hasHeaders) {
         this.configuration.setHasHeaders(hasHeaders);
+        this.importFromCsv(file);
+    }
+
+    @Override
+    public void importFromCsv(File file, boolean hasHeaders, Schema schema) {
+        this.configuration.setHasHeaders(hasHeaders);
+        this.configuration.setSchema(schema);
         this.importFromCsv(file);
     }
 
@@ -171,8 +205,16 @@ public class CSVImporter implements ICSVImporter {
         this.importFromCsv(file);
     }
 
-    private static Class<?> inferColumnType(List<String[]> rows, int columnIndex, boolean inferNumericTypes) {
-        if (!inferNumericTypes || rows.isEmpty()) {
+    private static boolean isMissingValue(String raw, Set<String> naStrings) {
+        if (raw == null) {
+            return true;
+        }
+        String trimmed = raw.trim();
+        return naStrings != null && naStrings.contains(trimmed);
+    }
+
+    private static Class<?> inferNumericColumnType(List<String[]> rows, int columnIndex, Set<String> naStrings) {
+        if (rows.isEmpty()) {
             return String.class;
         }
 
@@ -182,7 +224,7 @@ public class CSVImporter implements ICSVImporter {
 
         for (String[] row : rows) {
             String raw = row[columnIndex];
-            if (raw == null || raw.trim().isEmpty()) {
+            if (raw == null || raw.trim().isEmpty() || isMissingValue(raw, naStrings)) {
                 continue;
             }
             hasNonEmptyValue = true;
@@ -209,9 +251,67 @@ public class CSVImporter implements ICSVImporter {
         return String.class;
     }
 
+    private static Class<?> inferFullColumnType(List<String[]> rows, int columnIndex, Set<String> naStrings) {
+        if (rows.isEmpty()) {
+            return String.class;
+        }
+
+        boolean hasNonEmptyValue = false;
+        boolean allBoolean = true;
+        boolean allInteger = true;
+        boolean allLong = true;
+        boolean allDouble = true;
+        boolean allLocalDate = true;
+        boolean allLocalDateTime = true;
+        boolean allInstant = true;
+
+        for (String[] row : rows) {
+            String raw = row[columnIndex];
+            if (raw == null || raw.trim().isEmpty() || isMissingValue(raw, naStrings)) {
+                continue;
+            }
+            hasNonEmptyValue = true;
+            String trimmed = raw.trim();
+
+            if (allBoolean && !isBoolean(trimmed)) allBoolean = false;
+            if (allInteger && !isInteger(trimmed)) allInteger = false;
+            if (allLong && !isLong(trimmed)) allLong = false;
+            if (allDouble && !isDouble(trimmed)) allDouble = false;
+            if (allLocalDate && !isLocalDate(trimmed)) allLocalDate = false;
+            if (allLocalDateTime && !isLocalDateTime(trimmed)) allLocalDateTime = false;
+            if (allInstant && !isInstant(trimmed)) allInstant = false;
+        }
+
+        if (!hasNonEmptyValue) {
+            return String.class;
+        }
+        if (allBoolean) return Boolean.class;
+        if (allInteger) return Integer.class;
+        if (allLong) return Long.class;
+        if (allDouble) return Double.class;
+        if (allLocalDate) return LocalDate.class;
+        if (allLocalDateTime) return LocalDateTime.class;
+        if (allInstant) return Instant.class;
+
+        return String.class;
+    }
+
+    private static boolean isBoolean(String value) {
+        return "true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value);
+    }
+
     private static boolean isInteger(String value) {
         try {
             Integer.parseInt(value);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static boolean isLong(String value) {
+        try {
+            Long.parseLong(value);
             return true;
         } catch (NumberFormatException e) {
             return false;
@@ -230,19 +330,82 @@ public class CSVImporter implements ICSVImporter {
         }
     }
 
-    private static Object convertValue(String rawValue, Class<?> targetType) {
-        if (targetType == Integer.class) {
-            if (rawValue == null || rawValue.trim().isEmpty()) {
+    private static boolean isLocalDate(String value) {
+        try {
+            LocalDate.parse(value);
+            return true;
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+    }
+
+    private static boolean isLocalDateTime(String value) {
+        try {
+            LocalDateTime.parse(value);
+            return true;
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+    }
+
+    private static boolean isInstant(String value) {
+        try {
+            Instant.parse(value);
+            return true;
+        } catch (DateTimeParseException e) {
+            return false;
+        }
+    }
+
+    private static Object convertValue(String rawValue, Class<?> targetType, CSVImporterConfiguration config) {
+        if (rawValue == null) {
+            return null;
+        }
+
+        if (isMissingValue(rawValue, config.getNaStrings())) {
+            return null;
+        }
+
+        if (targetType == String.class) {
+            if (rawValue.isEmpty() && !config.isPreserveEmptyStrings()) {
                 return null;
             }
-            return Integer.valueOf(rawValue.trim());
+            return rawValue;
         }
-        if (targetType == Double.class) {
-            if (rawValue == null || rawValue.trim().isEmpty()) {
-                return null;
-            }
-            return Double.valueOf(rawValue.trim());
+
+        String trimmed = rawValue.trim();
+        if (trimmed.isEmpty()) {
+            return null;
         }
+
+        if (targetType == Integer.class || targetType == int.class) {
+            return Integer.valueOf(trimmed);
+        }
+        if (targetType == Long.class || targetType == long.class) {
+            return Long.valueOf(trimmed);
+        }
+        if (targetType == Double.class || targetType == double.class) {
+            return Double.valueOf(trimmed);
+        }
+        if (targetType == Float.class || targetType == float.class) {
+            return Float.valueOf(trimmed);
+        }
+        if (targetType == Boolean.class || targetType == boolean.class) {
+            return Boolean.valueOf(trimmed);
+        }
+        if (targetType == BigDecimal.class) {
+            return new BigDecimal(trimmed);
+        }
+        if (targetType == LocalDate.class) {
+            return LocalDate.parse(trimmed);
+        }
+        if (targetType == LocalDateTime.class) {
+            return LocalDateTime.parse(trimmed);
+        }
+        if (targetType == Instant.class) {
+            return Instant.parse(trimmed);
+        }
+
         return rawValue;
     }
 

@@ -339,4 +339,49 @@ public class GroupByTest {
             .isInstanceOf(SchemaMismatchException.class)
             .hasMessageContaining("not found");
     }
+
+    @Test
+    @DisplayName("Should ignore NA values in aggregations")
+    void test_groupBy_ignore_NA() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("group", String.class);
+        df.addColumn("val", Double.class);
+        df.addColumn("label", String.class);
+
+        HashMap<String, Object> r1 = new HashMap<>();
+        r1.put("group", "A");
+        r1.put("val", 10.0);
+        r1.put("label", "x");
+        df.addRow(r1);
+
+        HashMap<String, Object> r2 = new HashMap<>();
+        r2.put("group", "A");
+        r2.put("val", NA.NA);
+        r2.put("label", NA.NA);
+        df.addRow(r2);
+
+        HashMap<String, Object> r3 = new HashMap<>();
+        r3.put("group", "A");
+        r3.put("val", 20.0);
+        r3.put("label", "y");
+        df.addRow(r3);
+
+        CupOfTea result = df.groupBy("group").agg(
+            sum("val"),
+            mean("val"),
+            count("val"),
+            min("val"),
+            max("val"),
+            listAgg("label", ",")
+        );
+
+        assertThat(result.size()).isEqualTo(1);
+        HashMap<String, Object> row = result.getRow(0);
+        assertThat(row.get("valSum")).isEqualTo(30.0);
+        assertThat(row.get("valMean")).isEqualTo(15.0);
+        assertThat(row.get("valCount")).isEqualTo(2);
+        assertThat(row.get("valMin")).isEqualTo(10.0);
+        assertThat(row.get("valMax")).isEqualTo(20.0);
+        assertThat(row.get("labelListAgg")).isEqualTo("x,y");
+    }
 }

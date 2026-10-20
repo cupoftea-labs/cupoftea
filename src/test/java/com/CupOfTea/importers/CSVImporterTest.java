@@ -5,15 +5,30 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.importers.configurations.CSVImporterConfiguration;
+import com.CupOfTea.table.NA;
+import com.CupOfTea.table.Schema;
+import static com.CupOfTea.table.Schema.BIG_DECIMAL;
+import static com.CupOfTea.table.Schema.BOOLEAN;
+import static com.CupOfTea.table.Schema.DATE;
+import static com.CupOfTea.table.Schema.DATETIME;
+import static com.CupOfTea.table.Schema.DOUBLE;
+import static com.CupOfTea.table.Schema.INSTANT;
+import static com.CupOfTea.table.Schema.INT;
+import static com.CupOfTea.table.Schema.LONG;
+import static com.CupOfTea.table.Schema.STRING;
 
 public class CSVImporterTest {
 
@@ -290,5 +305,78 @@ public class CSVImporterTest {
 
         assertThatThrownBy(() -> new CSVImporterConfiguration().setCharset((Charset) null))
             .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("Should import CSV with explicit Schema")
+    void testImportCsvWithExplicitSchema() throws Exception {
+        String csv = "year,price,active,timestamp\n"
+            + "2020,99.99,true,2024-01-01T12:00:00Z\n"
+            + "2021,149.50,false,2024-01-02T15:30:00Z\n";
+        File file = createTempCsv(csv, StandardCharsets.UTF_8);
+
+        Schema schema = Schema.of("year", INT, "price", DOUBLE, "active", BOOLEAN, "timestamp", INSTANT);
+        CupOfTea df = new CupOfTea().importFromCsv(file, schema);
+
+        assertThat(df.getColumnHeader("year").columnType()).isEqualTo(Integer.class);
+        assertThat(df.getColumnHeader("price").columnType()).isEqualTo(Double.class);
+        assertThat(df.getColumnHeader("active").columnType()).isEqualTo(Boolean.class);
+        assertThat(df.getColumnHeader("timestamp").columnType()).isEqualTo(Instant.class);
+
+        assertThat(df.getRow(0).get("year")).isEqualTo(2020);
+        assertThat(df.getRow(0).get("price")).isEqualTo(99.99);
+        assertThat(df.getRow(0).get("active")).isEqualTo(true);
+        assertThat(df.getRow(0).get("timestamp")).isEqualTo(Instant.parse("2024-01-01T12:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("Should infer types in CSV when inferTypes is enabled")
+    void testImportCsvWithFullTypeInference() throws Exception {
+        String csv = "id,count,rate,valid,birthDate,meetingTime\n"
+            + "1,5000000000,12.75,true,2020-05-15,2020-05-15T09:30:00\n"
+            + "2,6000000000,18.25,false,2021-08-20,2021-08-20T14:00:00\n";
+        File file = createTempCsv(csv, StandardCharsets.UTF_8);
+
+        CSVImporterConfiguration config = new CSVImporterConfiguration().setInferTypes(true);
+        CupOfTea df = new CupOfTea().importFromCsv(file, config);
+
+        assertThat(df.getColumnHeader("id").columnType()).isEqualTo(Integer.class);
+        assertThat(df.getColumnHeader("count").columnType()).isEqualTo(Long.class);
+        assertThat(df.getColumnHeader("rate").columnType()).isEqualTo(Double.class);
+        assertThat(df.getColumnHeader("valid").columnType()).isEqualTo(Boolean.class);
+        assertThat(df.getColumnHeader("birthDate").columnType()).isEqualTo(LocalDate.class);
+        assertThat(df.getColumnHeader("meetingTime").columnType()).isEqualTo(LocalDateTime.class);
+
+        assertThat(df.getRow(0).get("count")).isEqualTo(5000000000L);
+        assertThat(df.getRow(0).get("birthDate")).isEqualTo(LocalDate.of(2020, 5, 15));
+    }
+
+    @Test
+    @DisplayName("Should distinguish empty string from missing values in CSV")
+    void testImportCsvMissingValuesDistinctFromEmptyString() throws Exception {
+        String csv = "name,price,category\n"
+            + "Widget,9.99,\n"
+            + "NA,NA,\"\"\n"
+            + "\"\",19.99,Tools\n";
+        File file = createTempCsv(csv, StandardCharsets.UTF_8);
+
+        Schema schema = Schema.of("name", STRING, "price", DOUBLE, "category", STRING);
+        CupOfTea df = new CupOfTea().importFromCsv(file, schema);
+
+        // Row 0: name="Widget", price=9.99, category="" (empty field parsed as empty string or null)
+        assertThat(df.getRow(0).get("name")).isEqualTo("Widget");
+        assertThat(df.getRow(0).get("price")).isEqualTo(9.99);
+
+        // Row 1: name=null (was "NA"), price=null (was "NA"), category="" (was quoted "")
+        assertThat(df.getRow(1).get("name")).isNull();
+        assertThat(df.getRow(1).get("price")).isNull();
+        assertThat(df.getRow(1).get("category")).isEqualTo("");
+        assertThat(NA.isNA(df.getRow(1).get("category"))).isFalse();
+
+        // Row 2: name="" (quoted empty string preserved as ""), price=19.99, category="Tools"
+        assertThat(df.getRow(2).get("name")).isEqualTo("");
+        assertThat(NA.isNA(df.getRow(2).get("name"))).isFalse();
+        assertThat(df.getRow(2).get("price")).isEqualTo(19.99);
+        assertThat(df.getRow(2).get("category")).isEqualTo("Tools");
     }
 }

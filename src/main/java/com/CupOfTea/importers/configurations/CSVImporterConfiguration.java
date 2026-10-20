@@ -2,7 +2,10 @@ package com.CupOfTea.importers.configurations;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Set;
 
+import com.CupOfTea.table.Schema;
 import com.opencsv.ICSVParser;
 
 import lombok.Getter;
@@ -16,6 +19,10 @@ public class CSVImporterConfiguration {
     private char escapeChar = ICSVParser.DEFAULT_ESCAPE_CHARACTER;
     private Charset charset = StandardCharsets.UTF_8;
     private boolean inferNumericTypes = false;
+    private boolean inferTypes = false;
+    private Schema schema = null;
+    private Set<String> naStrings = new HashSet<>(Set.of("NA", "N/A", "null", "NULL", "#N/A"));
+    private boolean preserveEmptyStrings = true;
 
     public boolean isHasHeaders() {
         return this.hasHeaders;
@@ -39,6 +46,42 @@ public class CSVImporterConfiguration {
 
     public boolean isInferNumericTypes() {
         return this.inferNumericTypes;
+    }
+
+    public boolean isInferTypes() {
+        return this.inferTypes;
+    }
+
+    public Schema getSchema() {
+        return this.schema;
+    }
+
+    public Set<String> getNaStrings() {
+        return this.naStrings;
+    }
+
+    public boolean isPreserveEmptyStrings() {
+        return this.preserveEmptyStrings;
+    }
+
+    public CSVImporterConfiguration setInferTypes(boolean inferTypes) {
+        this.inferTypes = inferTypes;
+        return this;
+    }
+
+    public CSVImporterConfiguration setSchema(Schema schema) {
+        this.schema = schema;
+        return this;
+    }
+
+    public CSVImporterConfiguration setNaStrings(Set<String> naStrings) {
+        this.naStrings = naStrings != null ? new HashSet<>(naStrings) : new HashSet<>();
+        return this;
+    }
+
+    public CSVImporterConfiguration setPreserveEmptyStrings(boolean preserveEmptyStrings) {
+        this.preserveEmptyStrings = preserveEmptyStrings;
+        return this;
     }
 
     public CSVImporterConfiguration setHasHeaders(boolean hasHeaders) {

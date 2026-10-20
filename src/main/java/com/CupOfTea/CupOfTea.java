@@ -1,6 +1,7 @@
 package com.CupOfTea;
 
 import java.io.File;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,6 +33,7 @@ import com.CupOfTea.importers.ParquetImporter;
 import com.CupOfTea.importers.XmlImporter;
 import com.CupOfTea.importers.YamlImporter;
 import com.CupOfTea.importers.configurations.CSVImporterConfiguration;
+import com.CupOfTea.importers.configurations.ExcelImporterConfiguration;
 import com.CupOfTea.importers.interfaces.ICSVImporter;
 import com.CupOfTea.importers.interfaces.IHTMLImporter;
 import com.CupOfTea.importers.interfaces.IJsonImporter;
@@ -42,7 +44,10 @@ import com.CupOfTea.table.Aggregate;
 import com.CupOfTea.table.Aggregations;
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.DataFrame;
+import com.CupOfTea.table.Group;
 import com.CupOfTea.table.GroupBy;
+import com.CupOfTea.table.NA;
+import com.CupOfTea.table.Schema;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.Printer;
 import com.CupOfTea.utils.configurations.PrinterConfiguration;
@@ -72,8 +77,25 @@ public class CupOfTea {
         this.dataFrame = new DataFrame();
     }
 
+    public CupOfTea(Schema schema) {
+        this.dataFrame = new DataFrame(schema);
+    }
+
+    public static CupOfTea withSchema(Schema schema) {
+        return new CupOfTea(schema);
+    }
+
     public CupOfTea(IDataFrame dataFrame){
         this.dataFrame = dataFrame;
+    }
+
+    public Schema getSchema() {
+        return this.dataFrame.getSchema();
+    }
+
+    public CupOfTea setSchema(Schema schema) {
+        this.dataFrame.setSchema(schema);
+        return this;
     }
 
     public ArrayList<Column> getHeaders(){
@@ -315,6 +337,22 @@ public class CupOfTea {
 
     }
 
+    public CupOfTea importFromCsv(File file, Schema schema) {
+
+        csvImporter = new CSVImporter(this);
+        csvImporter.importFromCsv(file, schema);
+        return this;
+
+    }
+
+    public CupOfTea importFromCsv(File file, boolean hasHeaders, Schema schema) {
+
+        csvImporter = new CSVImporter(this);
+        csvImporter.importFromCsv(file, hasHeaders, schema);
+        return this;
+
+    }
+
     public CupOfTea importFromCsv(File file, CSVImporterConfiguration configuration) {
 
         csvImporter = new CSVImporter(this, configuration);
@@ -323,10 +361,42 @@ public class CupOfTea {
 
     }
 
+    public CupOfTea importFromExcel(File file) {
+
+        ExcelImporter excelImporter = new ExcelImporter(this);
+        excelImporter.importFromExcel(file, true);
+        return this;
+
+    }
+
     public CupOfTea importFromExcel(File file, boolean hasHeaders) {
 
         ExcelImporter excelImporter = new ExcelImporter(this);
         excelImporter.importFromExcel(file, hasHeaders);
+        return this;
+
+    }
+
+    public CupOfTea importFromExcel(File file, Schema schema) {
+
+        ExcelImporter excelImporter = new ExcelImporter(this);
+        excelImporter.importFromExcel(file, schema);
+        return this;
+
+    }
+
+    public CupOfTea importFromExcel(File file, boolean hasHeaders, Schema schema) {
+
+        ExcelImporter excelImporter = new ExcelImporter(this);
+        excelImporter.importFromExcel(file, hasHeaders, schema);
+        return this;
+
+    }
+
+    public CupOfTea importFromExcel(File file, ExcelImporterConfiguration configuration) {
+
+        ExcelImporter excelImporter = new ExcelImporter(this, configuration);
+        excelImporter.importFromExcel(file, configuration);
         return this;
 
     }
@@ -363,6 +433,14 @@ public class CupOfTea {
 
     }
 
+    public CupOfTea importFromJson(String json, Schema schema) {
+
+        jsonImporter = new JsonImporter(this);
+        jsonImporter.importFromJson(json, schema);
+        return this;
+
+    }
+
     /**
      * Dumps the Data from a JSON file into the CupOfTea data frame.
      * The json must be a json array for this method to work.
@@ -378,6 +456,14 @@ public class CupOfTea {
     }
 
     public CupOfTea importFromJson(File file, Map<String, Class<?>> schema) {
+
+        jsonImporter = new JsonImporter(this);
+        jsonImporter.importFromJson(file, schema);
+        return this;
+
+    }
+
+    public CupOfTea importFromJson(File file, Schema schema) {
 
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(file, schema);
@@ -478,6 +564,14 @@ public class CupOfTea {
 
     public CupOfTea importFromJson(JSONArray json, Map<String, Class<?>> schema) {
         
+        jsonImporter = new JsonImporter(this);
+        jsonImporter.importFromJson(json, schema);
+        return this;
+
+    }
+
+    public CupOfTea importFromJson(JSONArray json, Schema schema) {
+
         jsonImporter = new JsonImporter(this);
         jsonImporter.importFromJson(json, schema);
         return this;
