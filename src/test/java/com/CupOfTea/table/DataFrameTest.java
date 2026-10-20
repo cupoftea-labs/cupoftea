@@ -275,4 +275,132 @@ public class DataFrameTest extends TestCase {
         assertEquals(expectedSum, sum);
 
     }
+
+    public void test_givenADataFrame_WhenFilteringAndModifyingFilteredHeaders_ThenOriginalHeadersShouldRemainUnchanged() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData);
+        int originalHeaderCount = df.getHeaders().size();
+
+        CupOfTea filtered = df.filter(row -> "Mitsubishi".equals(row.get("car")));
+        filtered.renameColumn("car", "brand")
+            .addColumn("extra")
+            .removeColumn("price")
+            .alterColumnType("year", Integer.class);
+
+        assertNotSame(df.getHeaders(), filtered.getHeaders());
+        assertEquals(originalHeaderCount, df.getHeaders().size());
+        assertEquals("car", df.getColumnHeader("car").columnName());
+        assertEquals("price", df.getColumnHeader("price").columnName());
+        assertEquals(String.class, df.getColumnHeader("year").columnType());
+        assertFalse(df.getHeaders().contains(new Column("brand", null)));
+        assertFalse(df.getHeaders().contains(new Column("extra", null)));
+
+        assertEquals("brand", filtered.getColumnHeader("brand").columnName());
+        assertEquals("extra", filtered.getColumnHeader("extra").columnName());
+        assertEquals(Integer.class, filtered.getColumnHeader("year").columnType());
+        assertFalse(filtered.getHeaders().contains(new Column("car", null)));
+        assertFalse(filtered.getHeaders().contains(new Column("price", null)));
+    }
+
+    public void test_givenADataFrame_WhenFilteringAndModifyingFilteredRows_ThenOriginalRowsShouldRemainUnchanged() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData);
+
+        CupOfTea filtered = df.filter(row -> "Lexus".equals(row.get("car")));
+        assertEquals(1, filtered.size().intValue());
+        assertNotSame(df.getRow(0), filtered.getRow(0));
+
+        filtered.getRow(0).put("model", "IS300");
+        HashMap<String, Object> updates = new HashMap<>();
+        updates.put("year", "2024");
+        filtered.update(updates);
+        filtered.renameColumn("car", "brand");
+
+        assertEquals("Lexus", df.getRow(0).get("car"));
+        assertEquals("LFA", df.getRow(0).get("model"));
+        assertEquals("2018", df.getRow(0).get("year"));
+        assertNull(df.getRow(0).get("brand"));
+
+        assertEquals("Lexus", filtered.getRow(0).get("brand"));
+        assertEquals("IS300", filtered.getRow(0).get("model"));
+        assertEquals("2024", filtered.getRow(0).get("year"));
+        assertNull(filtered.getRow(0).get("car"));
+    }
+
+    public void test_givenADataFrame_WhenModifyingOriginalAfterFilter_ThenFilteredDataFrameShouldRemainUnchanged() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData);
+
+        CupOfTea filtered = df.filter(row -> "Lexus".equals(row.get("car")));
+
+        df.renameColumn("car", "brand");
+        df.removeColumn("model");
+        df.getRow(0).put("year", "1990");
+
+        assertEquals("Lexus", filtered.getRow(0).get("car"));
+        assertEquals("LFA", filtered.getRow(0).get("model"));
+        assertEquals("2018", filtered.getRow(0).get("year"));
+        assertNull(filtered.getRow(0).get("brand"));
+        assertEquals("car", filtered.getColumnHeader("car").columnName());
+        assertEquals("model", filtered.getColumnHeader("model").columnName());
+    }
+
+    public void test_givenADataFrame_WhenGroupingByAndModifyingGroupedDataFrame_ThenOriginalDataFrameShouldRemainUnchanged() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData).alterColumnType("price", Double.class);
+        int originalHeaderCount = df.getHeaders().size();
+        int originalRowCount = df.size();
+
+        CupOfTea grouped = df.groupBy("car");
+        grouped.sum("price")
+            .renameColumn("car", "brand")
+            .addColumn("note");
+        grouped.getRow(0).put("brand", "ModifiedBrand");
+
+        assertNotSame(df.getHeaders(), grouped.getHeaders());
+        assertEquals(originalHeaderCount, df.getHeaders().size());
+        assertEquals(originalRowCount, df.size().intValue());
+        assertEquals("car", df.getColumnHeader("car").columnName());
+        assertEquals(Double.class, df.getColumnHeader("price").columnType());
+        assertFalse(df.getHeaders().contains(new Column("priceSum", null)));
+        assertFalse(df.getHeaders().contains(new Column("brand", null)));
+        assertFalse(df.getHeaders().contains(new Column("note", null)));
+        assertEquals("Lexus", df.getRow(0).get("car"));
+        assertNull(df.getRow(0).get("brand"));
+        assertNull(df.getRow(0).get("priceSum"));
+    }
+
+    public void test_givenADataFrame_WhenModifyingOriginalAfterGroupBy_ThenGroupedDataFrameShouldRemainUnchanged() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData).alterColumnType("price", Double.class);
+
+        CupOfTea grouped = df.groupBy("car");
+
+        df.renameColumn("car", "brand");
+        df.removeColumn("price");
+        df.getRow(0).put("brand", "Changed");
+
+        grouped.sum("price");
+        CupOfTea mitsubishi = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
+        assertEquals(Double.valueOf(123750.20000000001), mitsubishi.getRow(0).get("priceSum"));
+        assertEquals("car", grouped.getColumnHeader("car").columnName());
+    }
+
+    public void test_givenAGroupedDataFrame_WhenFilteringAndModifyingFilteredGroup_ThenOriginalGroupedDataFrameShouldRemainUnchanged() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData).alterColumnType("price", Double.class);
+
+        CupOfTea grouped = df.groupBy("car");
+        CupOfTea filteredGroup = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
+
+        Group filteredPrices = (Group) filteredGroup.getRow(0).get("price");
+        filteredPrices.groupedValues.add(100000.0);
+        filteredGroup.sum("price");
+
+        assertFalse(grouped.getHeaders().contains(new Column("priceSum", null)));
+        grouped.sum("price");
+        CupOfTea originalMitsubishi = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
+        assertEquals(Double.valueOf(123750.20000000001), originalMitsubishi.getRow(0).get("priceSum"));
+        assertEquals(Double.valueOf(223750.20000000001), filteredGroup.getRow(0).get("priceSum"));
+    }
 }
