@@ -53,9 +53,8 @@ public class Header {
 
     public void moveColumn(int inicialIndex, int finalIndex) {
         // A Ordem da Coluna é definida pela ordem dos header
-        String columnName = this.header.get(inicialIndex).columnName();
-        this.header.remove(inicialIndex);
-        this.header.add(finalIndex, new Column(columnName, null));
+        Column current = this.header.remove(inicialIndex);
+        this.header.add(finalIndex, current);
     }
 
     public void renameColumn(String oldName, String newName) {
