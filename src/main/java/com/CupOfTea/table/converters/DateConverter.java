@@ -9,7 +9,7 @@ public class DateConverter implements IDataTypeConverter<Date> {
 
     @Override
     public Date convert(Object value, Class<?> oldColumnType) throws Exception {
-        if(Class.forName("java.util.Date").isAssignableFrom(value.getClass())) return (Date) value;
+        if (Date.class.isAssignableFrom(value.getClass())) return (Date) value;
 
         Date convertedValue;
 

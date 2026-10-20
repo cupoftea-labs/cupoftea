@@ -471,4 +471,34 @@ public class DataFrameTest extends TestCase {
             assertEquals("This is not a grouped column", e.getMessage());
         }
     }
+
+    public void test_givenADataFrame_WhenAlteringColumnTypeToUnsupportedType_ThenShouldThrowException() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData);
+
+        try {
+            df.alterColumnType("year", Object.class);
+            fail("Expected exception for unsupported target column type");
+        } catch (Exception e) {
+            assertEquals("Column Type not Suported for Conversion", e.getMessage());
+        }
+    }
+
+    public void test_givenADataFrame_WhenAlteringIntegerColumnToFloatAndDoubleAndString_ThenShouldConvertProperly() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.importFromJson(testData)
+            .alterColumnType("year", Integer.class)
+            .alterColumnType("year", Float.class);
+
+        assertEquals(Float.class, df.getColumnHeader("year").columnType());
+        assertEquals(Float.valueOf(2018.0f), df.getRow(0).get("year"));
+
+        df.alterColumnType("year", Double.class);
+        assertEquals(Double.class, df.getColumnHeader("year").columnType());
+        assertEquals(Double.valueOf(2018.0), df.getRow(0).get("year"));
+
+        df.alterColumnType("year", String.class);
+        assertEquals(String.class, df.getColumnHeader("year").columnType());
+        assertEquals("2018.0", df.getRow(0).get("year"));
+    }
 }
