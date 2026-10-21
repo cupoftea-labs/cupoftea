@@ -25,9 +25,10 @@ public class Header {
         this.header.add(index, column);
     }
 
-    /*
-     * @params columnName
-     * The column will be created in the last position with null value
+    /**
+     * Creates a new column with the given name in the last position with a null type.
+     *
+     * @param columnName the name of the column
      */
     public void addColumn(String columnName) {
         int index = header.size();
@@ -39,11 +40,11 @@ public class Header {
     }
 
     /**
-     * Create a new column whose values are defined by the Column Creator Function
+     * Create a new column with a specific name and type.
      * The column will be added to the end of the Data Frame
      * 
      * @param columnName Name of the new Column
-     * @param columnCreator Function that defines the values of the new column
+     * @param columnType Class type of the new Column
      */
     public void addColumn(String columnName, Class<?> columnType) {
         int index = header.size();
@@ -56,7 +57,7 @@ public class Header {
     }
 
     public void moveColumn(int inicialIndex, int finalIndex) {
-        // A Ordem da Coluna é definida pela ordem dos header
+        // Column order is defined by the header order
         Column current = this.header.remove(inicialIndex);
         this.header.add(finalIndex, current);
     }
@@ -72,13 +73,11 @@ public class Header {
     }
 
     public void removeColumn(String columnName) {
-        // ToDo Tratar caso nao exista a coluna
         int columnIndex = header.indexOf(new Column(columnName, null));
         this.header.remove(columnIndex);
     }
 
     public void removeColumn(int index) {
-        // ToDo tratar out of bond?
         String columnName = this.header.get(index).columnName();
         this.removeColumn(columnName);
     }

@@ -30,8 +30,6 @@ public class CSVExporter {
      * @param file path to your CSV file. Can't be null.
      */
     public void exportToCsv(File file) {
-        // Todo implement Escape String
-
         if (file == null) {
             throw new ExportException("File cannot be null");
         }

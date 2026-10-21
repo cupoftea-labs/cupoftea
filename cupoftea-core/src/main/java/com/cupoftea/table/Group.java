@@ -2,8 +2,6 @@ package com.cupoftea.table;
 
 import java.util.ArrayList;
 
-
-// ToDo Group Columns don`t show in any exports
 /**
  * @deprecated Group objects in cells are deprecated and replaced by hash aggregation in GroupBy and Aggregations.
  */
