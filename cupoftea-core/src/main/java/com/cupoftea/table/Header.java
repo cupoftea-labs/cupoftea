@@ -87,6 +87,10 @@ public class Header {
         return this.header.size();
     }
 
+    public int size() {
+        return this.header.size();
+    }
+
     public Column get(int index) {
         return this.header.get(index);
     }

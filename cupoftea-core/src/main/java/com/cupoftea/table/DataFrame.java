@@ -5,12 +5,16 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -272,6 +276,7 @@ public class DataFrame extends IDataFrame {
         copy.header = this.header.copy();
         copy.columnCreators.putAll(this.columnCreators);
         copy.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        copy.indexColumn = this.indexColumn;
         for (var row : this.rows) {
             copy.rows.add(this.cloneRow(row));
         }
@@ -430,6 +435,339 @@ public class DataFrame extends IDataFrame {
                 row.putAll(updateColumns);
             }
         }
+
+        return this;
+    }
+
+    @Override
+    public IDataFrame select(String... columnNames) {
+        if (columnNames == null || columnNames.length == 0) {
+            throw new IllegalArgumentException("Column names to select cannot be null or empty");
+        }
+        return select(Arrays.asList(columnNames));
+    }
+
+    @Override
+    public IDataFrame select(List<String> columnNames) {
+        if (columnNames == null || columnNames.isEmpty()) {
+            throw new IllegalArgumentException("Column names to select cannot be null or empty");
+        }
+        for (String col : columnNames) {
+            if (this.header.get(col) == null) {
+                throw new IllegalArgumentException("Column '" + col + "' does not exist");
+            }
+        }
+
+        Header newHeader = new Header();
+        for (String col : columnNames) {
+            Column existing = this.header.get(col);
+            newHeader.addColumn(new Column(existing.columnName(), existing.columnType()));
+        }
+        this.header = newHeader;
+
+        Set<String> keepSet = new HashSet<>(columnNames);
+        this.columnCreators.keySet().removeIf(c -> !keepSet.contains(c));
+        this.pendingTypeInferenceColumns.removeIf(c -> !keepSet.contains(c));
+
+        for (var row : this.rows) {
+            row.keySet().removeIf(k -> !keepSet.contains(k));
+        }
+
+        if (this.indexColumn != null && !keepSet.contains(this.indexColumn)) {
+            this.indexColumn = null;
+        }
+
+        return this;
+    }
+
+    @Override
+    public IDataFrame drop(String... columnNames) {
+        if (columnNames == null || columnNames.length == 0) {
+            return this;
+        }
+        return drop(Arrays.asList(columnNames));
+    }
+
+    @Override
+    public IDataFrame drop(List<String> columnNames) {
+        if (columnNames == null || columnNames.isEmpty()) {
+            return this;
+        }
+        for (String col : columnNames) {
+            if (this.header.get(col) == null) {
+                throw new IllegalArgumentException("Column '" + col + "' does not exist");
+            }
+        }
+        for (String col : columnNames) {
+            this.removeColumn(col);
+        }
+        if (this.indexColumn != null && columnNames.contains(this.indexColumn)) {
+            this.indexColumn = null;
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame head() {
+        return head(5);
+    }
+
+    @Override
+    public IDataFrame head(int n) {
+        DataFrame result = new DataFrame();
+        result.header = this.header.copy();
+        result.columnCreators.putAll(this.columnCreators);
+        result.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        result.indexColumn = this.indexColumn;
+
+        if (n <= 0 || this.rows.isEmpty()) {
+            return result;
+        }
+        int limit = Math.min(n, this.rows.size());
+        for (int i = 0; i < limit; i++) {
+            result.rows.add(this.cloneRow(this.rows.get(i)));
+        }
+        return result;
+    }
+
+    @Override
+    public IDataFrame tail() {
+        return tail(5);
+    }
+
+    @Override
+    public IDataFrame tail(int n) {
+        DataFrame result = new DataFrame();
+        result.header = this.header.copy();
+        result.columnCreators.putAll(this.columnCreators);
+        result.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        result.indexColumn = this.indexColumn;
+
+        if (n <= 0 || this.rows.isEmpty()) {
+            return result;
+        }
+        int start = Math.max(0, this.rows.size() - n);
+        for (int i = start; i < this.rows.size(); i++) {
+            result.rows.add(this.cloneRow(this.rows.get(i)));
+        }
+        return result;
+    }
+
+    @Override
+    public IDataFrame slice(int fromRow, int toRow) {
+        DataFrame result = new DataFrame();
+        result.header = this.header.copy();
+        result.columnCreators.putAll(this.columnCreators);
+        result.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        result.indexColumn = this.indexColumn;
+
+        int total = this.rows.size();
+        int resolvedFrom = fromRow < 0 ? total + fromRow : fromRow;
+        int resolvedTo = toRow < 0 ? total + toRow : toRow;
+
+        resolvedFrom = Math.max(0, Math.min(resolvedFrom, total));
+        resolvedTo = Math.max(resolvedFrom, Math.min(resolvedTo, total));
+
+        for (int i = resolvedFrom; i < resolvedTo; i++) {
+            result.rows.add(this.cloneRow(this.rows.get(i)));
+        }
+        return result;
+    }
+
+    @Override
+    public Row iloc(int index) {
+        int total = this.rows.size();
+        int resolved = index < 0 ? total + index : index;
+        if (resolved < 0 || resolved >= total) {
+            throw new IndexOutOfBoundsException("Index " + index + " out of bounds for DataFrame with " + total + " rows");
+        }
+        return getRow(resolved);
+    }
+
+    @Override
+    public Object iloc(int rowIndex, int colIndex) {
+        Row r = iloc(rowIndex);
+        int totalCols = this.header.size();
+        int resolvedCol = colIndex < 0 ? totalCols + colIndex : colIndex;
+        if (resolvedCol < 0 || resolvedCol >= totalCols) {
+            throw new IndexOutOfBoundsException("Column index " + colIndex + " out of bounds for length " + totalCols);
+        }
+        return r.get(resolvedCol);
+    }
+
+    @Override
+    public Object iloc(int rowIndex, String columnName) {
+        Row r = iloc(rowIndex);
+        if (this.header.get(columnName) == null) {
+            throw new IllegalArgumentException("Column '" + columnName + "' does not exist");
+        }
+        return r.get(columnName);
+    }
+
+    @Override
+    public ILoc iloc() {
+        return new ILoc(null, this);
+    }
+
+    @Override
+    public IDataFrame setIndex(String columnName) {
+        if (columnName != null && this.header.get(columnName) == null) {
+            throw new IllegalArgumentException("Column '" + columnName + "' does not exist in DataFrame");
+        }
+        this.indexColumn = columnName;
+        return this;
+    }
+
+    @Override
+    public IDataFrame resetIndex() {
+        this.indexColumn = null;
+        return this;
+    }
+
+    @Override
+    public Row loc(Object key) {
+        if (this.indexColumn == null) {
+            throw new IllegalStateException("Cannot use loc(key) without setting an index column. Call setIndex(columnName) first.");
+        }
+        for (int i = 0; i < this.rows.size(); i++) {
+            Object val = this.rows.get(i).get(this.indexColumn);
+            if (Objects.equals(val, key)) {
+                return getRow(i);
+            }
+        }
+        throw new IllegalArgumentException("Key '" + key + "' not found in index column '" + this.indexColumn + "'");
+    }
+
+    @Override
+    public Object loc(Object key, String column) {
+        Row row = loc(key);
+        if (this.header.get(column) == null) {
+            throw new IllegalArgumentException("Column '" + column + "' does not exist");
+        }
+        return row.get(column);
+    }
+
+    @Override
+    public Loc loc() {
+        return new Loc(null, this);
+    }
+
+    @Override
+    public IDataFrame fillna(Object value) {
+        for (var row : this.rows) {
+            for (Column col : this.header.getHeader()) {
+                String colName = col.columnName();
+                Object current = row.get(colName);
+                if (NA.isNA(current)) {
+                    row.put(colName, coerceToDeclaredType(value, col.columnType()));
+                }
+            }
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame fillna(String column, Object value) {
+        if (this.header.get(column) == null) {
+            throw new IllegalArgumentException("Column '" + column + "' does not exist");
+        }
+        Column col = this.header.get(column);
+        Object coerced = coerceToDeclaredType(value, col.columnType());
+        for (var row : this.rows) {
+            Object current = row.get(column);
+            if (NA.isNA(current)) {
+                row.put(column, coerced);
+            }
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame fillna(Map<String, Object> values) {
+        if (values == null || values.isEmpty()) {
+            return this;
+        }
+        for (var entry : values.entrySet()) {
+            fillna(entry.getKey(), entry.getValue());
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame dropna() {
+        return dropna("any", (List<String>) null);
+    }
+
+    @Override
+    public IDataFrame dropna(String how) {
+        if ("any".equalsIgnoreCase(how) || "all".equalsIgnoreCase(how)) {
+            return dropna(how, (List<String>) null);
+        }
+        return dropna("any", Collections.singletonList(how));
+    }
+
+    @Override
+    public IDataFrame dropna(String... columns) {
+        return dropna("any", columns != null ? Arrays.asList(columns) : null);
+    }
+
+    @Override
+    public IDataFrame dropna(List<String> columns) {
+        return dropna("any", columns);
+    }
+
+    @Override
+    public IDataFrame dropna(String how, String... columns) {
+        return dropna(how, columns != null ? Arrays.asList(columns) : null);
+    }
+
+    @Override
+    public IDataFrame dropna(String how, List<String> columns) {
+        boolean matchAll;
+        if ("all".equalsIgnoreCase(how)) {
+            matchAll = true;
+        } else if ("any".equalsIgnoreCase(how) || how == null) {
+            matchAll = false;
+        } else {
+            throw new IllegalArgumentException("how must be either 'any' or 'all', got: " + how);
+        }
+
+        List<String> targetColumns;
+        if (columns == null || columns.isEmpty()) {
+            targetColumns = new ArrayList<>();
+            for (Column col : this.header.getHeader()) {
+                targetColumns.add(col.columnName());
+            }
+        } else {
+            for (String col : columns) {
+                if (this.header.get(col) == null) {
+                    throw new IllegalArgumentException("Column '" + col + "' does not exist");
+                }
+            }
+            targetColumns = columns;
+        }
+
+        if (targetColumns.isEmpty()) {
+            return this;
+        }
+
+        this.rows.removeIf(row -> {
+            if (matchAll) {
+                for (String col : targetColumns) {
+                    if (!NA.isNA(row.get(col))) {
+                        return false;
+                    }
+                }
+                return true;
+            } else {
+                for (String col : targetColumns) {
+                    if (NA.isNA(row.get(col))) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
 
         return this;
     }
@@ -704,18 +1042,22 @@ public class DataFrame extends IDataFrame {
         if (value == null || declaredType == null || declaredType == String.class || declaredType.isInstance(value)) {
             return value;
         }
-        if (value instanceof String str) {
-            if (declaredType == Integer.class) return Integer.valueOf(str);
-            if (declaredType == Long.class) return Long.valueOf(str);
-            if (declaredType == Double.class) return Double.valueOf(str);
-            if (declaredType == Float.class) return Float.valueOf(str);
-            if (declaredType == Short.class) return Short.valueOf(str);
-            if (declaredType == Byte.class) return Byte.valueOf(str);
-            if (declaredType == Boolean.class) return Boolean.valueOf(str);
-            if (declaredType == BigDecimal.class) return new BigDecimal(str);
-            if (declaredType == Instant.class) return Instant.parse(str);
-            if (declaredType == LocalDate.class) return LocalDate.parse(str);
-            if (declaredType == LocalDateTime.class) return LocalDateTime.parse(str);
+        try {
+            if (value instanceof String str) {
+                if (declaredType == Integer.class) return Integer.valueOf(str);
+                if (declaredType == Long.class) return Long.valueOf(str);
+                if (declaredType == Double.class) return Double.valueOf(str);
+                if (declaredType == Float.class) return Float.valueOf(str);
+                if (declaredType == Short.class) return Short.valueOf(str);
+                if (declaredType == Byte.class) return Byte.valueOf(str);
+                if (declaredType == Boolean.class) return Boolean.valueOf(str);
+                if (declaredType == BigDecimal.class) return new BigDecimal(str);
+                if (declaredType == Instant.class) return Instant.parse(str);
+                if (declaredType == LocalDate.class) return LocalDate.parse(str);
+                if (declaredType == LocalDateTime.class) return LocalDateTime.parse(str);
+            }
+        } catch (Exception ignored) {
+            return value;
         }
         return value;
     }
