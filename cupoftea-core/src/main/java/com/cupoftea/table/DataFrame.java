@@ -321,7 +321,6 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame removeColumn(int index){
-        // ToDo tratar out of bond?
         String columnName = this.header.get(index).columnName();
         return this.removeColumn(columnName);
     }
@@ -631,7 +630,7 @@ public class DataFrame extends IDataFrame {
         }
         for (int i = 0; i < this.rows.size(); i++) {
             Object val = this.rows.get(i).get(this.indexColumn);
-            if (Objects.equals(val, key)) {
+            if (Objects.equals(val, key) || (val != null && key != null && val.toString().equals(key.toString()))) {
                 return getRow(i);
             }
         }

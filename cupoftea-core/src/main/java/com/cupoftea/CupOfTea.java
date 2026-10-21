@@ -802,10 +802,10 @@ public class CupOfTea {
     }
 
     /**
-     * Retorna um objeto GroupBy para realizar particionamento e agregacoes hash.
+     * Returns a GroupBy object to perform hash partitioning and aggregations.
      *
-     * @param columns colunas pelas quais agrupar
-     * @return GroupBy
+     * @param columns column names to group by
+     * @return a {@link GroupBy} instance
      */
     public GroupBy groupBy(String... columns) {
         return new GroupBy(this, columns);

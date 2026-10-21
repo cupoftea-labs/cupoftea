@@ -2,7 +2,7 @@
 
 ## 1. Missing Values (NA) vs. Empty String
 
-CupOfTea introduces a first-class missing-value model (`com.CupOfTea.table.NA`) representing absent or missing data, distinct from empty strings (`""`).
+CupOfTea introduces a first-class missing-value model (`com.cupoftea.table.NA`) representing absent or missing data, distinct from empty strings (`""`).
 
 | Concept | Representation | Meaning | Example |
 |---|---|---|---|
@@ -47,7 +47,7 @@ NA.isValue("");         // true
 
 You can define schemas explicitly on construction or ingest:
 ```java
-import static com.CupOfTea.table.Schema.*;
+import static com.cupoftea.table.Schema.*;
 
 Schema schema = Schema.of(
     "year", INT,

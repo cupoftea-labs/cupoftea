@@ -176,9 +176,9 @@ public class HTMLImporter implements IHTMLImporter {
     }
 
     /**
-     * Dumps the table data from a JSOUP document into the CupOfTea data frame.
+     * Dumps the table data from a Jsoup document into the CupOfTea data frame.
      * 
-     * @param doc
+     * @param doc the parsed Jsoup HTML document containing a table
      */
     private void importToDataFrame(final Document doc) {
         boolean firstRow = true;
@@ -188,7 +188,7 @@ public class HTMLImporter implements IHTMLImporter {
             HashMap<String, Object> rowDF = new HashMap<>();
             Elements columns;
             if(firstRow) {
-                columns = row.select("th"); // Todo entender como funciona um objecto table no html (entender as tags e seus significados)
+                columns = row.select("th");
             } else {
                 columns = row.select("td");
             }

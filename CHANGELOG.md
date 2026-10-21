@@ -11,6 +11,9 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Added
 
+- Adopted Apache-2.0 open-source license and added full `LICENSE` file ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
+- Added automated integration test `ReadmeExampleIntegrationTest` in `cupoftea-all` validating that README code snippets compile and run accurately ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
+- Configured `maven-javadoc-plugin` (3.11.2) with Java 17 release support across the multi-module reactor ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - Implemented core pandas-like operations: `select`, `drop`, `head`, `tail`, `slice`, `iloc`, `setIndex` / `resetIndex` / `loc`, `fillna`, and `dropna` ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
 - Added position-based indexer `iloc` supporting 0-based and Python-style negative indexing (`df.iloc(int)`, `df.iloc(row, col)`, `df.iloc().slice(...)`, `df.iloc().rows(...)`, `df.iloc().columns(...)`) ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
 - Added index-based indexer `loc` supporting row and cell lookups by designated index key (`df.setIndex(...)`, `df.loc(key)`, `df.loc(key, col)`, `df.loc().rows(...)`) ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
@@ -33,6 +36,10 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Changed
 
+- Targeted Java 17 LTS compiler release (`maven.compiler.release` 17) to provide broad enterprise compatibility across all modules ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
+- Enriched `pom.xml` with complete project metadata (licenses, developers, SCM, issue management) for Maven/Gradle publication ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144), [#82](https://github.com/filippo-pequini/CupOfTea/issues/82), [#83](https://github.com/filippo-pequini/CupOfTea/issues/83)).
+- Overhauled `README.md` with verified Maven and Gradle (Groovy and Kotlin DSL) installation coordinates, tested fluent usage code, and updated roadmap ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
+- Cleaned up leftover Portuguese docstrings and comments in `CupOfTea`, `Header`, `DataFrame`, and `HTMLImporter`, standardizing all documentation on English ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - Standardized package coordinates to lowercase `com.cupoftea` ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
 - Switched JSON parser engine to Jackson (`jackson-databind`) in `cupoftea-json` while retaining full type inference and backward-compatible `JSONArray` support ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
 - Aligned Apache POI versions in `cupoftea-excel` (`poi` 5.5.1 and `poi-ooxml` 5.5.1) ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
@@ -43,13 +50,15 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 - Migrated test suite from JUnit 4 `junit.framework.TestCase` to JUnit 5 (`junit-jupiter`) and AssertJ (`assertj-core`), converting converter tests to parameterized tests (`@ParameterizedTest`) ([#145](https://github.com/filippo-pequini/CupOfTea/issues/145)).
 - Replaced binary-float noise assertions with delta assertions ([#145](https://github.com/filippo-pequini/CupOfTea/issues/145)).
 - Added regression tests for consecutive `removeRows` (#126), rename-by-name row key updates (#125), schema independence after `filter` (#127), empty frame `addColumn` (#134), quoted CSV parsing (#130), and static converter registry lookup (#132) ([#145](https://github.com/filippo-pequini/CupOfTea/issues/145)).
-- Replaced `throws Exception` on public APIs with typed runtime exceptions in `com.CupOfTea.exceptions` (`CupOfTeaException`, `SchemaMismatchException`, `ConversionException`, `ImportException`, `CsvParseException`, `ExportException`) ([#137](https://github.com/filippo-pequini/CupOfTea/issues/137)).
+- Replaced `throws Exception` on public APIs with typed runtime exceptions in `com.cupoftea.exceptions` (`CupOfTeaException`, `SchemaMismatchException`, `ConversionException`, `ImportException`, `CsvParseException`, `ExportException`) ([#137](https://github.com/filippo-pequini/CupOfTea/issues/137)).
 - Standardized all exception messages to English.
 - Registered `java.time` (`LocalDate`, `LocalDateTime`), `Long`, and primitive type converters statically in `DataFrame` ([#138](https://github.com/filippo-pequini/CupOfTea/issues/138)).
 - Replaced `SimpleDateFormat` with thread-safe `java.time.format.DateTimeFormatter` in `DateConverter` and deprecated `DateConverter` in favor of `java.time` ([#138](https://github.com/filippo-pequini/CupOfTea/issues/138), [#142](https://github.com/filippo-pequini/CupOfTea/issues/142)).
 
 ### Fixed
 
+- Fixed incorrect `@param` tags in `Header.java` and missing Javadoc descriptions to ensure error-free Javadoc generation ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144), [#61](https://github.com/filippo-pequini/CupOfTea/issues/61)).
+- Enhanced index lookup (`df.loc(key)` and `df.loc().rows(...)`) to seamlessly match keys regardless of whether index column is stored as numeric or string ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - `ExcelImporter` now identifies column types in headers rather than setting them to `null`, correctly reads boolean cells, and parses Excel date-formatted cells as `LocalDate` or `LocalDateTime` ([#80](https://github.com/filippo-pequini/CupOfTea/issues/80), [#142](https://github.com/filippo-pequini/CupOfTea/issues/142)).
 
 - `Printer` now adjusts column widths dynamically based on content, fits table output within terminal width (defaulting to `COLUMNS` env var or 80) by truncating overflowing columns with an ellipsis column, supports rich customization via `PrinterConfiguration` (`maxRows`, `maxColumns`, `terminalWidth`, `showColumnType`, `autoAdjustColumnWidth`, etc.), improves table summary descriptions, and handles empty frames ([#100](https://github.com/filippo-pequini/CupOfTea/issues/100)).

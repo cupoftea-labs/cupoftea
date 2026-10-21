@@ -15,9 +15,10 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - **Deep Copy**: Explicit `.copy()` deep-copy method on `CupOfTea` and `IDataFrame`.
 - **Immutable Row API**: Strongly-typed, unmodifiable `Row` objects with typed accessors (`getInt`, `getString`, `getDouble`, `getBoolean`, `getLocalDate`, etc.) and zero leaking of internal mutable row maps.
 
-## Future Features
-- Statistical and aggregation operations (mean, sum, standard deviation, etc.). (WIP)
-- Support for join and merge operations on DataFrames.
+## Requirements
+
+- **Java**: Java 17 LTS or later
+- **Build tool**: Maven 3.8+ or Gradle 7+
 
 ## Installation
 
@@ -50,7 +51,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
     <version>1.0-SNAPSHOT</version>
 </dependency>
 
-<!-- Or import all formats at once: -->
+<!-- Or import all formats with the aggregator module: -->
 <!--
 <dependency>
     <groupId>com.cupoftea</groupId>
@@ -62,6 +63,8 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 
 ### Gradle
 
+**Groovy DSL (`build.gradle`):**
+
 ```groovy
 // Core library
 implementation 'com.cupoftea:cupoftea-core:1.0-SNAPSHOT'
@@ -70,8 +73,22 @@ implementation 'com.cupoftea:cupoftea-core:1.0-SNAPSHOT'
 implementation 'com.cupoftea:cupoftea-csv:1.0-SNAPSHOT'
 implementation 'com.cupoftea:cupoftea-json:1.0-SNAPSHOT'
 
-// Or all formats:
+// Or all formats at once:
 // implementation 'com.cupoftea:cupoftea-all:1.0-SNAPSHOT'
+```
+
+**Kotlin DSL (`build.gradle.kts`):**
+
+```kotlin
+// Core library
+implementation("com.cupoftea:cupoftea-core:1.0-SNAPSHOT")
+
+// Optional format modules
+implementation("com.cupoftea:cupoftea-csv:1.0-SNAPSHOT")
+implementation("com.cupoftea:cupoftea-json:1.0-SNAPSHOT")
+
+// Or all formats at once:
+// implementation("com.cupoftea:cupoftea-all:1.0-SNAPSHOT")
 ```
 
 ## Available Modules
@@ -108,32 +125,32 @@ public class Main {
         df.print();
 
         // Perform filtering with immutable Row
-        CupOfTea filtered = df.filter(row -> row.getInt("age") > 30);
+        CupOfTea filtered = df.filter(row -> row.getInt("age") != null && row.getInt("age") > 30);
         filtered.print();
 
         // Core pandas-like ops:
-        // Selection and dropping of columns
-        CupOfTea selected = df.select("name", "age", "salary");
-        CupOfTea withoutDept = df.drop("department");
+        // Selection and dropping of columns (use copy() for independent views)
+        CupOfTea selected = df.copy().select("name", "age", "salary");
+        CupOfTea withoutDept = df.copy().drop("department");
 
         // Inspection: head, tail, and slicing
         df.head(5).print();
         df.tail(3).print();
-        CupOfTea slice = df.slice(10, 20);
+        CupOfTea slice = df.slice(0, 2);
 
         // Position-based indexing (iloc) with negative index support
         Row lastRow = df.iloc(-1);
         Object cell = df.iloc(0, 1);
-        CupOfTea subset = df.iloc().slice(0, 5, 0, 2);
+        CupOfTea subset = df.iloc().slice(0, 2, 0, 2);
 
         // Index-based indexing (loc)
         df.setIndex("id");
         Row person = df.loc(101);
         Object name = df.loc(101, "name");
 
-        // Missing value imputation & cleaning
-        CupOfTea filled = df.fillna(0);
-        CupOfTea cleaned = df.dropna(); // drops rows with any missing value
+        // Missing value imputation & cleaning (using copy() for branching)
+        CupOfTea filled = df.copy().fillna(0);
+        CupOfTea cleaned = df.copy().dropna(); // drops rows with any missing value
 
         // Write to multiple formats
         filtered.write().csv("filtered.csv");
@@ -153,17 +170,23 @@ Format-specific options can also be configured:
 CupOfTea df = CupOfTea.read().option("separator", ";").csv(new File("data.csv"));
 ```
 
+## Roadmap
+- Statistical operations (median, standard deviation, variance).
+- Support for DataFrame join and merge operations.
+- Window and rolling functions.
+
 ## Documentation
 - [Missing-Value (NA) Model, Schema, and Null Policy](docs/null_policy.md)
 
 ## Contributions
 Contributions are welcome! To contribute, follow these steps:
 
-- Fork the repository.
-- Create a branch for your feature (git checkout -b my-feature).
-- Commit your changes (git commit -m 'Add new feature').
-- Push to the branch (git push origin my-feature).
-- Open a pull request.
+1. Fork the repository.
+2. Create a branch for your feature (`git checkout -b my-feature`).
+3. Commit your changes (`git commit -m 'Add new feature'`).
+4. Push to the branch (`git push origin my-feature`).
+5. Open a pull request.
   
-## License (WIP)
-This project is licensed under the ... License. See the LICENSE file for more details.
+## License
+
+This project is licensed under the [Apache License, Version 2.0](LICENSE). See the [LICENSE](LICENSE) file for the full license text.

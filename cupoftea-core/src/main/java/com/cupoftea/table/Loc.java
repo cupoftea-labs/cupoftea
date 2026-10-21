@@ -64,12 +64,19 @@ public class Loc implements Serializable {
             throw new IllegalStateException("Cannot use loc without setting an index column. Call setIndex(columnName) first.");
         }
         Set<Object> keySet = new HashSet<>(Arrays.asList(keys));
+        Set<String> keyStrings = new HashSet<>();
+        for (Object k : keys) {
+            if (k != null) {
+                keyStrings.add(k.toString());
+            }
+        }
         DataFrame result = new DataFrame();
         result.setHeaders(new ArrayList<>(this.dataFrame.getHeaders()));
         result.setIndex(indexCol);
 
         for (var rowMap : this.dataFrame.getInternalRows()) {
-            if (keySet.contains(rowMap.get(indexCol))) {
+            Object val = rowMap.get(indexCol);
+            if (keySet.contains(val) || (val != null && keyStrings.contains(val.toString()))) {
                 result.getInternalRows().add(new HashMap<>(rowMap));
             }
         }
