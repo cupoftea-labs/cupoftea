@@ -19,64 +19,114 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - Statistical and aggregation operations (mean, sum, standard deviation, etc.). (WIP)
 - Support for join and merge operations on DataFrames.
 
-## Installation (WIP)
+## Installation
+
+CupOfTea is modular. You can import only the core engine and whichever IO format modules your project needs, or include `cupoftea-all` for full format support.
 
 ### Maven
-Add the following dependency to your pom.xml file :
+
+Add the core dependency to your `pom.xml`:
 
 ```xml
 <dependency>
-    <groupId></groupId>
-    <artifactId></artifactId>
-    <version></version>
+    <groupId>com.cupoftea</groupId>
+    <artifactId>cupoftea-core</artifactId>
+    <version>1.0-SNAPSHOT</version>
 </dependency>
 ```
 
-### Gradle:
+Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XML):
 
-```groovy
-implementation ''
+```xml
+<!-- Example: Add CSV and JSON format support -->
+<dependency>
+    <groupId>com.cupoftea</groupId>
+    <artifactId>cupoftea-csv</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+<dependency>
+    <groupId>com.cupoftea</groupId>
+    <artifactId>cupoftea-json</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+
+<!-- Or import all formats at once: -->
+<!--
+<dependency>
+    <groupId>com.cupoftea</groupId>
+    <artifactId>cupoftea-all</artifactId>
+    <version>1.0-SNAPSHOT</version>
+</dependency>
+-->
 ```
 
+### Gradle
+
+```groovy
+// Core library
+implementation 'com.cupoftea:cupoftea-core:1.0-SNAPSHOT'
+
+// Optional format modules
+implementation 'com.cupoftea:cupoftea-csv:1.0-SNAPSHOT'
+implementation 'com.cupoftea:cupoftea-json:1.0-SNAPSHOT'
+
+// Or all formats:
+// implementation 'com.cupoftea:cupoftea-all:1.0-SNAPSHOT'
+```
+
+## Available Modules
+
+| Module | Description | Dependencies / Formats |
+| :--- | :--- | :--- |
+| `cupoftea-core` | Core DataFrame engine, filtering, aggregation, SPI interfaces | Zero heavy external deps |
+| `cupoftea-csv` | CSV format reader and writer | OpenCSV |
+| `cupoftea-json` | JSON format reader and writer | Jackson Databind |
+| `cupoftea-excel` | Excel format reader (.xlsx / .xls) | Apache POI 5.5.1 |
+| `cupoftea-parquet` | Parquet format reader and writer | Apache Parquet / Hadoop |
+| `cupoftea-html` | HTML table reader | Jsoup |
+| `cupoftea-yaml` | YAML format reader and writer | SnakeYAML |
+| `cupoftea-xml` | XML format reader | Standard Java XML DOM |
+| `cupoftea-all` | Meta-module aggregating all format modules | All above formats |
+
 ## Usage Example
-Here’s a basic example of how to use the Java DataFrame library:
+
+### Reading & Writing Data (Fluent API)
+
+IO formats are dynamically discovered via `ServiceLoader`. Ensure the corresponding format module is on your classpath:
 
 ```java
+import com.cupoftea.CupOfTea;
+import com.cupoftea.table.Row;
+import com.cupoftea.table.Schema;
+import static com.cupoftea.table.Schema.*;
 import java.io.File;
-import com.CupOfTea.CupOfTea;
-import com.CupOfTea.table.Row;
-import com.CupOfTea.table.Schema;
-import static com.CupOfTea.table.Schema.*;
 
 public class Main {
     public static void main(String[] args) {
-        // Define an explicit schema
-        Schema schema = Schema.of(
-            "name", STRING,
-            "age", INT,
-            "salary", DECIMAL,
-            "hireDate", DATE
-        );
-
-        // Import CSV with schema
-        File file = new File("employees.csv");
-        CupOfTea df = new CupOfTea(schema).importFromCsv(file, schema);
+        // Read CSV using fluent API
+        CupOfTea df = CupOfTea.read().csv("data.csv");
         df.print();
 
-        // Filter returns a new DataFrame with matching rows
-        CupOfTea filteredDf = df.filter(row -> row.getInt("age") > 30);
-        filteredDf.print();
+        // Perform filtering with immutable Row
+        CupOfTea filtered = df.filter(row -> row.getInt("age") > 30);
+        filtered.print();
 
-        // Typed row access
-        Row firstRow = filteredDf.getRow(0);
-        String name = firstRow.getString("name");
-        int age = firstRow.getInt("age");
+        // Write to multiple formats
+        filtered.write().csv("filtered.csv");
+        filtered.write().json("filtered.json");
 
         // Or switch to COPY_ON_WRITE for immutable transformation chains
         CupOfTea cowDf = df.copy().asCopyOnWrite();
         CupOfTea withoutSalary = cowDf.removeColumn("salary");
     }
 }
+```
+
+Format-specific options can also be configured:
+
+```java
+// Read CSV with custom separator
+CupOfTea df = CupOfTea.read().option("separator", ";").csv(new File("data.csv"));
 ```
 
 ## Documentation
