@@ -212,7 +212,7 @@ public class GroupByTest {
 
         CupOfTea result = df.groupBy("car").agg(sum("price"), count("model"));
 
-        for (HashMap<String, Object> row : result.getRows()) {
+        for (Row row : result.getRows()) {
             for (Object val : row.values()) {
                 assertThat(val).isNotInstanceOf(Group.class);
             }
@@ -243,7 +243,7 @@ public class GroupByTest {
         HashMap<String, Object> newRow = new HashMap<>();
         newRow.put("car", "Tesla");
         newRow.put("modelCount", 10);
-        result.addRow(newRow);
+        result = result.addRow(newRow);
 
         assertThat(df.size()).isEqualTo(6);
         assertThat(result.size()).isEqualTo(6);
@@ -253,29 +253,29 @@ public class GroupByTest {
     @DisplayName("Should handle null group keys and null values in aggregations")
     void test_groupBy_with_null_group_keys_and_null_aggregate_values() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("dept");
-        df.addColumn("salary");
-        df.alterColumnType("salary", Double.class);
+        df = df.addColumn("dept")
+               .addColumn("salary")
+               .alterColumnType("salary", Double.class);
 
         HashMap<String, Object> r1 = new HashMap<>();
         r1.put("dept", "IT");
         r1.put("salary", 1000.0);
-        df.addRow(r1);
+        df = df.addRow(r1);
 
         HashMap<String, Object> r2 = new HashMap<>();
         r2.put("dept", "IT");
         r2.put("salary", null);
-        df.addRow(r2);
+        df = df.addRow(r2);
 
         HashMap<String, Object> r3 = new HashMap<>();
         r3.put("dept", null);
         r3.put("salary", 2000.0);
-        df.addRow(r3);
+        df = df.addRow(r3);
 
         HashMap<String, Object> r4 = new HashMap<>();
         r4.put("dept", null);
         r4.put("salary", 3000.0);
-        df.addRow(r4);
+        df = df.addRow(r4);
 
         CupOfTea result = df.groupBy("dept").agg(sum("salary"), count("salary"), mean("salary"));
 
@@ -314,8 +314,8 @@ public class GroupByTest {
     @DisplayName("Should handle grouping on empty DataFrame")
     void test_groupBy_empty_dataframe() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("car");
-        df.addColumn("price");
+        df = df.addColumn("car")
+               .addColumn("price");
 
         CupOfTea result = df.groupBy("car").agg(sum("price"), count("price"));
         assertThat(result.size()).isEqualTo(0);
@@ -376,7 +376,7 @@ public class GroupByTest {
         );
 
         assertThat(result.size()).isEqualTo(1);
-        HashMap<String, Object> row = result.getRow(0);
+        Row row = result.getRow(0);
         assertThat(row.get("valSum")).isEqualTo(30.0);
         assertThat(row.get("valMean")).isEqualTo(15.0);
         assertThat(row.get("valCount")).isEqualTo(2);

@@ -21,6 +21,7 @@ import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exceptions.ExportException;
 import com.CupOfTea.exporters.interfaces.IParquetExporter;
 import com.CupOfTea.table.Column;
+import com.CupOfTea.table.Row;
 
 
 public class ParquetExporter implements IParquetExporter {
@@ -83,7 +84,7 @@ public class ParquetExporter implements IParquetExporter {
                     .withPageSize(1 * 1024 * 1024)
                     .withConf(conf)
                     .build()) {
-                for (HashMap<String, Object> data :  this.dataFrame.getRows()){
+                for (Row data : this.dataFrame.getRows()){
                     GenericRecord record = new GenericData.Record(schema);
                     for (int i = 0; i < data.size(); i++){
                         String header = headers.get(i).columnName();

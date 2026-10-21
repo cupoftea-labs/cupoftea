@@ -90,10 +90,10 @@ public class ParquetImporter implements IParquetImporter {
 
                     }
                     if(setHeaders){
-                        this.dataFrame.setHeaders(headers);
+                        this.dataFrame.getDataFrame().setHeaders(headers);
                         setHeaders = false;
                     }
-                    this.dataFrame.addRow(row);
+                    this.dataFrame.getDataFrame().addRow(row);
 
                 }
             }

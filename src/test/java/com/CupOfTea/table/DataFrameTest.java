@@ -69,7 +69,7 @@ public class DataFrameTest {
         int expectedRowsNumber = 3;
 
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData).removeRows(a -> Integer.parseInt(a.get("year").toString()) > 2010);
+        df = df.importFromJson(testData).removeRows(a -> Integer.parseInt(a.get("year").toString()) > 2010);
 
         assertThat(df.getRows()).hasSize(expectedRowsNumber);
         assertThat(df.getRows()).noneMatch(a -> Integer.parseInt(a.get("year").toString()) > 2010);
@@ -79,18 +79,18 @@ public class DataFrameTest {
     @DisplayName("Should remove every matching row when consecutive rows match filter (#126)")
     void test_removeRows_consecutiveMatchingRowsAreAllRemoved() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("id", Integer.class);
-        df.addColumn("match", Boolean.class);
+        df = df.addColumn("id", Integer.class);
+        df = df.addColumn("match", Boolean.class);
 
         // 6 rows: row 0 matches, row 1 matches, row 2 matches, row 3 non-match, row 4 matches, row 5 matches
         for (int i = 0; i < 6; i++) {
             HashMap<String, Object> row = new HashMap<>();
             row.put("id", i);
             row.put("match", i != 3);
-            df.addRow(row);
+            df = df.addRow(row);
         }
 
-        df.removeRows(row -> Boolean.TRUE.equals(row.get("match")));
+        df = df.removeRows(row -> Boolean.TRUE.equals(row.get("match")));
 
         assertThat(df.size()).isEqualTo(1);
         assertThat(df.getRow(0).get("id")).isEqualTo(3);
@@ -104,7 +104,7 @@ public class DataFrameTest {
         Class<?> expectedColumnType = String.class;
 
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .addColumn("FullName", row -> (String) row.get("car") + " " + (String) row.get("model") + " " + row.get("year").toString());
 
         assertThat((String) df.getRow(0).get("FullName")).isEqualTo(expectedFirstRow);
@@ -119,7 +119,7 @@ public class DataFrameTest {
         Class<?> expectedColumnType = Integer.class;
 
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .alterColumnType(columnToChangeType, expectedColumnType);
 
         assertThat(df.getColumnHeader(columnToChangeType).columnType()).isEqualTo(expectedColumnType);
@@ -141,7 +141,7 @@ public class DataFrameTest {
         row.put("year", null);
         row.put("price", "3846.01");
 
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .addRow(row)
             .alterColumnType(columnToChangeType, expectedColumnType);
 
@@ -157,7 +157,7 @@ public class DataFrameTest {
         Integer expectedFirstRowYear = 2018;
 
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .alterColumnType(oldName, Integer.class)
             .renameColumn(oldName, newName);
 
@@ -186,7 +186,7 @@ public class DataFrameTest {
             }
         }
 
-        df.renameColumn(carIndex, newName);
+        df = df.renameColumn(carIndex, newName);
 
         assertThat(df.getColumnHeader(newName).columnName()).isEqualTo(newName);
         assertThat(df.getColumnHeader(newName).columnType()).isEqualTo(String.class);
@@ -203,7 +203,7 @@ public class DataFrameTest {
         renames.put("year", "modelYear");
 
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .alterColumnType("year", Integer.class)
             .renameColumn(renames);
 
@@ -222,7 +222,7 @@ public class DataFrameTest {
     @DisplayName("Should be a no-op when renaming column to same name")
     void test_givenADataFrame_WhenRenamingColumnToSameName_ThenShouldBeNoOp() {
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .alterColumnType("year", Integer.class)
             .renameColumn("year", "year");
 
@@ -245,10 +245,9 @@ public class DataFrameTest {
     @DisplayName("Should preserve column order and column type when moving column by name (#128)")
     void test_givenADataFrame_WhenMovingAColumnByName_ThenHeaderOrderChangesAndColumnTypeIsPreserved() {
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
-            .alterColumnType("price", Double.class);
-
-        df.moveColumn("price", 0);
+        df = df.importFromJson(testData)
+            .alterColumnType("price", Double.class)
+            .moveColumn("price", 0);
 
         assertThat(df.getHeaders().get(0).columnName()).isEqualTo("price");
         assertThat(df.getHeaders().get(0).columnType()).isEqualTo(Double.class);
@@ -271,7 +270,7 @@ public class DataFrameTest {
         }
         int finalIndex = (initialIndex == 0) ? df.getHeaders().size() - 1 : 0;
 
-        df.moveColumn(initialIndex, finalIndex);
+        df = df.moveColumn(initialIndex, finalIndex);
 
         assertThat(df.getHeaders().get(finalIndex).columnName()).isEqualTo("price");
         assertThat(df.getHeaders().get(finalIndex).columnType()).isEqualTo(Double.class);
@@ -305,7 +304,7 @@ public class DataFrameTest {
         int originalHeaderCount = df.getHeaders().size();
 
         CupOfTea filtered = df.filter(row -> "Mitsubishi".equals(row.get("car")));
-        filtered.renameColumn("car", "brand")
+        filtered = filtered.renameColumn("car", "brand")
             .addColumn("extra")
             .removeColumn("price")
             .alterColumnType("year", String.class);
@@ -335,11 +334,13 @@ public class DataFrameTest {
         assertThat(filtered.size()).isEqualTo(1);
         assertThat(filtered.getRow(0)).isNotSameAs(df.getRow(0));
 
-        filtered.getRow(0).put("model", "IS300");
+        final Row filteredRow = filtered.getRow(0);
+        assertThatThrownBy(() -> filteredRow.put("model", "IS300"))
+            .isInstanceOf(UnsupportedOperationException.class);
         HashMap<String, Object> updates = new HashMap<>();
+        updates.put("model", "IS300");
         updates.put("year", 2024);
-        filtered.update(updates);
-        filtered.renameColumn("car", "brand");
+        filtered = filtered.update(updates).renameColumn("car", "brand");
 
         assertThat(df.getRow(0).get("car")).isEqualTo("Lexus");
         assertThat(df.getRow(0).get("model")).isEqualTo("LFA");
@@ -360,9 +361,10 @@ public class DataFrameTest {
 
         CupOfTea filtered = df.filter(row -> "Lexus".equals(row.get("car")));
 
-        df.renameColumn("car", "brand");
-        df.removeColumn("model");
-        df.getRow(0).put("year", 1990);
+        final Row dfRow = df.getRow(0);
+        assertThatThrownBy(() -> dfRow.put("year", 1990))
+            .isInstanceOf(UnsupportedOperationException.class);
+        df = df.renameColumn("car", "brand").removeColumn("model");
 
         assertThat(filtered.getRow(0).get("car")).isEqualTo("Lexus");
         assertThat(filtered.getRow(0).get("model")).isEqualTo("LFA");
@@ -381,9 +383,11 @@ public class DataFrameTest {
         int originalRowCount = df.size();
 
         CupOfTea grouped = df.groupBy("car").sum("price");
-        grouped.renameColumn("car", "brand")
+        final Row groupedRow = grouped.getRow(0);
+        assertThatThrownBy(() -> groupedRow.put("brand", "ModifiedBrand"))
+            .isInstanceOf(UnsupportedOperationException.class);
+        grouped = grouped.renameColumn("car", "brand")
             .addColumn("note");
-        grouped.getRow(0).put("brand", "ModifiedBrand");
 
         assertThat(grouped.getHeaders()).isNotSameAs(df.getHeaders());
         assertThat(df.getHeaders()).hasSize(originalHeaderCount);
@@ -406,9 +410,10 @@ public class DataFrameTest {
 
         GroupBy grouped = df.groupBy("car");
 
-        df.renameColumn("car", "brand");
-        df.removeColumn("price");
-        df.getRow(0).put("brand", "Changed");
+        final Row dfRow = df.getRow(0);
+        assertThatThrownBy(() -> dfRow.put("brand", "Changed"))
+            .isInstanceOf(UnsupportedOperationException.class);
+        df = df.renameColumn("car", "brand").removeColumn("price");
 
         CupOfTea result = grouped.sum("price");
         CupOfTea mitsubishi = result.filter(row -> "Mitsubishi".equals(row.get("car")));
@@ -425,7 +430,12 @@ public class DataFrameTest {
         CupOfTea grouped = df.groupBy("car").sum("price");
         CupOfTea filteredGroup = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
 
-        filteredGroup.getRow(0).put("priceSum", 223750.20);
+        final Row filteredGroupRow = filteredGroup.getRow(0);
+        assertThatThrownBy(() -> filteredGroupRow.put("priceSum", 223750.20))
+            .isInstanceOf(UnsupportedOperationException.class);
+        HashMap<String, Object> updates = new HashMap<>();
+        updates.put("priceSum", 223750.20);
+        filteredGroup = filteredGroup.update(updates);
 
         CupOfTea originalMitsubishi = grouped.filter(row -> "Mitsubishi".equals(row.get("car")));
         assertThat(((Number) originalMitsubishi.getRow(0).get("priceSum")).doubleValue()).isCloseTo(123750.20, offset(1e-4));
@@ -518,18 +528,18 @@ public class DataFrameTest {
     @DisplayName("Should convert column properly through multiple type alterations")
     void test_givenADataFrame_WhenAlteringIntegerColumnToFloatAndDoubleAndString_ThenShouldConvertProperly() {
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .alterColumnType("year", Integer.class)
             .alterColumnType("year", Float.class);
 
         assertThat(df.getColumnHeader("year").columnType()).isEqualTo(Float.class);
         assertThat(df.getRow(0).get("year")).isEqualTo(2018.0f);
 
-        df.alterColumnType("year", Double.class);
+        df = df.alterColumnType("year", Double.class);
         assertThat(df.getColumnHeader("year").columnType()).isEqualTo(Double.class);
         assertThat(df.getRow(0).get("year")).isEqualTo(2018.0);
 
-        df.alterColumnType("year", String.class);
+        df = df.alterColumnType("year", String.class);
         assertThat(df.getColumnHeader("year").columnType()).isEqualTo(String.class);
         assertThat(df.getRow(0).get("year")).isEqualTo("2018.0");
     }
@@ -538,24 +548,24 @@ public class DataFrameTest {
     @DisplayName("Converters must work statically without target/classes filesystem scanning (#132)")
     void test_converterLookup_worksStaticallyWithoutFileSystemScanning() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("val", String.class);
+        df = df.addColumn("val", String.class);
         HashMap<String, Object> r = new HashMap<>();
         r.put("val", "123");
-        df.addRow(r);
+        df = df.addRow(r);
 
-        df.alterColumnType("val", Integer.class);
+        df = df.alterColumnType("val", Integer.class);
         assertThat(df.getColumnHeader("val").columnType()).isEqualTo(Integer.class);
         assertThat(df.getRow(0).get("val")).isEqualTo(123);
 
-        df.alterColumnType("val", Double.class);
+        df = df.alterColumnType("val", Double.class);
         assertThat(df.getColumnHeader("val").columnType()).isEqualTo(Double.class);
         assertThat(df.getRow(0).get("val")).isEqualTo(123.0);
 
-        df.alterColumnType("val", Float.class);
+        df = df.alterColumnType("val", Float.class);
         assertThat(df.getColumnHeader("val").columnType()).isEqualTo(Float.class);
         assertThat(df.getRow(0).get("val")).isEqualTo(123.0f);
 
-        df.alterColumnType("val", String.class);
+        df = df.alterColumnType("val", String.class);
         assertThat(df.getColumnHeader("val").columnType()).isEqualTo(String.class);
         assertThat(df.getRow(0).get("val")).isEqualTo("123.0");
     }
@@ -564,9 +574,9 @@ public class DataFrameTest {
     @DisplayName("Should be a no-op when ordering empty DataFrame (#133)")
     void test_givenAnEmptyDataFrame_WhenOrderingByAnyColumn_ThenShouldBeANoOp() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("year");
+        df = df.addColumn("year");
 
-        df.orderBy(new Orderer("year", Order.ASCENDING));
+        df = df.orderBy(new Orderer("year", Order.ASCENDING));
 
         assertThat(df.size()).isEqualTo(0);
     }
@@ -580,17 +590,17 @@ public class DataFrameTest {
         for (int v : new int[] { Integer.MAX_VALUE, -2_000_000_000, 0, Integer.MIN_VALUE, 2_000_000_000 }) {
             HashMap<String, Object> row = new HashMap<>();
             row.put("value", v);
-            df.addRow(row);
+            df = df.addRow(row);
         }
 
-        df.orderBy(new Orderer("value", Order.ASCENDING));
+        df = df.orderBy(new Orderer("value", Order.ASCENDING));
         assertThat(df.getRow(0).get("value")).isEqualTo(Integer.MIN_VALUE);
         assertThat(df.getRow(1).get("value")).isEqualTo(-2_000_000_000);
         assertThat(df.getRow(2).get("value")).isEqualTo(0);
         assertThat(df.getRow(3).get("value")).isEqualTo(2_000_000_000);
         assertThat(df.getRow(4).get("value")).isEqualTo(Integer.MAX_VALUE);
 
-        df.orderBy(new Orderer("value", Order.DESCENDING));
+        df = df.orderBy(new Orderer("value", Order.DESCENDING));
         assertThat(df.getRow(0).get("value")).isEqualTo(Integer.MAX_VALUE);
         assertThat(df.getRow(1).get("value")).isEqualTo(2_000_000_000);
         assertThat(df.getRow(2).get("value")).isEqualTo(0);
@@ -602,7 +612,7 @@ public class DataFrameTest {
     @DisplayName("Should order Double, Float, and Long columns correctly (#133)")
     void test_givenADataFrameWithDoubleFloatAndLongColumns_WhenOrderingByEach_ThenShouldOrderCorrectly() {
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .alterColumnType("price", Double.class)
             .orderBy(new Orderer("price", Order.ASCENDING));
 
@@ -610,7 +620,7 @@ public class DataFrameTest {
         assertThat(df.getRow(1).get("price")).isEqualTo(25000.00);
         assertThat(df.getRow(df.size() - 1).get("price")).isEqualTo(7000000.77);
 
-        df.orderBy(new Orderer("price", Order.DESCENDING));
+        df = df.orderBy(new Orderer("price", Order.DESCENDING));
         assertThat(df.getRow(0).get("price")).isEqualTo(7000000.77);
         assertThat(df.getRow(df.size() - 1).get("price")).isEqualTo(500.01);
 
@@ -626,16 +636,16 @@ public class DataFrameTest {
             HashMap<String, Object> row = new HashMap<>();
             row.put("id", ids[i]);
             row.put("rating", ratings[i]);
-            longDf.addRow(row);
+            longDf = longDf.addRow(row);
         }
 
-        longDf.orderBy(new Orderer("id", Order.ASCENDING));
+        longDf = longDf.orderBy(new Orderer("id", Order.ASCENDING));
         assertThat(longDf.getRow(0).get("id")).isEqualTo(Long.MIN_VALUE);
         assertThat(longDf.getRow(1).get("id")).isEqualTo(-100L);
         assertThat(longDf.getRow(2).get("id")).isEqualTo(0L);
         assertThat(longDf.getRow(3).get("id")).isEqualTo(Long.MAX_VALUE);
 
-        longDf.orderBy(new Orderer("rating", Order.DESCENDING));
+        longDf = longDf.orderBy(new Orderer("rating", Order.DESCENDING));
         assertThat(longDf.getRow(0).get("rating")).isEqualTo(9.9f);
         assertThat(longDf.getRow(1).get("rating")).isEqualTo(4.5f);
         assertThat(longDf.getRow(2).get("rating")).isEqualTo(3.3f);
@@ -654,7 +664,7 @@ public class DataFrameTest {
             """;
 
         CupOfTea df = new CupOfTea();
-        df.importFromJson(datedJson)
+        df = df.importFromJson(datedJson)
             .alterColumnType("date", Date.class)
             .alterColumnType("active", Boolean.class)
             .orderBy(new Orderer("date", Order.ASCENDING));
@@ -663,7 +673,7 @@ public class DataFrameTest {
         assertThat(df.getRow(1).get("event")).isEqualTo("B");
         assertThat(df.getRow(2).get("event")).isEqualTo("C");
 
-        df.orderBy(
+        df = df.orderBy(
             new Orderer("active", Order.ASCENDING),
             new Orderer("date", Order.DESCENDING)
         );
@@ -676,10 +686,10 @@ public class DataFrameTest {
         for (LocalDate d : List.of(LocalDate.of(2025, 5, 1), LocalDate.of(2021, 1, 1), LocalDate.of(2023, 3, 15))) {
             HashMap<String, Object> row = new HashMap<>();
             row.put("day", d);
-            localDateDf.addRow(row);
+            localDateDf = localDateDf.addRow(row);
         }
 
-        localDateDf.orderBy(new Orderer("day", Order.ASCENDING));
+        localDateDf = localDateDf.orderBy(new Orderer("day", Order.ASCENDING));
         assertThat(localDateDf.getRow(0).get("day")).isEqualTo(LocalDate.of(2021, 1, 1));
         assertThat(localDateDf.getRow(1).get("day")).isEqualTo(LocalDate.of(2023, 3, 15));
         assertThat(localDateDf.getRow(2).get("day")).isEqualTo(LocalDate.of(2025, 5, 1));
@@ -710,9 +720,9 @@ public class DataFrameTest {
         row4.put("score", null);
         row4.put("name", "AlphaNull");
 
-        df.addRow(row1).addRow(row2).addRow(row3).addRow(row4);
+        df = df.addRow(row1).addRow(row2).addRow(row3).addRow(row4);
 
-        df.orderBy(
+        df = df.orderBy(
             new Orderer("score", Order.ASCENDING),
             new Orderer("name", Order.ASCENDING)
         );
@@ -724,7 +734,7 @@ public class DataFrameTest {
         assertThat(df.getRow(3).get("score")).isNull();
         assertThat(df.getRow(3).get("name")).isEqualTo("Bravo");
 
-        df.orderBy(
+        df = df.orderBy(
             new Orderer("score", Order.DESCENDING),
             new Orderer("name", Order.ASCENDING)
         );
@@ -741,7 +751,7 @@ public class DataFrameTest {
     @DisplayName("Should break ties using subsequent orderers when ordering by multiple columns")
     void test_givenADataFrame_WhenOrderingByMultipleColumns_ThenShouldBreakTiesWithSubsequentOrderers() {
         CupOfTea df = new CupOfTea();
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .alterColumnType("year", Integer.class)
             .orderBy(
                 new Orderer("car", Order.ASCENDING),
@@ -763,7 +773,7 @@ public class DataFrameTest {
     void test_givenAnEmptyDataFrame_WhenAddingAColumnWithColumnCreator_ThenShouldNotThrowAndDefaultTypeToObject() {
         CupOfTea df = new CupOfTea();
 
-        df.addColumn("FullName", row -> row.get("car") + " " + row.get("model"));
+        df = df.addColumn("FullName", row -> row.get("car") + " " + row.get("model"));
 
         assertThat(df.size()).isEqualTo(0);
         assertThat(df.getHeaders()).hasSize(1);
@@ -776,7 +786,7 @@ public class DataFrameTest {
     void test_givenAnEmptyDataFrame_WhenAddingAColumnWithColumnCreatorAndExplicitType_ThenShouldUseExplicitColumnType() {
         CupOfTea df = new CupOfTea();
 
-        df.addColumn("FullName", String.class, row -> row.get("car") + " " + row.get("model"))
+        df = df.addColumn("FullName", String.class, row -> row.get("car") + " " + row.get("model"))
             .addColumn("AgeIn2030", row -> 2030 - (Integer) row.get("year"), Integer.class)
             .addColumn(0, "Tag", String.class, row -> "CAR-" + row.get("car"));
 
@@ -793,7 +803,7 @@ public class DataFrameTest {
     void test_givenAnEmptyDataFrameWithComputedColumn_WhenAddingFirstRow_ThenShouldComputeColumnValueAndInferTypeFromFirstRow() {
         CupOfTea df = new CupOfTea();
 
-        df.addColumn("car", String.class)
+        df = df.addColumn("car", String.class)
             .addColumn("model", String.class)
             .addColumn("FullName", row -> row.get("car") + " " + row.get("model"));
 
@@ -802,7 +812,7 @@ public class DataFrameTest {
         HashMap<String, Object> firstRow = new HashMap<>();
         firstRow.put("car", "Lexus");
         firstRow.put("model", "LFA");
-        df.addRow(firstRow);
+        df = df.addRow(firstRow);
 
         assertThat(df.size()).isEqualTo(1);
         assertThat(df.getRow(0).get("FullName")).isEqualTo("Lexus LFA");
@@ -814,7 +824,7 @@ public class DataFrameTest {
     void test_givenADataFrameWhereFirstRowComputesNull_WhenAddingColumnWithColumnCreator_ThenShouldInferTypeFromFirstNonNullRow() {
         CupOfTea df = new CupOfTea();
 
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .addColumn("NonLexusYear", row -> "Lexus".equals(row.get("car")) ? null : Integer.valueOf(row.get("year").toString()));
 
         assertThat(df.getRow(0).get("NonLexusYear")).isNull();
@@ -827,7 +837,7 @@ public class DataFrameTest {
     void test_givenADataFrameWhereAllRowsComputeNull_WhenAddingColumnWithColumnCreator_ThenShouldDefaultTypeToObjectUntilNonNullRowAdded() {
         CupOfTea df = new CupOfTea();
 
-        df.importFromJson(testData)
+        df = df.importFromJson(testData)
             .addColumn("OptionalTag", row -> "Porsche".equals(row.get("car")) ? "SPORT" : null);
 
         assertThat(df.getColumnHeader("OptionalTag").columnType()).isEqualTo(Object.class);
@@ -838,7 +848,7 @@ public class DataFrameTest {
         porscheRow.put("model", "911");
         porscheRow.put("year", 2022);
         porscheRow.put("price", 150000.0);
-        df.addRow(porscheRow);
+        df = df.addRow(porscheRow);
 
         assertThat(df.getRow(df.size() - 1).get("OptionalTag")).isEqualTo("SPORT");
         assertThat(df.getColumnHeader("OptionalTag").columnType()).isEqualTo(String.class);
@@ -851,7 +861,7 @@ public class DataFrameTest {
         df.importFromJson(testData);
         AtomicInteger invocations = new AtomicInteger(0);
 
-        df.addColumn("RowNumber", row -> invocations.incrementAndGet());
+        df = df.addColumn("RowNumber", row -> invocations.incrementAndGet());
 
         assertThat(invocations.get()).isEqualTo(df.size());
         assertThat(df.getColumnHeader("RowNumber").columnType()).isEqualTo(Integer.class);
@@ -862,11 +872,11 @@ public class DataFrameTest {
     @DisplayName("Should alter column type to LocalDate")
     void test_givenADataFrame_WhenAlteringColumnTypeToLocalDate_ShouldSuccessfullyConvert() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("date");
+        df = df.addColumn("date");
         HashMap<String, Object> row = new HashMap<>();
         row.put("date", "2023-05-15");
-        df.addRow(row);
-        df.alterColumnType("date", LocalDate.class);
+        df = df.addRow(row);
+        df = df.alterColumnType("date", LocalDate.class);
 
         assertThat(df.getColumnHeader("date").columnType()).isEqualTo(LocalDate.class);
         assertThat(df.getRow(0).get("date")).isEqualTo(LocalDate.of(2023, 5, 15));
@@ -876,11 +886,11 @@ public class DataFrameTest {
     @DisplayName("Should alter column type to Date")
     void test_givenADataFrame_WhenAlteringColumnTypeToDate_ShouldSuccessfullyConvert() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("date");
+        df = df.addColumn("date");
         HashMap<String, Object> row = new HashMap<>();
         row.put("date", "2023-05-15");
-        df.addRow(row);
-        df.alterColumnType("date", Date.class);
+        df = df.addRow(row);
+        df = df.alterColumnType("date", Date.class);
 
         assertThat(df.getColumnHeader("date").columnType()).isEqualTo(Date.class);
         assertThat(df.getRow(0).get("date")).isInstanceOf(Date.class);
@@ -890,11 +900,11 @@ public class DataFrameTest {
     @DisplayName("Should alter column type to Long")
     void test_givenADataFrame_WhenAlteringColumnTypeToLong_ShouldSuccessfullyConvert() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("id");
+        df = df.addColumn("id");
         HashMap<String, Object> row = new HashMap<>();
         row.put("id", "123456789");
-        df.addRow(row);
-        df.alterColumnType("id", Long.class);
+        df = df.addRow(row);
+        df = df.alterColumnType("id", Long.class);
 
         assertThat(df.getColumnHeader("id").columnType()).isEqualTo(Long.class);
         assertThat(df.getRow(0).get("id")).isEqualTo(123456789L);
@@ -904,11 +914,11 @@ public class DataFrameTest {
     @DisplayName("Should alter column type to primitive int")
     void test_givenADataFrame_WhenAlteringColumnTypeToPrimitiveInt_ShouldSuccessfullyConvert() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("count");
+        df = df.addColumn("count");
         HashMap<String, Object> row = new HashMap<>();
         row.put("count", "42");
-        df.addRow(row);
-        df.alterColumnType("count", int.class);
+        df = df.addRow(row);
+        df = df.alterColumnType("count", int.class);
 
         assertThat(df.getColumnHeader("count").columnType()).isEqualTo(int.class);
         assertThat(df.getRow(0).get("count")).isEqualTo(42);
@@ -918,12 +928,13 @@ public class DataFrameTest {
     @DisplayName("Should throw ConversionException when altering column type to unsupported type")
     void test_givenADataFrame_WhenAlteringColumnTypeToUnsupportedType_ShouldThrowException() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("value");
+        df = df.addColumn("value");
         HashMap<String, Object> row = new HashMap<>();
         row.put("value", "abc");
-        df.addRow(row);
+        df = df.addRow(row);
 
-        assertThatThrownBy(() -> df.alterColumnType("value", java.util.List.class))
+        CupOfTea finalDf = df;
+        assertThatThrownBy(() -> finalDf.alterColumnType("value", java.util.List.class))
             .isInstanceOf(ConversionException.class);
     }
 }

@@ -199,7 +199,7 @@ public class HTMLImporter implements IHTMLImporter {
                     i++;
                 }
             }
-            if(!firstRow) this.dataFrame.addRow(rowDF);
+            if(!firstRow) this.dataFrame.getDataFrame().addRow(rowDF);
             firstRow = false;
         }
     }

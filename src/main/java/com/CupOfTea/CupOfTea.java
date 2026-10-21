@@ -47,6 +47,7 @@ import com.CupOfTea.table.DataFrame;
 import com.CupOfTea.table.Group;
 import com.CupOfTea.table.GroupBy;
 import com.CupOfTea.table.NA;
+import com.CupOfTea.table.Row;
 import com.CupOfTea.table.Schema;
 import com.CupOfTea.table.interfaces.IDataFrame;
 import com.CupOfTea.utils.Printer;
@@ -59,6 +60,7 @@ import com.CupOfTea.utils.interfaces.Orderer;
 public class CupOfTea {
 
     private IDataFrame dataFrame;
+    private MutationMode mutationMode = MutationMode.IN_PLACE;
 
     private CSVExporter csvExporter;
     private IJsonExporter jsonExporter;
@@ -74,19 +76,73 @@ public class CupOfTea {
 
 
     public CupOfTea() {
+        this(MutationMode.IN_PLACE);
+    }
+
+    public CupOfTea(MutationMode mutationMode) {
+        this.mutationMode = mutationMode != null ? mutationMode : MutationMode.IN_PLACE;
         this.dataFrame = new DataFrame();
     }
 
     public CupOfTea(Schema schema) {
+        this(schema, MutationMode.IN_PLACE);
+    }
+
+    public CupOfTea(Schema schema, MutationMode mutationMode) {
         this.dataFrame = new DataFrame(schema);
+        this.mutationMode = mutationMode != null ? mutationMode : MutationMode.IN_PLACE;
     }
 
     public static CupOfTea withSchema(Schema schema) {
         return new CupOfTea(schema);
     }
 
-    public CupOfTea(IDataFrame dataFrame){
+    public CupOfTea(IDataFrame dataFrame) {
+        this(dataFrame, MutationMode.IN_PLACE);
+    }
+
+    public CupOfTea(IDataFrame dataFrame, MutationMode mutationMode) {
         this.dataFrame = dataFrame;
+        this.mutationMode = mutationMode != null ? mutationMode : MutationMode.IN_PLACE;
+    }
+
+    public MutationMode getMutationMode() {
+        return this.mutationMode;
+    }
+
+    public CupOfTea setMutationMode(MutationMode mutationMode) {
+        this.mutationMode = mutationMode != null ? mutationMode : MutationMode.IN_PLACE;
+        return this;
+    }
+
+    public CupOfTea asInPlace() {
+        this.mutationMode = MutationMode.IN_PLACE;
+        return this;
+    }
+
+    public CupOfTea asCopyOnWrite() {
+        this.mutationMode = MutationMode.COPY_ON_WRITE;
+        return this;
+    }
+
+    public CupOfTea copy() {
+        return new CupOfTea(this.dataFrame.copy(), this.mutationMode);
+    }
+
+    public IDataFrame getDataFrame() {
+        return this.dataFrame;
+    }
+
+    public CupOfTea clear() {
+        this.dataFrame.clear();
+        return this;
+    }
+
+    private CupOfTea targetForMutation() {
+        if (this.mutationMode == MutationMode.COPY_ON_WRITE) {
+            return new CupOfTea(this.dataFrame.copy(), this.mutationMode);
+        }
+        return this;
     }
 
     public Schema getSchema() {
@@ -94,8 +150,9 @@ public class CupOfTea {
     }
 
     public CupOfTea setSchema(Schema schema) {
-        this.dataFrame.setSchema(schema);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.setSchema(schema);
+        return target;
     }
 
     public ArrayList<Column> getHeaders(){
@@ -110,72 +167,84 @@ public class CupOfTea {
         return this.dataFrame.size();
     }
 
-    public HashMap<String, Object> getRow(int index){
-        return this.dataFrame.getRows().get(index);
+    public Row getRow(int index){
+        return this.dataFrame.getRow(index);
     }
 
-    public ArrayList<HashMap<String, Object>> getRows(){
+    public List<Row> getRows(){
         return this.dataFrame.getRows();
     }
 
     public CupOfTea moveColumn (String columnName, int finalIndex){
-        this.dataFrame.moveColumn(columnName, finalIndex);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.moveColumn(columnName, finalIndex);
+        return target;
     }
     
     public CupOfTea moveColumn (int inicialIndex, int finalIndex){
-        this.dataFrame.moveColumn(inicialIndex, finalIndex);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.moveColumn(inicialIndex, finalIndex);
+        return target;
     }
 
     public CupOfTea renameColumn (String oldName, String newName) {
-        this.dataFrame.renameColumn(oldName, newName);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.renameColumn(oldName, newName);
+        return target;
     }
 
     public CupOfTea renameColumn (int index, String newName) {
-        this.dataFrame.renameColumn(index, newName);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.renameColumn(index, newName);
+        return target;
     }
 
     public CupOfTea renameColumn (HashMap<String,String> name){
-        this.dataFrame.renameColumn(name);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.renameColumn(name);
+        return target;
     }
     
     public CupOfTea addColumn(String columnName) {
-        this.dataFrame.addColumn(columnName);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(columnName);
+        return target;
     }
 
     public CupOfTea addColumn(String columnName, Class<?> columnType) {
-        this.dataFrame.addColumn(columnName, columnType);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(columnName, columnType);
+        return target;
     }
 
     public CupOfTea addColumn(int index, String columnName) {
-        this.dataFrame.addColumn(index, columnName);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(index, columnName);
+        return target;
     }
 
     public CupOfTea addColumn(int index, String columnName, Class<?> columnType) {
-        this.dataFrame.addColumn(index, columnName, columnType);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(index, columnName, columnType);
+        return target;
     }
 
     public CupOfTea addColumn(int index, String columnName, @Nullable Object data) {
-        this.dataFrame.addColumn(index, columnName, data);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(index, columnName, data);
+        return target;
     }
 
     public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
-        this.dataFrame.addColumn(index, columnName, data);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(index, columnName, data);
+        return target;
     }
 
     public CupOfTea alterColumnType(String columnName, Class newColumnType) {
-        this.dataFrame.alterColumnType(columnName, newColumnType);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.alterColumnType(columnName, newColumnType);
+        return target;
     }
 
     /**
@@ -186,53 +255,63 @@ public class CupOfTea {
      * @param columnCreator Function that defines the values of the new column
      */
     public CupOfTea addColumn(String columnName, IColumnCreator columnCreator) {
-        this.dataFrame.addColumn(columnName, columnCreator);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(columnName, columnCreator);
+        return target;
     }
 
     public CupOfTea addColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) {
-        this.dataFrame.addColumn(columnName, columnType, columnCreator);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(columnName, columnType, columnCreator);
+        return target;
     }
 
     public CupOfTea addColumn(String columnName, IColumnCreator columnCreator, Class<?> columnType) {
-        this.dataFrame.addColumn(columnName, columnCreator, columnType);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(columnName, columnCreator, columnType);
+        return target;
     }
 
     public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator) {
-        this.dataFrame.addColumn(index, columnName, columnCreator);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(index, columnName, columnCreator);
+        return target;
     }
 
     public CupOfTea addColumn(int index, String columnName, Class<?> columnType, IColumnCreator columnCreator) {
-        this.dataFrame.addColumn(index, columnName, columnType, columnCreator);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(index, columnName, columnType, columnCreator);
+        return target;
     }
 
     public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) {
-        this.dataFrame.addColumn(index, columnName, columnCreator, columnType);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(index, columnName, columnCreator, columnType);
+        return target;
     }
 
     public CupOfTea removeColumn(String columnName) {
-        this.dataFrame.removeColumn(columnName);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.removeColumn(columnName);
+        return target;
     }
 
     public CupOfTea removeColumn(int index) {
-        this.dataFrame.removeColumn(index);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.removeColumn(index);
+        return target;
     }
 
-    public CupOfTea addRow(@NotNull HashMap<String, Object> row) {
-        this.dataFrame.addRow(row);
-        return this;
+    public CupOfTea addRow(@NotNull Map<String, Object> row) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addRow(row);
+        return target;
     }
 
     public CupOfTea removeRow(int index){
-        this.dataFrame.removeRow(index);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.removeRow(index);
+        return target;
     }
 
 
@@ -243,21 +322,25 @@ public class CupOfTea {
      * @return the same DataFrame but without the filtered rows
      */
     public CupOfTea removeRows(IFilter filter) {
-        this.dataFrame.removeRows(filter);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.removeRows(filter);
+        return target;
     }
 
     public CupOfTea filter(IFilter filter) {
-        return new CupOfTea(this.dataFrame.filter(filter));
+        return new CupOfTea(this.dataFrame.filter(filter), this.mutationMode);
     }
 
-    public CupOfTea update(HashMap<String, Object> updateColumns) {
-        return new CupOfTea(this.dataFrame.update(updateColumns));
+    public CupOfTea update(Map<String, Object> updateColumns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.update(updateColumns);
+        return target;
     }
 
     public CupOfTea orderBy(Orderer... orderer) {
-        this.dataFrame.orderBy(orderer);
-        return this;
+        CupOfTea target = targetForMutation();
+        target.dataFrame.orderBy(orderer);
+        return target;
     }
     
     public CupOfTea print() {
@@ -623,8 +706,9 @@ public class CupOfTea {
         } else {
             throw new SchemaMismatchException("Unsupported header array type: elements must be String or Column instances");
         }
-		this.dataFrame.setHeaders(columns);
-        return this;
+        CupOfTea target = targetForMutation();
+		target.dataFrame.setHeaders(columns);
+        return target;
     }
 
 
@@ -639,38 +723,38 @@ public class CupOfTea {
     }
 
     public CupOfTea sum(String column) {
-        Column col = this.getColumnHeader(column);
-        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
-        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        CupOfTea target = targetForMutation();
+        target.dataFrame.sum(column);
+        return target;
     }
 
     public CupOfTea average(String column) {
-        Column col = this.getColumnHeader(column);
-        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
-        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        CupOfTea target = targetForMutation();
+        target.dataFrame.average(column);
+        return target;
     }
 
     public CupOfTea maximum(String column) {
-        Column col = this.getColumnHeader(column);
-        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
-        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        CupOfTea target = targetForMutation();
+        target.dataFrame.maximum(column);
+        return target;
     }
 
     public CupOfTea minimum(String column) {
-        Column col = this.getColumnHeader(column);
-        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
-        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        CupOfTea target = targetForMutation();
+        target.dataFrame.minimum(column);
+        return target;
     }
 
     public CupOfTea count(String column) {
-        Column col = this.getColumnHeader(column);
-        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
-        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        CupOfTea target = targetForMutation();
+        target.dataFrame.count(column);
+        return target;
     }
 
     public CupOfTea aggregate(String column, String separator) {
-        Column col = this.getColumnHeader(column);
-        if (col == null) throw new SchemaMismatchException("Column not found: " + column);
-        throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        CupOfTea target = targetForMutation();
+        target.dataFrame.aggregate(column, separator);
+        return target;
     }
 }

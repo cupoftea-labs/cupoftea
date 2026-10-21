@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.Group;
+import com.CupOfTea.table.Row;
 import com.CupOfTea.utils.configurations.PrinterConfiguration;
 import com.CupOfTea.utils.interfaces.IPrinter;
 
@@ -91,7 +92,7 @@ public class Printer implements IPrinter {
         sb.append(buildMiddleBorder(visibleColumns)).append(System.lineSeparator());
 
         for (int i = 0; i < rowsToDisplay; i++) {
-            HashMap<String, Object> row = this.dataFrame.getRow(i);
+            Row row = this.dataFrame.getRow(i);
             sb.append(buildDataRow(visibleColumns, row, conf)).append(System.lineSeparator());
         }
 
@@ -130,7 +131,7 @@ public class Printer implements IPrinter {
         int maxLen = headerText.length();
 
         for (int i = 0; i < rowsToDisplay; i++) {
-            HashMap<String, Object> row = this.dataFrame.getRow(i);
+            Row row = this.dataFrame.getRow(i);
             Object value = row != null ? row.get(column.columnName()) : null;
             String text = value == null ? conf.getStringNull() : value.toString();
             if (text.length() > maxLen) {
@@ -300,7 +301,7 @@ public class Printer implements IPrinter {
         return sb.toString();
     }
 
-    private String buildDataRow(List<DisplayColumn> columns, HashMap<String, Object> row, PrinterConfiguration conf) {
+    private String buildDataRow(List<DisplayColumn> columns, Row row, PrinterConfiguration conf) {
         StringBuilder sb = new StringBuilder();
         sb.append('\u2502');
         for (DisplayColumn col : columns) {

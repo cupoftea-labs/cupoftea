@@ -148,7 +148,7 @@ public class DataFrame extends IDataFrame {
         if (oldName.equals(newName)) {
             return;
         }
-        for (var row : this.getRows()) {
+        for (var row : this.rows) {
             row.put(newName, row.get(oldName));
             row.remove(oldName);
         }
@@ -267,11 +267,23 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
+    public DataFrame copy() {
+        DataFrame copy = new DataFrame();
+        copy.header = this.header.copy();
+        copy.columnCreators.putAll(this.columnCreators);
+        copy.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        for (var row : this.rows) {
+            copy.rows.add(this.cloneRow(row));
+        }
+        return copy;
+    }
+
+    @Override
     public IDataFrame addColumn(int index, String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
         Class<?> resolvedType = columnType;
 
-        for (var row : this.getRows()) {
-            Object value = columnCreator.createColumn(row);
+        for (var row : this.rows) {
+            Object value = columnCreator.createColumn(new Row(row));
             row.put(columnName, value);
             if (resolvedType == null && value != null) {
                 resolvedType = value.getClass();
@@ -336,20 +348,17 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame addRow(@NotNull HashMap<String, Object> row) {
-        // ToDo Verificar se todas as colunas batem com as colunas do header
+    public IDataFrame addRow(@NotNull Map<String, Object> row) {
         return this.addRow(row, true);
     }
 
-    private IDataFrame addRow(@NotNull HashMap<String, Object> row, boolean clone) {
-        // ToDo Verificar se todas as colunas batem com as colunas do header
-        // ToDo Realizar o cast dos tipos de coluna para bater com o do header
-        HashMap<String, Object> rowToAdd = clone ? this.cloneRow(row) : row;
+    private IDataFrame addRow(@NotNull Map<String, Object> row, boolean clone) {
+        HashMap<String, Object> rowToAdd = clone ? this.cloneRow(row) : (row instanceof HashMap ? (HashMap<String, Object>) row : new HashMap<>(row));
         for (var entry : this.columnCreators.entrySet()) {
             String columnName = entry.getKey();
             IColumnCreator creator = entry.getValue();
             if (!rowToAdd.containsKey(columnName)) {
-                rowToAdd.put(columnName, creator.createColumn(rowToAdd));
+                rowToAdd.put(columnName, creator.createColumn(new Row(rowToAdd)));
             }
         }
         if (!this.pendingTypeInferenceColumns.isEmpty()) {
@@ -367,8 +376,8 @@ public class DataFrame extends IDataFrame {
         return this;
     }
 
-    private HashMap<String, Object> cloneRow(@NotNull HashMap<String, Object> row) {
-        HashMap<String, Object> clonedRow = (HashMap<String, Object>) row.clone();
+    private HashMap<String, Object> cloneRow(@NotNull Map<String, Object> row) {
+        HashMap<String, Object> clonedRow = new HashMap<>(row);
         for (var entry : clonedRow.entrySet()) {
             if (entry.getValue() instanceof Group group) {
                 entry.setValue(new Group(group));
@@ -392,7 +401,7 @@ public class DataFrame extends IDataFrame {
      */
     @Override
     public IDataFrame removeRows(IFilter filter) {
-        this.rows.removeIf(filter::filter);
+        this.rows.removeIf(row -> Boolean.TRUE.equals(filter.filter(new Row(row))));
         return this;
     }
 
@@ -406,7 +415,7 @@ public class DataFrame extends IDataFrame {
         filteredDF.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
 
         for(var row : this.rows){
-            if(filter.filter(row)){
+            if(Boolean.TRUE.equals(filter.filter(new Row(row)))){
                 filteredDF.addRow(row, true);
             }
         }
@@ -415,11 +424,182 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public IDataFrame update(HashMap<String, Object> updateColumns) {
-        for(var row : this.rows){
-            row.putAll(updateColumns);
+    public IDataFrame update(Map<String, Object> updateColumns) {
+        if (updateColumns != null) {
+            for(var row : this.rows){
+                row.putAll(updateColumns);
+            }
         }
 
+        return this;
+    }
+
+    @Override
+    public IDataFrame sum(String column) {
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = null;
+        String columnName = column + "Sum";
+
+        if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
+            throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        }
+
+        for (var row : this.rows) {
+            Object sum = null;
+            Group value = (Group) row.get(column);
+
+            if (value.getColumnType() == Integer.class) {
+                Integer integerSum = 0;
+                finalColumnType = Integer.class;
+                for (var valuesToSum : value.groupedValues) {
+                    integerSum += (Integer) valuesToSum;
+                }
+                sum = integerSum;
+            } else if (value.getColumnType() == Double.class) {
+                finalColumnType = Double.class;
+                Double doubleSum = 0.0;
+                for (var valuesToSum : value.groupedValues) {
+                    doubleSum += (Double) valuesToSum;
+                }
+                sum = doubleSum;
+            }
+
+            row.put(columnName, sum);
+        }
+
+        this.header.addColumn(new Column(columnName, finalColumnType));
+        return this;
+    }
+
+    @Override
+    public IDataFrame average(String column) {
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = Double.class;
+        String columnName = column + "Average";
+
+        if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
+            throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        }
+
+        for (var row : this.rows) {
+            Object average = null;
+            Group value = (Group) row.get(column);
+
+            if (value.getColumnType() == Integer.class) {
+                Integer integerSum = 0;
+                for (var valuesToSum : value.groupedValues) {
+                    integerSum += (Integer) valuesToSum;
+                }
+                average = Double.valueOf(integerSum) / Double.valueOf(value.groupedValues.size());
+            } else if (value.getColumnType() == Double.class) {
+                Double doubleSum = 0.0;
+                for (var valuesToSum : value.groupedValues) {
+                    doubleSum += (Double) valuesToSum;
+                }
+                average = doubleSum / Double.valueOf(value.groupedValues.size());
+            }
+
+            row.put(columnName, average);
+        }
+
+        this.header.addColumn(new Column(columnName, finalColumnType));
+        return this;
+    }
+
+    @Override
+    public IDataFrame maximum(String column) {
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = null;
+        String columnName = column + "Maximum";
+
+        if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
+            throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        }
+
+        for (var row : this.rows) {
+            Object maximum = null;
+            Group value = (Group) row.get(column);
+
+            if (value.getColumnType() == Integer.class) {
+                finalColumnType = Integer.class;
+                maximum = java.util.Collections.max(value.groupedValues.stream().map(a -> (Integer) a).toList());
+            } else if (value.getColumnType() == Double.class) {
+                finalColumnType = Double.class;
+                maximum = java.util.Collections.max(value.groupedValues.stream().map(a -> (Double) a).toList());
+            }
+
+            row.put(columnName, maximum);
+        }
+
+        this.header.addColumn(new Column(columnName, finalColumnType));
+        return this;
+    }
+
+    @Override
+    public IDataFrame minimum(String column) {
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = null;
+        String columnName = column + "Minimum";
+
+        if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
+            throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        }
+
+        for (var row : this.rows) {
+            Object minimum = null;
+            Group value = (Group) row.get(column);
+
+            if (value.getColumnType() == Integer.class) {
+                finalColumnType = Integer.class;
+                minimum = java.util.Collections.min(value.groupedValues.stream().map(a -> (Integer) a).toList());
+            } else if (value.getColumnType() == Double.class) {
+                finalColumnType = Double.class;
+                minimum = java.util.Collections.min(value.groupedValues.stream().map(a -> (Double) a).toList());
+            }
+
+            row.put(columnName, minimum);
+        }
+
+        this.header.addColumn(new Column(columnName, finalColumnType));
+        return this;
+    }
+
+    @Override
+    public IDataFrame count(String column) {
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = Integer.class;
+        String columnName = column + "Count";
+
+        if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
+            throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        }
+
+        for (var row : this.rows) {
+            Group value = (Group) row.get(column);
+            row.put(columnName, value.groupedValues.size());
+        }
+
+        this.header.addColumn(new Column(columnName, finalColumnType));
+        return this;
+    }
+
+    @Override
+    public IDataFrame aggregate(String column, String separator) {
+        Column groupedColumn = this.getColumnHeader(column);
+        Class<?> finalColumnType = String.class;
+        String columnName = column + "Aggregate";
+
+        if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
+            throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
+        }
+
+        for (var row : this.rows) {
+            Group value = (Group) row.get(column);
+            String aggValue = value.groupedValues.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(separator));
+            row.put(columnName, aggValue);
+        }
+
+        this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
     }
 

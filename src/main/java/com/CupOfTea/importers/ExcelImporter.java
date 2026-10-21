@@ -87,8 +87,7 @@ public class ExcelImporter implements IExcelImporter {
             throw new ImportException("Unsupported Excel file extension: " + ext);
         }
 
-        this.dataFrame.getRows().clear();
-        this.dataFrame.getHeaders().clear();
+        this.dataFrame.clear();
 
         try (FileInputStream fis = new FileInputStream(file);
              Workbook workbook = WorkbookFactory.create(fis)) {
@@ -188,7 +187,7 @@ public class ExcelImporter implements IExcelImporter {
             for (int c = 0; c < maxCols; c++) {
                 columns.add(new Column(columnNames[c], columnTypes[c]));
             }
-            this.dataFrame.setHeaders(columns);
+            this.dataFrame.getDataFrame().setHeaders(columns);
 
             for (Object[] rawRow : rawRows) {
                 HashMap<String, Object> rowMap = new HashMap<>();
@@ -196,7 +195,7 @@ public class ExcelImporter implements IExcelImporter {
                     Object val = rawRow[c];
                     rowMap.put(columnNames[c], coerceValue(val, columnTypes[c]));
                 }
-                this.dataFrame.addRow(rowMap);
+                this.dataFrame.getDataFrame().addRow(rowMap);
             }
 
         } catch (IOException e) {

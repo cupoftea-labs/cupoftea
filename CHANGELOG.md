@@ -11,6 +11,9 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Added
 
+- Introduced `MutationMode` (`IN_PLACE` fluent builder as default, and `COPY_ON_WRITE`) with `.asCopyOnWrite()` and `.asInPlace()` controls on `CupOfTea` ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
+- Implemented explicit `.copy()` deep-copy method on `CupOfTea` and `IDataFrame` / `DataFrame` ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
+- Introduced immutable `Row` class implementing `Map<String, Object>` with typed accessors (`getInt`, `getInteger`, `getLong`, `getDouble`, `getFloat`, `getBoolean`, `getString`, `getDate`, `getLocalDate`, `getLocalDateTime`, `getInstant`, `getBigDecimal`, `getAs`) and defensive encapsulation ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
 - First-class `Schema` and `DataType` model supporting explicit schema definition on construction and ingest via `Schema.of("year", INT, "price", DOUBLE)` and `Schema.builder()` ([#142](https://github.com/filippo-pequini/CupOfTea/issues/142)).
 - First-class missing-value sentinel `NA` (`NA.NA`), with `NA.isNA` and null policy distinguishing missing values (`null` / `NA`) from empty strings (`""`) ([#142](https://github.com/filippo-pequini/CupOfTea/issues/142)).
 - Native `InstantConverter` and `BigDecimalConverter` registered in `CONVERTERS` for `java.time.Instant` and `java.math.BigDecimal` ([#142](https://github.com/filippo-pequini/CupOfTea/issues/142)).
@@ -21,6 +24,8 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Changed
 
+- Encapsulated DataFrame internal storage: `getRows()` returns an unmodifiable list of `Row` objects and `getRow(int)` returns an unmodifiable `Row`, preventing internal map leaks and mutation side-effects ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
+- Updated `IFilter` and `IColumnCreator` functional interfaces to accept `Row` instead of raw `Map<String, Object>` ([#136](https://github.com/filippo-pequini/CupOfTea/issues/136)).
 - Rewrote `groupBy` as an O(n) hash aggregate with Pandas-style `.agg(...)` API instead of storing `Group` objects in cells ([#140](https://github.com/filippo-pequini/CupOfTea/issues/140)).
 - Migrated test suite from JUnit 4 `junit.framework.TestCase` to JUnit 5 (`junit-jupiter`) and AssertJ (`assertj-core`), converting converter tests to parameterized tests (`@ParameterizedTest`) ([#145](https://github.com/filippo-pequini/CupOfTea/issues/145)).
 - Replaced binary-float noise assertions with delta assertions ([#145](https://github.com/filippo-pequini/CupOfTea/issues/145)).

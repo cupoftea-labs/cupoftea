@@ -20,14 +20,14 @@ public class PrinterTest {
         CupOfTea df = new CupOfTea();
         for (int c = 0; c < columnCount; c++) {
             final String colName = "col_" + c;
-            df.addColumn(colName, Integer.class, row -> 0);
+            df = df.addColumn(colName, Integer.class, row -> 0);
         }
         for (int r = 0; r < rowCount; r++) {
             HashMap<String, Object> row = new HashMap<>();
             for (int c = 0; c < columnCount; c++) {
                 row.put("col_" + c, "val_" + r + "_" + c);
             }
-            df.getRows().add(row);
+            df = df.addRow(row);
         }
         return df;
     }
@@ -115,13 +115,13 @@ public class PrinterTest {
     @DisplayName("Should display column type in header when showColumnType is enabled")
     void test_showColumnType_displaysTypeInHeader() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("name", String.class, row -> "Alice");
-        df.addColumn("age", Integer.class, row -> 30);
+        df = df.addColumn("name", String.class, row -> "Alice");
+        df = df.addColumn("age", Integer.class, row -> 30);
 
         HashMap<String, Object> r1 = new HashMap<>();
         r1.put("name", "Alice");
         r1.put("age", 30);
-        df.getRows().add(r1);
+        df = df.addRow(r1);
 
         PrinterConfiguration config = new PrinterConfiguration()
                 .setShowColumnType(true);
@@ -158,8 +158,8 @@ public class PrinterTest {
     @DisplayName("Should print headers for empty DataFrame with columns and zero rows")
     void test_emptyDataFrame_withColumnsZeroRows() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("id", Integer.class, row -> 0);
-        df.addColumn("title", String.class, row -> "");
+        df = df.addColumn("id", Integer.class, row -> 0)
+               .addColumn("title", String.class, row -> "");
 
         String output = df.printToString();
         assertThat(output).contains("Showing 0 registers");
@@ -171,11 +171,11 @@ public class PrinterTest {
     @DisplayName("Should render null values according to configuration")
     void test_nullValues_renderedAsConfiguredString() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("col", String.class, row -> null);
+        df = df.addColumn("col", String.class, row -> null);
 
         HashMap<String, Object> r1 = new HashMap<>();
         r1.put("col", null);
-        df.getRows().add(r1);
+        df = df.addRow(r1);
 
         PrinterConfiguration configDefault = new PrinterConfiguration();
         String outDefault = df.printToString(configDefault);
@@ -190,11 +190,11 @@ public class PrinterTest {
     @DisplayName("Should truncate long cell values with ellipsis")
     void test_longValues_truncatedWithEllipsis() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("description", String.class, row -> null);
+        df = df.addColumn("description", String.class, row -> null);
 
         HashMap<String, Object> r1 = new HashMap<>();
         r1.put("description", "A very long text that exceeds maximum column width easily");
-        df.getRows().add(r1);
+        df = df.addRow(r1);
 
         PrinterConfiguration config = new PrinterConfiguration()
                 .setMaxColumnWidth(15);
@@ -225,13 +225,13 @@ public class PrinterTest {
     @DisplayName("Should filter out Group columns from printed output")
     void test_groupedColumns_filteredOut() {
         CupOfTea df = new CupOfTea();
-        df.addColumn("visibleCol", String.class, row -> "test");
+        df = df.addColumn("visibleCol", String.class, row -> "test");
         df.getHeaders().add(new Column("groupedCol", Group.class));
 
         HashMap<String, Object> r1 = new HashMap<>();
         r1.put("visibleCol", "test");
         r1.put("groupedCol", null);
-        df.getRows().add(r1);
+        df = df.addRow(r1);
 
         String output = df.printToString();
         assertThat(output).contains("visibleCol");

@@ -179,7 +179,7 @@ public class JsonImporter implements IJsonImporter {
                 boolean existsInHeader = this.dataFrame.getHeaders().stream()
                         .anyMatch(col -> columnName.equals(col.columnName()));
                 if (!existsInHeader) {
-                    this.dataFrame.addColumn(columnName, columnType);
+                    this.dataFrame.getDataFrame().addColumn(columnName, columnType);
                 } else {
                     Column existing = this.dataFrame.getColumnHeader(columnName);
                     if (columnType != null && !columnType.equals(existing.columnType())) {
@@ -204,7 +204,7 @@ public class JsonImporter implements IJsonImporter {
                     Object value = rawRow.get(columnName);
                     row.put(columnName, coerceToColumnType(value, columnType));
                 }
-                this.dataFrame.addRow(row);
+                this.dataFrame.getDataFrame().addRow(row);
             }
         } catch (JSONException e) {
             throw new ImportException("Failed to process JSONArray", e);

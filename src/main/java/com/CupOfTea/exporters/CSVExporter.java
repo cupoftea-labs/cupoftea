@@ -5,13 +5,13 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.stream.Collectors;
 
 import com.CupOfTea.CupOfTea;
 import com.CupOfTea.exceptions.ExportException;
 import com.CupOfTea.exporters.configurations.CSVExporterConfiguration;
 import static com.CupOfTea.exporters.configurations.CSVExporterConfiguration.HeadersPlacement.*;
+import com.CupOfTea.table.Row;
 
 public class CSVExporter {
 
@@ -49,7 +49,7 @@ public class CSVExporter {
 
             if (this.configuration.getHeadersPlacement() == TOP) writer.write(header);
             
-            for (HashMap<String, Object> data :  this.dataFrame.getRows()){
+            for (Row data : this.dataFrame.getRows()){
                 ArrayList<String> dataArr = (ArrayList<String>) this.dataFrame.getHeaders().stream()
                     .map(i -> this.prepareFieldValue(data.get(i.columnName()) != null ? data.get(i.columnName()).toString() : null, i.columnType(), false))
                     .collect(Collectors.toList())

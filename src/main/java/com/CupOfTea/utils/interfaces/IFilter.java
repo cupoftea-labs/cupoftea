@@ -1,10 +1,10 @@
 package com.CupOfTea.utils.interfaces;
 
-import java.util.HashMap;
+import com.CupOfTea.table.Row;
 
 @FunctionalInterface
 public interface IFilter {
 
-    public Boolean filter(HashMap<String, Object> row);
+    Boolean filter(Row row);
 
 }

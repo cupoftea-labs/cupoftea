@@ -66,8 +66,7 @@ public class CSVImporter implements ICSVImporter {
             throw new ImportException("File cannot be null");
         }
 
-        this.dataFrame.getRows().clear();
-        this.dataFrame.getHeaders().clear();
+        this.dataFrame.clear();
 
         CSVParser parser = new CSVParserBuilder()
             .withSeparator(this.configuration.getDelimiter())
@@ -153,7 +152,7 @@ public class CSVImporter implements ICSVImporter {
             columns.add(new Column(headerNames[i], columnTypes[i]));
         }
         if (!columns.isEmpty()) {
-            this.dataFrame.setHeaders(columns);
+            this.dataFrame.getDataFrame().setHeaders(columns);
         }
 
         for (String[] rawRow : rawRows) {
@@ -161,7 +160,7 @@ public class CSVImporter implements ICSVImporter {
             for (int i = 0; i < columnCount; i++) {
                 row.put(headerNames[i], convertValue(rawRow[i], columnTypes[i], this.configuration));
             }
-            this.dataFrame.addRow(row);
+            this.dataFrame.getDataFrame().addRow(row);
         }
     }
 

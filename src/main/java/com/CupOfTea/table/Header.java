@@ -107,4 +107,14 @@ public class Header {
         int index = this.header.indexOf(new Column(columnName, null));
         this.header.set(index, new Column(columnName, columnType));
     }
+
+    public Header copy() {
+        Header copy = new Header();
+        copy.setHeader(new ArrayList<>(this.header));
+        return copy;
+    }
+
+    public void clear() {
+        this.header.clear();
+    }
 }
