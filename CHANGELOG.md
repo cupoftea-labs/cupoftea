@@ -11,7 +11,11 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Added
 
-### Added
+- Implemented core pandas-like operations: `select`, `drop`, `head`, `tail`, `slice`, `iloc`, `setIndex` / `resetIndex` / `loc`, `fillna`, and `dropna` ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
+- Added position-based indexer `iloc` supporting 0-based and Python-style negative indexing (`df.iloc(int)`, `df.iloc(row, col)`, `df.iloc().slice(...)`, `df.iloc().rows(...)`, `df.iloc().columns(...)`) ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
+- Added index-based indexer `loc` supporting row and cell lookups by designated index key (`df.setIndex(...)`, `df.loc(key)`, `df.loc(key, col)`, `df.loc().rows(...)`) ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
+- Enhanced immutable `Row` API with positional accessors (`getInt(int)`, `getString(int)`, etc., `getColumnName(int)`), missing-value checks (`isNA`, `isNull`, `isMissing`), and safe handling of `NA` sentinel across all typed getters ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
+- Ensured all operations strictly honor `MutationMode` (`IN_PLACE` modifying in-place, and `COPY_ON_WRITE` returning safe copies) ([#143](https://github.com/filippo-pequini/CupOfTea/issues/143)).
 
 - Split IO into modular, optional Maven modules under parent coordinates `com.cupoftea` (`cupoftea-core`, `cupoftea-csv`, `cupoftea-json`, `cupoftea-excel`, `cupoftea-parquet`, `cupoftea-html`, `cupoftea-yaml`, `cupoftea-xml`, and `cupoftea-all`) ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).
 - ServiceLoader SPI (`FormatReader` and `FormatWriter`) for format decoupling and runtime discovery with informative diagnostics when a format dependency is absent ([#139](https://github.com/filippo-pequini/CupOfTea/issues/139)).

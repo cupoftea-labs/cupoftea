@@ -22,6 +22,8 @@ import com.cupoftea.io.DataFrameWriter;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.DataFrame;
 import com.cupoftea.table.GroupBy;
+import com.cupoftea.table.ILoc;
+import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
 import com.cupoftea.table.interfaces.IDataFrame;
@@ -307,6 +309,150 @@ public class CupOfTea {
     public CupOfTea orderBy(Orderer... orderer) {
         CupOfTea target = targetForMutation();
         target.dataFrame.orderBy(orderer);
+        return target;
+    }
+
+    // --- Core pandas-like ops ---
+
+    public CupOfTea select(String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.select(columnNames);
+        return target;
+    }
+
+    public CupOfTea select(List<String> columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.select(columnNames);
+        return target;
+    }
+
+    public CupOfTea drop(String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.drop(columnNames);
+        return target;
+    }
+
+    public CupOfTea drop(List<String> columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.drop(columnNames);
+        return target;
+    }
+
+    public CupOfTea head() {
+        return head(5);
+    }
+
+    public CupOfTea head(int n) {
+        return new CupOfTea(this.dataFrame.head(n), this.mutationMode);
+    }
+
+    public CupOfTea tail() {
+        return tail(5);
+    }
+
+    public CupOfTea tail(int n) {
+        return new CupOfTea(this.dataFrame.tail(n), this.mutationMode);
+    }
+
+    public CupOfTea slice(int fromRow, int toRow) {
+        return new CupOfTea(this.dataFrame.slice(fromRow, toRow), this.mutationMode);
+    }
+
+    public Row iloc(int index) {
+        return this.dataFrame.iloc(index);
+    }
+
+    public Object iloc(int rowIndex, int colIndex) {
+        return this.dataFrame.iloc(rowIndex, colIndex);
+    }
+
+    public Object iloc(int rowIndex, String columnName) {
+        return this.dataFrame.iloc(rowIndex, columnName);
+    }
+
+    public ILoc iloc() {
+        return new ILoc(this, this.dataFrame);
+    }
+
+    public String getIndex() {
+        return this.dataFrame.getIndex();
+    }
+
+    public CupOfTea setIndex(String columnName) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.setIndex(columnName);
+        return target;
+    }
+
+    public CupOfTea resetIndex() {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.resetIndex();
+        return target;
+    }
+
+    public Row loc(Object key) {
+        return this.dataFrame.loc(key);
+    }
+
+    public Object loc(Object key, String column) {
+        return this.dataFrame.loc(key, column);
+    }
+
+    public Loc loc() {
+        return new Loc(this, this.dataFrame);
+    }
+
+    public CupOfTea fillna(Object value) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.fillna(value);
+        return target;
+    }
+
+    public CupOfTea fillna(String column, Object value) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.fillna(column, value);
+        return target;
+    }
+
+    public CupOfTea fillna(Map<String, Object> values) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.fillna(values);
+        return target;
+    }
+
+    public CupOfTea dropna() {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropna();
+        return target;
+    }
+
+    public CupOfTea dropna(String how) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropna(how);
+        return target;
+    }
+
+    public CupOfTea dropna(String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropna(columns);
+        return target;
+    }
+
+    public CupOfTea dropna(List<String> columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropna(columns);
+        return target;
+    }
+
+    public CupOfTea dropna(String how, String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropna(how, columns);
+        return target;
+    }
+
+    public CupOfTea dropna(String how, List<String> columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropna(how, columns);
         return target;
     }
 

@@ -153,4 +153,101 @@ public class RowTest {
         assertThat(row1).isNotEqualTo(row3);
         assertThat(row1.toString()).contains("a=1").contains("b=two");
     }
+
+    @Test
+    @DisplayName("Should return null for NA sentinel without throwing NumberFormatException")
+    void test_typedGetters_naValues() {
+        Row row = Row.of(
+            "naVal", NA.NA,
+            "nullVal", null,
+            "nanDouble", Double.NaN,
+            "nanFloat", Float.NaN,
+            "emptyStr", ""
+        );
+
+        assertThat(row.getInt("naVal")).isNull();
+        assertThat(row.getInteger("naVal")).isNull();
+        assertThat(row.getLong("naVal")).isNull();
+        assertThat(row.getDouble("naVal")).isNull();
+        assertThat(row.getFloat("naVal")).isNull();
+        assertThat(row.getBoolean("naVal")).isNull();
+        assertThat(row.getString("naVal")).isNull();
+        assertThat(row.getDate("naVal")).isNull();
+        assertThat(row.getLocalDate("naVal")).isNull();
+        assertThat(row.getLocalDateTime("naVal")).isNull();
+        assertThat(row.getInstant("naVal")).isNull();
+        assertThat(row.getBigDecimal("naVal")).isNull();
+        assertThat(row.getAs("naVal", String.class)).isNull();
+
+        // Empty string is preserved
+        assertThat(row.getString("emptyStr")).isEqualTo("");
+        assertThat(row.isNA("emptyStr")).isFalse();
+
+        // isNA / isNull / isMissing
+        assertThat(row.isNA("naVal")).isTrue();
+        assertThat(row.isMissing("naVal")).isTrue();
+        assertThat(row.isNull("naVal")).isFalse(); // not null, but NA
+
+        assertThat(row.isNA("nullVal")).isTrue();
+        assertThat(row.isNull("nullVal")).isTrue();
+
+        assertThat(row.isNA("nanDouble")).isTrue();
+        assertThat(row.isNA("nanFloat")).isTrue();
+    }
+
+    @Test
+    @DisplayName("Should support positional accessors and negative indexing")
+    void test_row_positionalGetters() {
+        Row row = Row.of(
+            "id", 101,
+            "name", "Alice",
+            "score", 95.5,
+            "active", true
+        );
+
+        assertThat(row.getColumnNames()).containsExactly("id", "name", "score", "active");
+
+        // Column names by index
+        assertThat(row.getColumnName(0)).isEqualTo("id");
+        assertThat(row.getColumnName(1)).isEqualTo("name");
+        assertThat(row.getColumnName(2)).isEqualTo("score");
+        assertThat(row.getColumnName(3)).isEqualTo("active");
+        assertThat(row.getColumnName(-1)).isEqualTo("active");
+        assertThat(row.getColumnName(-2)).isEqualTo("score");
+
+        // Positional getters
+        assertThat(row.get(0)).isEqualTo(101);
+        assertThat(row.getInt(0)).isEqualTo(101);
+        assertThat(row.getInteger(0)).isEqualTo(101);
+        assertThat(row.getString(1)).isEqualTo("Alice");
+        assertThat(row.getDouble(2)).isEqualTo(95.5);
+        assertThat(row.getBoolean(3)).isTrue();
+
+        // Negative indexing in getters
+        assertThat(row.getBoolean(-1)).isTrue();
+        assertThat(row.getDouble(-2)).isEqualTo(95.5);
+        assertThat(row.getString(-3)).isEqualTo("Alice");
+        assertThat(row.getInt(-4)).isEqualTo(101);
+
+        // Positional NA checks
+        assertThat(row.isNA(0)).isFalse();
+        assertThat(row.isNull(0)).isFalse();
+    }
+
+    @Test
+    @DisplayName("Should throw IndexOutOfBoundsException on invalid positional column index")
+    void test_row_positionalIndexOutOfBounds() {
+        Row row = Row.of("a", 1, "b", 2);
+
+        assertThatThrownBy(() -> row.getColumnName(2))
+            .isInstanceOf(IndexOutOfBoundsException.class)
+            .hasMessageContaining("out of bounds");
+
+        assertThatThrownBy(() -> row.getColumnName(-3))
+            .isInstanceOf(IndexOutOfBoundsException.class)
+            .hasMessageContaining("out of bounds");
+
+        assertThatThrownBy(() -> row.getInt(5))
+            .isInstanceOf(IndexOutOfBoundsException.class);
+    }
 }

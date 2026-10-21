@@ -111,6 +111,30 @@ public class Main {
         CupOfTea filtered = df.filter(row -> row.getInt("age") > 30);
         filtered.print();
 
+        // Core pandas-like ops:
+        // Selection and dropping of columns
+        CupOfTea selected = df.select("name", "age", "salary");
+        CupOfTea withoutDept = df.drop("department");
+
+        // Inspection: head, tail, and slicing
+        df.head(5).print();
+        df.tail(3).print();
+        CupOfTea slice = df.slice(10, 20);
+
+        // Position-based indexing (iloc) with negative index support
+        Row lastRow = df.iloc(-1);
+        Object cell = df.iloc(0, 1);
+        CupOfTea subset = df.iloc().slice(0, 5, 0, 2);
+
+        // Index-based indexing (loc)
+        df.setIndex("id");
+        Row person = df.loc(101);
+        Object name = df.loc(101, "name");
+
+        // Missing value imputation & cleaning
+        CupOfTea filled = df.fillna(0);
+        CupOfTea cleaned = df.dropna(); // drops rows with any missing value
+
         // Write to multiple formats
         filtered.write().csv("filtered.csv");
         filtered.write().json("filtered.json");

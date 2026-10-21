@@ -5,10 +5,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -18,22 +20,30 @@ import java.util.Set;
  * <p>
  * Implements {@link Map Map&lt;String, Object&gt;} as an unmodifiable map so callers cannot
  * corrupt the internal schema or values directly.
+ * <p>
+ * Supports both named column accessors (e.g. {@code getInt("age")}) and positional index accessors
+ * (e.g. {@code getInt(0)}, {@code getInt(-1)} for the last column).
  */
 public class Row implements Map<String, Object>, Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private final Map<String, Object> values;
+    private final List<String> columnOrder;
 
     public Row() {
         this.values = Collections.emptyMap();
+        this.columnOrder = Collections.emptyList();
     }
 
     public Row(Map<String, ?> data) {
         if (data == null || data.isEmpty()) {
             this.values = Collections.emptyMap();
+            this.columnOrder = Collections.emptyList();
         } else {
-            this.values = Collections.unmodifiableMap(new LinkedHashMap<>(data));
+            Map<String, Object> copy = new LinkedHashMap<>(data);
+            this.values = Collections.unmodifiableMap(copy);
+            this.columnOrder = Collections.unmodifiableList(new ArrayList<>(copy.keySet()));
         }
     }
 
@@ -52,7 +62,20 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
-     * Untyped column accessor.
+     * Resolves the column name at the given 0-based index.
+     * Supports negative index (-1 refers to the last column).
+     */
+    public String getColumnName(int index) {
+        int total = this.columnOrder.size();
+        int resolved = index < 0 ? total + index : index;
+        if (resolved < 0 || resolved >= total) {
+            throw new IndexOutOfBoundsException("Column index " + index + " out of bounds for row with " + total + " columns");
+        }
+        return this.columnOrder.get(resolved);
+    }
+
+    /**
+     * Untyped column accessor by name.
      *
      * @param column column name
      * @return raw value or {@code null}
@@ -67,18 +90,75 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
+     * Untyped column accessor by integer position.
+     * Supports negative indexing (-1 is the last column).
+     */
+    public Object get(int index) {
+        return get(getColumnName(index));
+    }
+
+    /**
+     * Checks if the value for the given column is missing / NA (null, NA singleton, or NaN).
+     */
+    public boolean isNA(String column) {
+        return NA.isNA(this.values.get(column));
+    }
+
+    /**
+     * Checks if the value for the given column is null.
+     */
+    public boolean isNull(String column) {
+        return this.values.get(column) == null;
+    }
+
+    /**
+     * Alias for {@link #isNA(String)}.
+     */
+    public boolean isMissing(String column) {
+        return isNA(column);
+    }
+
+    /**
+     * Checks if the value at the given column position is missing / NA.
+     */
+    public boolean isNA(int index) {
+        return isNA(getColumnName(index));
+    }
+
+    /**
+     * Checks if the value at the given column position is null.
+     */
+    public boolean isNull(int index) {
+        return isNull(getColumnName(index));
+    }
+
+    /**
+     * Alias for {@link #isNA(int)}.
+     */
+    public boolean isMissing(int index) {
+        return isNA(index);
+    }
+
+    /**
      * Returns the column value as a String. If the value is not a String,
-     * {@link Object#toString()} is called unless null.
+     * {@link Object#toString()} is called unless null or NA.
      */
     public String getString(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof String s) {
             return s;
         }
         return val.toString();
+    }
+
+    /**
+     * Returns the column value at the specified index as a String.
+     */
+    public String getString(int index) {
+        return getString(getColumnName(index));
     }
 
     /**
@@ -89,11 +169,18 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
+     * Returns the column value at the specified index as an Integer.
+     */
+    public Integer getInt(int index) {
+        return getInt(getColumnName(index));
+    }
+
+    /**
      * Returns the column value as an Integer.
      */
     public Integer getInteger(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof Integer i) {
@@ -106,10 +193,17 @@ public class Row implements Map<String, Object>, Serializable {
             return b ? 1 : 0;
         }
         String s = val.toString().trim();
-        if (s.isEmpty()) {
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "na".equalsIgnoreCase(s)) {
             return null;
         }
         return Integer.valueOf(s);
+    }
+
+    /**
+     * Returns the column value at the specified index as an Integer.
+     */
+    public Integer getInteger(int index) {
+        return getInteger(getColumnName(index));
     }
 
     /**
@@ -117,7 +211,7 @@ public class Row implements Map<String, Object>, Serializable {
      */
     public Long getLong(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof Long l) {
@@ -127,10 +221,17 @@ public class Row implements Map<String, Object>, Serializable {
             return num.longValue();
         }
         String s = val.toString().trim();
-        if (s.isEmpty()) {
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "na".equalsIgnoreCase(s)) {
             return null;
         }
         return Long.valueOf(s);
+    }
+
+    /**
+     * Returns the column value at the specified index as a Long.
+     */
+    public Long getLong(int index) {
+        return getLong(getColumnName(index));
     }
 
     /**
@@ -138,7 +239,7 @@ public class Row implements Map<String, Object>, Serializable {
      */
     public Double getDouble(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (val == null || val instanceof NA) {
             return null;
         }
         if (val instanceof Double d) {
@@ -148,10 +249,20 @@ public class Row implements Map<String, Object>, Serializable {
             return num.doubleValue();
         }
         String s = val.toString().trim();
-        if (s.isEmpty()) {
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "na".equalsIgnoreCase(s)) {
             return null;
         }
+        if ("nan".equalsIgnoreCase(s)) {
+            return Double.NaN;
+        }
         return Double.valueOf(s);
+    }
+
+    /**
+     * Returns the column value at the specified index as a Double.
+     */
+    public Double getDouble(int index) {
+        return getDouble(getColumnName(index));
     }
 
     /**
@@ -159,7 +270,7 @@ public class Row implements Map<String, Object>, Serializable {
      */
     public Float getFloat(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (val == null || val instanceof NA) {
             return null;
         }
         if (val instanceof Float f) {
@@ -169,10 +280,20 @@ public class Row implements Map<String, Object>, Serializable {
             return num.floatValue();
         }
         String s = val.toString().trim();
-        if (s.isEmpty()) {
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "na".equalsIgnoreCase(s)) {
             return null;
         }
+        if ("nan".equalsIgnoreCase(s)) {
+            return Float.NaN;
+        }
         return Float.valueOf(s);
+    }
+
+    /**
+     * Returns the column value at the specified index as a Float.
+     */
+    public Float getFloat(int index) {
+        return getFloat(getColumnName(index));
     }
 
     /**
@@ -180,7 +301,7 @@ public class Row implements Map<String, Object>, Serializable {
      */
     public Boolean getBoolean(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof Boolean b) {
@@ -190,6 +311,9 @@ public class Row implements Map<String, Object>, Serializable {
             return num.intValue() != 0;
         }
         String s = val.toString().trim();
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "na".equalsIgnoreCase(s)) {
+            return null;
+        }
         if ("true".equalsIgnoreCase(s) || "1".equals(s) || "yes".equalsIgnoreCase(s) || "y".equalsIgnoreCase(s)) {
             return true;
         }
@@ -200,11 +324,18 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
+     * Returns the column value at the specified index as a Boolean.
+     */
+    public Boolean getBoolean(int index) {
+        return getBoolean(getColumnName(index));
+    }
+
+    /**
      * Returns the column value as a Date.
      */
     public Date getDate(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof Date d) {
@@ -214,11 +345,18 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
+     * Returns the column value at the specified index as a Date.
+     */
+    public Date getDate(int index) {
+        return getDate(getColumnName(index));
+    }
+
+    /**
      * Returns the column value as a LocalDate.
      */
     public LocalDate getLocalDate(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof LocalDate ld) {
@@ -228,11 +366,18 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
+     * Returns the column value at the specified index as a LocalDate.
+     */
+    public LocalDate getLocalDate(int index) {
+        return getLocalDate(getColumnName(index));
+    }
+
+    /**
      * Returns the column value as a LocalDateTime.
      */
     public LocalDateTime getLocalDateTime(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof LocalDateTime ldt) {
@@ -242,11 +387,18 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
+     * Returns the column value at the specified index as a LocalDateTime.
+     */
+    public LocalDateTime getLocalDateTime(int index) {
+        return getLocalDateTime(getColumnName(index));
+    }
+
+    /**
      * Returns the column value as an Instant.
      */
     public Instant getInstant(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof Instant inst) {
@@ -256,11 +408,18 @@ public class Row implements Map<String, Object>, Serializable {
     }
 
     /**
+     * Returns the column value at the specified index as an Instant.
+     */
+    public Instant getInstant(int index) {
+        return getInstant(getColumnName(index));
+    }
+
+    /**
      * Returns the column value as a BigDecimal.
      */
     public BigDecimal getBigDecimal(String column) {
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (val instanceof BigDecimal bd) {
@@ -270,10 +429,17 @@ public class Row implements Map<String, Object>, Serializable {
             return new BigDecimal(num.toString());
         }
         String s = val.toString().trim();
-        if (s.isEmpty()) {
+        if (s.isEmpty() || "null".equalsIgnoreCase(s) || "na".equalsIgnoreCase(s)) {
             return null;
         }
         return new BigDecimal(s);
+    }
+
+    /**
+     * Returns the column value at the specified index as a BigDecimal.
+     */
+    public BigDecimal getBigDecimal(int index) {
+        return getBigDecimal(getColumnName(index));
     }
 
     /**
@@ -282,7 +448,7 @@ public class Row implements Map<String, Object>, Serializable {
     public <T> T getAs(String column, Class<T> type) {
         Objects.requireNonNull(type, "type cannot be null");
         Object val = this.values.get(column);
-        if (val == null) {
+        if (NA.isNA(val)) {
             return null;
         }
         if (type.isInstance(val)) {
@@ -290,6 +456,13 @@ public class Row implements Map<String, Object>, Serializable {
         }
         throw new ClassCastException("Value for column '" + column + "' (" + val + ") is of type "
             + val.getClass().getName() + ", not " + type.getName());
+    }
+
+    /**
+     * Returns the column value at the specified index cast to the requested type.
+     */
+    public <T> T getAs(int index, Class<T> type) {
+        return getAs(getColumnName(index), type);
     }
 
     /**
@@ -304,6 +477,13 @@ public class Row implements Map<String, Object>, Serializable {
      */
     public Set<String> getColumns() {
         return this.values.keySet();
+    }
+
+    /**
+     * Returns the ordered list of column names present in this row.
+     */
+    public List<String> getColumnNames() {
+        return this.columnOrder;
     }
 
     /**
