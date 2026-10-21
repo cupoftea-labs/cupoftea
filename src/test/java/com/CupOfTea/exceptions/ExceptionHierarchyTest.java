@@ -293,8 +293,7 @@ public class ExceptionHierarchyTest {
     @Test
     @DisplayName("Should throw appropriate exceptions on alterColumnType")
     void testAlterColumnTypeExceptions() {
-        CupOfTea df = new CupOfTea();
-        df.addColumn("col1");
+        CupOfTea df = new CupOfTea().addColumn("col1");
 
         // Non-existent column
         assertThatThrownBy(() -> df.alterColumnType("non_existent", Integer.class))

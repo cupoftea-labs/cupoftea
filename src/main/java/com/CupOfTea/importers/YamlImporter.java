@@ -62,10 +62,10 @@ public class YamlImporter implements IYamlImporter {
                 ArrayList<HashMap<String, Object>> array = (ArrayList<HashMap<String, Object>>) element;
                 if (array != null && !array.isEmpty()) {
                     for (var key : (array.get(0)).keySet()){
-                        this.dataFrame.addColumn(key);
+                        this.dataFrame.getDataFrame().addColumn(key);
                     }
                     for(var row : array){
-                        this.dataFrame.addRow(row);
+                        this.dataFrame.getDataFrame().addRow(row);
                     }
                 }
             }

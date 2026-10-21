@@ -1,10 +1,10 @@
 package com.CupOfTea.utils.interfaces;
 
-import java.util.HashMap;
+import com.CupOfTea.table.Row;
 
 @FunctionalInterface
 public interface IColumnCreator {
 
-    public Object createColumn(HashMap<String, Object> row);
+    Object createColumn(Row row);
 
 }

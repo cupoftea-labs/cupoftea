@@ -128,7 +128,7 @@ public class XmlImporter implements IXmlImporter {
                                     rowObj.put(columnName, rowColumn.getTextContent());
                                 }
                             }
-                            this.dataFrame.addRow(rowObj);
+                            this.dataFrame.getDataFrame().addRow(rowObj);
                             firstRow = false;
                         }
                     }

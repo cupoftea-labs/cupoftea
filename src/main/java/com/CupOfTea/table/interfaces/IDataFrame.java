@@ -1,7 +1,10 @@
 package com.CupOfTea.table.interfaces;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -9,33 +12,43 @@ import org.jetbrains.annotations.NotNull;
 
 import com.CupOfTea.table.Column;
 import com.CupOfTea.table.Header;
+import com.CupOfTea.table.Row;
 import com.CupOfTea.table.Schema;
 import com.CupOfTea.utils.interfaces.IColumnCreator;
 import com.CupOfTea.utils.interfaces.IFilter;
 import com.CupOfTea.utils.interfaces.Orderer;
 
-import lombok.Getter;
-
 public abstract class IDataFrame {
-    // ToDo ajustar tamanho dos headers para ter o mesmo numero de colunas que o body
-    protected Header header;
 
-    // ToDo tratar casos que as linhas tem diferentes quantidades de colunas
-    // ToDo ? uma coluna pode ter diferentes tipos de dados ?
-    // ToDo liberar o setter?
-    // ToDo Usar Generics
-    @Getter
+    protected Header header;
     protected ArrayList<HashMap<String, Object>> rows;
 
-    public ArrayList<HashMap<String, Object>> getRows() {
-        return this.rows;
-    }
-
-    public IDataFrame(){
-        // ToDo lidar com o limite de memoria do Java com (sun.misc.Unsafe class)
-        // https://blogs.oracle.com/javamagazine/post/the-unsafe-class-unsafe-at-any-speed
+    public IDataFrame() {
         this.rows = new ArrayList<>();
         this.header = new Header();
+    }
+
+    /**
+     * Returns an unmodifiable list of {@link Row} views.
+     * Internal row storage cannot be mutated through this list or the returned rows.
+     */
+    public List<Row> getRows() {
+        List<Row> rowViews = new ArrayList<>(this.rows.size());
+        for (var rowMap : this.rows) {
+            rowViews.add(new Row(rowMap));
+        }
+        return Collections.unmodifiableList(rowViews);
+    }
+
+    /**
+     * Returns the unmodifiable {@link Row} at the specified index.
+     */
+    public Row getRow(int index) {
+        return new Row(this.rows.get(index));
+    }
+
+    public ArrayList<HashMap<String, Object>> getInternalRows() {
+        return this.rows;
     }
 
     public IDataFrame(Schema schema) {
@@ -44,6 +57,17 @@ public abstract class IDataFrame {
             this.header = schema.toHeader();
         }
     }
+
+    public void clear() {
+        this.rows.clear();
+        this.header.clear();
+    }
+
+    public void clearRows() {
+        this.rows.clear();
+    }
+
+    public abstract IDataFrame copy();
 
     public abstract ArrayList<Column> getHeaders();
     public abstract Column getColumnHeader(String columnName);
@@ -69,20 +93,25 @@ public abstract class IDataFrame {
     public abstract IDataFrame removeColumn(String columnName);
     public abstract IDataFrame removeColumn(int index);
     public abstract IDataFrame alterColumnType(String columnName, Class<?> newColumnType);
-    public abstract IDataFrame addRow(@NotNull HashMap<String, Object> row);
+    public abstract IDataFrame addRow(@NotNull Map<String, Object> row);
     public abstract IDataFrame removeRow(int index);
     public abstract IDataFrame removeRows(IFilter filter);
     public abstract IDataFrame filter(IFilter filter);
-    public abstract IDataFrame update(HashMap<String, Object> updateColumns);
+    public abstract IDataFrame update(Map<String, Object> updateColumns);
     public abstract IDataFrame orderBy(Orderer... orderer);
-    
 
-    public Integer size(){
+    public abstract IDataFrame sum(String column);
+    public abstract IDataFrame average(String column);
+    public abstract IDataFrame maximum(String column);
+    public abstract IDataFrame minimum(String column);
+    public abstract IDataFrame count(String column);
+    public abstract IDataFrame aggregate(String column, String separator);
+
+    public Integer size() {
         return this.rows.size();
     }
 
-
-    public void setHeaders(ArrayList<Column> headers){
+    public void setHeaders(ArrayList<Column> headers) {
         this.header.setHeader(headers);
     }
 }

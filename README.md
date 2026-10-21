@@ -10,7 +10,10 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - Full support for `java.time` (`LocalDate`, `LocalDateTime`, `Instant`).
 - Exact currency arithmetic using `BigDecimal` (`Schema.DECIMAL`).
 - Column selection, row filtering, grouping, aggregation, and slicing operations.
-- Read and write CSV, JSON, Excel, and Parquet files.
+- Read and write CSV, JSON, Excel, Parquet, and YAML files.
+- **Unified Mutation Modes**: Fluent `IN_PLACE` builder by default with opt-in `COPY_ON_WRITE` via `.asCopyOnWrite()` and `.asInPlace()`.
+- **Deep Copy**: Explicit `.copy()` deep-copy method on `CupOfTea` and `IDataFrame`.
+- **Immutable Row API**: Strongly-typed, unmodifiable `Row` objects with typed accessors (`getInt`, `getString`, `getDouble`, `getBoolean`, `getLocalDate`, etc.) and zero leaking of internal mutable row maps.
 
 ## Future Features
 - Statistical and aggregation operations (mean, sum, standard deviation, etc.). (WIP)
@@ -41,6 +44,7 @@ Here’s a basic example of how to use the Java DataFrame library:
 ```java
 import java.io.File;
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.table.Row;
 import com.CupOfTea.table.Schema;
 import static com.CupOfTea.table.Schema.*;
 
@@ -57,12 +61,20 @@ public class Main {
         // Import CSV with schema
         File file = new File("employees.csv");
         CupOfTea df = new CupOfTea(schema).importFromCsv(file, schema);
-
         df.print();
 
-        // Exact aggregation with BigDecimal
-        CupOfTea grouped = df.groupBy("department").sum("salary");
-        grouped.print();
+        // Filter returns a new DataFrame with matching rows
+        CupOfTea filteredDf = df.filter(row -> row.getInt("age") > 30);
+        filteredDf.print();
+
+        // Typed row access
+        Row firstRow = filteredDf.getRow(0);
+        String name = firstRow.getString("name");
+        int age = firstRow.getInt("age");
+
+        // Or switch to COPY_ON_WRITE for immutable transformation chains
+        CupOfTea cowDf = df.copy().asCopyOnWrite();
+        CupOfTea withoutSalary = cowDf.removeColumn("salary");
     }
 }
 ```

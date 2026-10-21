@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.CupOfTea.CupOfTea;
+import com.CupOfTea.MutationMode;
 import com.CupOfTea.exceptions.SchemaMismatchException;
 
 public class GroupBy {
@@ -15,6 +16,7 @@ public class GroupBy {
     private final List<String> groupColumns;
     private final List<Column> sourceHeaders;
     private final Map<List<Object>, List<HashMap<String, Object>>> partitions;
+    private final MutationMode mutationMode;
 
     public GroupBy(CupOfTea source, String... columns) {
         if (source == null) {
@@ -23,6 +25,7 @@ public class GroupBy {
         if (columns == null || columns.length == 0) {
             throw new IllegalArgumentException("At least one grouping column must be specified");
         }
+        this.mutationMode = source.getMutationMode();
         this.sourceHeaders = new ArrayList<>();
         if (source.getHeaders() != null) {
             for (Column col : source.getHeaders()) {
@@ -38,12 +41,12 @@ public class GroupBy {
         }
 
         this.partitions = new LinkedHashMap<>();
-        for (HashMap<String, Object> row : source.getRows()) {
+        for (Row row : source.getRows()) {
             List<Object> key = new ArrayList<>(columns.length);
             for (String col : columns) {
                 key.add(row.get(col));
             }
-            partitions.computeIfAbsent(key, k -> new ArrayList<>()).add((HashMap<String, Object>) row.clone());
+            partitions.computeIfAbsent(key, k -> new ArrayList<>()).add(new HashMap<>(row.toMap()));
         }
     }
 
@@ -87,7 +90,7 @@ public class GroupBy {
             resultDf.addRow(newRow);
         }
 
-        return new CupOfTea(resultDf);
+        return new CupOfTea(resultDf, this.mutationMode);
     }
 
     public CupOfTea sum(String column) {
