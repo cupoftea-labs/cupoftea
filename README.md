@@ -10,6 +10,7 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - Full support for `java.time` (`LocalDate`, `LocalDateTime`, `Instant`).
 - Exact currency arithmetic using `BigDecimal` (`Schema.DECIMAL`).
 - Column selection, row filtering, grouping, aggregation, and slicing operations.
+- Relational joins: `innerJoin`, `leftJoin`, `rightJoin`, `outerJoin`, `crossJoin` with automatic column deduplication, multi-key support, and customizable suffixes.
 - Read and write CSV, JSON, Excel, Parquet, and YAML files.
 - **Columnar Engine**: High-performance contiguous memory layout (`ColumnVector` with primitive `int[]`, `double[]`, `long[]`, `float[]`, `boolean[]`, `String[]`, and `BitSet` null bitmasks), eliminating per-cell boxed object overhead and row hash lookups.
 - **Unified Mutation Modes**: Fluent `IN_PLACE` builder by default with opt-in `COPY_ON_WRITE` via `.asCopyOnWrite()` and `.asInPlace()`.
@@ -153,6 +154,13 @@ public class Main {
         CupOfTea filled = df.copy().fillna(0);
         CupOfTea cleaned = df.copy().dropna(); // drops rows with any missing value
 
+        // Relational joins
+        CupOfTea depts = CupOfTea.read().csv("departments.csv");
+        CupOfTea joined = df.innerJoin(depts, "department");
+        // Or left, right, outer, cross joins:
+        // CupOfTea left = df.leftJoin(depts, "department");
+        // CupOfTea cross = df.crossJoin(depts);
+
         // Write to multiple formats
         filtered.write().csv("filtered.csv");
         filtered.write().json("filtered.json");
@@ -173,8 +181,8 @@ CupOfTea df = CupOfTea.read().option("separator", ";").csv(new File("data.csv"))
 
 ## Roadmap
 - Statistical operations (median, standard deviation, variance).
-- Support for DataFrame join and merge operations.
 - Window and rolling functions.
+- Columnar storage engine.
 
 ## Documentation
 - [Missing-Value (NA) Model, Schema, and Null Policy](docs/null_policy.md)

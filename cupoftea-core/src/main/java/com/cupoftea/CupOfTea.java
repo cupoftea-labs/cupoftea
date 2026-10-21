@@ -4,6 +4,7 @@ import java.io.File;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +24,7 @@ import com.cupoftea.table.Column;
 import com.cupoftea.table.DataFrame;
 import com.cupoftea.table.GroupBy;
 import com.cupoftea.table.ILoc;
+import com.cupoftea.table.JoinType;
 import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
@@ -845,5 +847,288 @@ public class CupOfTea {
         CupOfTea target = targetForMutation();
         target.dataFrame.aggregate(column, separator);
         return target;
+    }
+
+    // --- Join operations ---
+
+    public CupOfTea join(CupOfTea other) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame()), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, String on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, List<String> on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, JoinType how, String on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, on), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, JoinType how, List<String> on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, on), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, String how, List<String> on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, on), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, String leftOn, String rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, JoinType how, String leftOn, String rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, String how, String leftOn, String rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, List<String> leftOn, List<String> rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, JoinType how, List<String> leftOn, List<String> rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, String how, List<String> leftOn, List<String> rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, JoinType how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, leftOn, rightOn, leftSuffix, rightSuffix), this.mutationMode);
+    }
+
+    public CupOfTea join(CupOfTea other, String how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.join(other.getDataFrame(), how, leftOn, rightOn, leftSuffix, rightSuffix), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(CupOfTea other, String... on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.innerJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(CupOfTea other, List<String> on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.innerJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(CupOfTea other, String leftOn, String rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.innerJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(CupOfTea other, List<String> leftOn, List<String> rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.innerJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(CupOfTea other, String... on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.leftJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(CupOfTea other, List<String> on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.leftJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(CupOfTea other, String leftOn, String rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.leftJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(CupOfTea other, List<String> leftOn, List<String> rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.leftJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(CupOfTea other, String... on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.rightJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(CupOfTea other, List<String> on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.rightJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(CupOfTea other, String leftOn, String rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.rightJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(CupOfTea other, List<String> leftOn, List<String> rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.rightJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(CupOfTea other, String... on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.outerJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(CupOfTea other, List<String> on) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.outerJoin(other.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(CupOfTea other, String leftOn, String rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.outerJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(CupOfTea other, List<String> leftOn, List<String> rightOn) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.outerJoin(other.getDataFrame(), leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea crossJoin(CupOfTea other) {
+        if (other == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.crossJoin(other.getDataFrame()), this.mutationMode);
+    }
+
+    // --- Overloads accepting IDataFrame ---
+
+    public CupOfTea join(IDataFrame other) {
+        return new CupOfTea(this.dataFrame.join(other), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, String on) {
+        return new CupOfTea(this.dataFrame.join(other, on), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, List<String> on) {
+        return new CupOfTea(this.dataFrame.join(other, on), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, JoinType how, String on) {
+        return new CupOfTea(this.dataFrame.join(other, how, on), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, JoinType how, List<String> on) {
+        return new CupOfTea(this.dataFrame.join(other, how, on), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, String how, List<String> on) {
+        return new CupOfTea(this.dataFrame.join(other, how, on), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, String leftOn, String rightOn) {
+        return new CupOfTea(this.dataFrame.join(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, JoinType how, String leftOn, String rightOn) {
+        return new CupOfTea(this.dataFrame.join(other, how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, String how, String leftOn, String rightOn) {
+        return new CupOfTea(this.dataFrame.join(other, how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return new CupOfTea(this.dataFrame.join(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, JoinType how, List<String> leftOn, List<String> rightOn) {
+        return new CupOfTea(this.dataFrame.join(other, how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, String how, List<String> leftOn, List<String> rightOn) {
+        return new CupOfTea(this.dataFrame.join(other, how, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, JoinType how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
+        return new CupOfTea(this.dataFrame.join(other, how, leftOn, rightOn, leftSuffix, rightSuffix), this.mutationMode);
+    }
+
+    public CupOfTea join(IDataFrame other, String how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
+        return new CupOfTea(this.dataFrame.join(other, how, leftOn, rightOn, leftSuffix, rightSuffix), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(IDataFrame other, String... on) {
+        return new CupOfTea(this.dataFrame.innerJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(IDataFrame other, List<String> on) {
+        return new CupOfTea(this.dataFrame.innerJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(IDataFrame other, String leftOn, String rightOn) {
+        return new CupOfTea(this.dataFrame.innerJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea innerJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return new CupOfTea(this.dataFrame.innerJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(IDataFrame other, String... on) {
+        return new CupOfTea(this.dataFrame.leftJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(IDataFrame other, List<String> on) {
+        return new CupOfTea(this.dataFrame.leftJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(IDataFrame other, String leftOn, String rightOn) {
+        return new CupOfTea(this.dataFrame.leftJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea leftJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return new CupOfTea(this.dataFrame.leftJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(IDataFrame other, String... on) {
+        return new CupOfTea(this.dataFrame.rightJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(IDataFrame other, List<String> on) {
+        return new CupOfTea(this.dataFrame.rightJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(IDataFrame other, String leftOn, String rightOn) {
+        return new CupOfTea(this.dataFrame.rightJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea rightJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return new CupOfTea(this.dataFrame.rightJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(IDataFrame other, String... on) {
+        return new CupOfTea(this.dataFrame.outerJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(IDataFrame other, List<String> on) {
+        return new CupOfTea(this.dataFrame.outerJoin(other, on), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(IDataFrame other, String leftOn, String rightOn) {
+        return new CupOfTea(this.dataFrame.outerJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea outerJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return new CupOfTea(this.dataFrame.outerJoin(other, leftOn, rightOn), this.mutationMode);
+    }
+
+    public CupOfTea crossJoin(IDataFrame other) {
+        return new CupOfTea(this.dataFrame.crossJoin(other), this.mutationMode);
     }
 }

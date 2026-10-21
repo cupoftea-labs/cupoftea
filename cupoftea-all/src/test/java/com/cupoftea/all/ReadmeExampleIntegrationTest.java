@@ -87,5 +87,12 @@ public class ReadmeExampleIntegrationTest {
         CupOfTea cowDf = df.copy().asCopyOnWrite();
         CupOfTea withoutSalary = cowDf.removeColumn("salary");
         assertThat(withoutSalary.getHeaders()).extracting("columnName").doesNotContain("salary");
+
+        // Relational joins
+        CupOfTea depts = new CupOfTea();
+        depts.addColumn("department", String.class).addColumn("budget", Double.class);
+        depts.addRow(java.util.Map.of("department", "Engineering", "budget", 500000.0));
+        CupOfTea joined = df.innerJoin(depts, "department");
+        assertThat(joined.size()).isEqualTo(2); // Alice and Charlie
     }
 }
