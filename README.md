@@ -11,6 +11,7 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - Exact currency arithmetic using `BigDecimal` (`Schema.DECIMAL`).
 - Column selection, row filtering, grouping, aggregation, and slicing operations.
 - Read and write CSV, JSON, Excel, Parquet, and YAML files.
+- **Columnar Engine**: High-performance contiguous memory layout (`ColumnVector` with primitive `int[]`, `double[]`, `long[]`, `float[]`, `boolean[]`, `String[]`, and `BitSet` null bitmasks), eliminating per-cell boxed object overhead and row hash lookups.
 - **Unified Mutation Modes**: Fluent `IN_PLACE` builder by default with opt-in `COPY_ON_WRITE` via `.asCopyOnWrite()` and `.asInPlace()`.
 - **Deep Copy**: Explicit `.copy()` deep-copy method on `CupOfTea` and `IDataFrame`.
 - **Immutable Row API**: Strongly-typed, unmodifiable `Row` objects with typed accessors (`getInt`, `getString`, `getDouble`, `getBoolean`, `getLocalDate`, etc.) and zero leaking of internal mutable row maps.

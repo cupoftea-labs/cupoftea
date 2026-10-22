@@ -113,7 +113,7 @@ public class ILoc implements Serializable {
             if (rIdx < 0 || rIdx >= total) {
                 throw new IndexOutOfBoundsException("Row index " + idx + " out of bounds for length " + total);
             }
-            result.getInternalRows().add(new HashMap<>(this.dataFrame.getInternalRows().get(rIdx)));
+            result.addRow(this.dataFrame.getRow(rIdx));
         }
         return wrap(result);
     }

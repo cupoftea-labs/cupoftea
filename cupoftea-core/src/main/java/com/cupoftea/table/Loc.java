@@ -74,10 +74,12 @@ public class Loc implements Serializable {
         result.setHeaders(new ArrayList<>(this.dataFrame.getHeaders()));
         result.setIndex(indexCol);
 
-        for (var rowMap : this.dataFrame.getInternalRows()) {
-            Object val = rowMap.get(indexCol);
+        int total = this.dataFrame.size();
+        for (int i = 0; i < total; i++) {
+            Row row = this.dataFrame.getRow(i);
+            Object val = row.get(indexCol);
             if (keySet.contains(val) || (val != null && keyStrings.contains(val.toString()))) {
-                result.getInternalRows().add(new HashMap<>(rowMap));
+                result.addRow(row);
             }
         }
         return wrap(result);

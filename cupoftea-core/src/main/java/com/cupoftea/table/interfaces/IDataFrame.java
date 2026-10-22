@@ -1,5 +1,6 @@
 package com.cupoftea.table.interfaces;
 
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -13,9 +14,11 @@ import org.jetbrains.annotations.Nullable;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.Header;
 import com.cupoftea.table.ILoc;
+import com.cupoftea.table.Index;
 import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
+import com.cupoftea.table.vector.ColumnVector;
 import com.cupoftea.utils.interfaces.IColumnCreator;
 import com.cupoftea.utils.interfaces.IFilter;
 import com.cupoftea.utils.interfaces.Orderer;
@@ -25,43 +28,67 @@ public abstract class IDataFrame {
     protected Header header;
     protected ArrayList<HashMap<String, Object>> rows;
     protected String indexColumn;
+    protected Index index;
 
     public IDataFrame() {
         this.rows = new ArrayList<>();
         this.header = new Header();
         this.indexColumn = null;
+        this.index = new Index();
     }
 
     /**
      * Returns an unmodifiable list of {@link Row} views.
-     * Internal row storage cannot be mutated through this list or the returned rows.
+     * Evaluated lazily over the underlying columnar storage without allocating intermediate row maps.
      */
     public List<Row> getRows() {
-        List<Row> rowViews = new ArrayList<>(this.rows.size());
-        for (int i = 0; i < this.rows.size(); i++) {
-            rowViews.add(this.getRow(i));
-        }
-        return Collections.unmodifiableList(rowViews);
+        return Collections.unmodifiableList(new AbstractList<Row>() {
+            @Override
+            public Row get(int index) {
+                if (index < 0 || index >= size()) {
+                    throw new IndexOutOfBoundsException("Index " + index + " out of bounds for length " + size());
+                }
+                return getRow(index);
+            }
+
+            @Override
+            public int size() {
+                return IDataFrame.this.size();
+            }
+        });
     }
 
     /**
      * Returns the unmodifiable {@link Row} at the specified index.
      * The row columns are ordered according to the DataFrame header.
      */
-    public Row getRow(int index) {
-        HashMap<String, Object> rowMap = this.rows.get(index);
-        if (this.header == null || this.header.getHeader() == null || this.header.getHeader().isEmpty()) {
-            return new Row(rowMap);
+    public abstract Row getRow(int index);
+
+    /**
+     * Returns row interchange maps.
+     */
+    public ArrayList<HashMap<String, Object>> getInternalRows() {
+        ArrayList<HashMap<String, Object>> list = new ArrayList<>(this.size());
+        for (int i = 0; i < this.size(); i++) {
+            list.add(new HashMap<>(this.getRow(i)));
         }
-        Map<String, Object> orderedMap = new LinkedHashMap<>(this.header.size());
-        for (Column col : this.header.getHeader()) {
-            orderedMap.put(col.columnName(), rowMap.get(col.columnName()));
-        }
-        return new Row(orderedMap);
+        return list;
     }
 
-    public ArrayList<HashMap<String, Object>> getInternalRows() {
-        return this.rows;
+    public List<ColumnVector> getColumnVectors() {
+        return Collections.emptyList();
+    }
+
+    public ColumnVector getColumnVector(String columnName) {
+        return null;
+    }
+
+    public ColumnVector getColumnVector(int index) {
+        return null;
+    }
+
+    public Index getIndexObject() {
+        return this.index;
     }
 
     public IDataFrame(Schema schema) {
@@ -133,7 +160,7 @@ public abstract class IDataFrame {
     public abstract ILoc iloc();
 
     public String getIndex() {
-        return this.indexColumn;
+        return this.index != null && this.index.hasIndex() ? this.index.getColumnName() : this.indexColumn;
     }
     public abstract IDataFrame setIndex(String columnName);
     public abstract IDataFrame resetIndex();
