@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-23
+
+### Added
+
+- Rolling Windows (`df.rolling(int windowSize)`): Fluent sliding-window builder supporting `mean`, `sum`, `min`, `max`, `std`, `variance` / `var`, `median`, `count`, and custom aggregation functions via `apply` ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+- Primitive sliding-window algorithms: Amortized $O(1)$ rolling sum, mean, running variance/std, and monotonic deque minimum and maximum; and $O(\log W)$ rolling median via dual heaps with lazy deletion ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+- Configurable rolling window properties: customizable `minPeriods`, centered (`center()`, `centered()`), forward-looking (`forward()`), and backward-looking (`backward()`) window directions ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+- Cumulative Operations: `cumsum`, `cumprod`, `cummin`, `cummax` preserving missing values (`null` / `NA`) according to null policy, supporting `BigDecimal` exact arithmetic, integers, and floating-point types ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+- Expanding Windows (`df.expanding()`, `df.expanding(int minPeriods)`): Historical cumulative windows from frame start up to current row $[0, i]$ with incremental $O(1)$ statistical operations ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+- Window & Analytic SQL-like Functions: `lead`, `lag`, `diff`, `pctChange`, and ranking functions `rank`, `denseRank`, `percentRank`, and `rowNumber` ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+- SQL-like Window Partitioning: `df.window().partitionBy(...).orderBy(...).rank()` computing analytical metrics across partitions while strictly preserving original DataFrame row alignment and order ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+- Complete compatibility with `MutationMode.IN_PLACE` and `MutationMode.COPY_ON_WRITE` across all window, rolling, and cumulative operations ([#176](https://github.com/filippo-pequini/CupOfTea/issues/176)).
+
 ## [0.4.0] - 2026-10-23
 
 ### Added

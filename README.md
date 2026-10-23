@@ -12,6 +12,7 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - Column selection, row filtering, grouping, aggregation, and slicing operations.
 - Relational joins: `innerJoin`, `leftJoin`, `rightJoin`, `outerJoin`, `crossJoin` with automatic column deduplication, multi-key support, and customizable suffixes.
 - **Statistical Operations & Summary**: High-performance linear $O(n)$ quantiles and median (via Introselect), sample and population variance and standard deviation, skewness, kurtosis, covariance, correlation matrix (`corr()`), and descriptive summary (`describe()`).
+- **Window, Rolling & Cumulative Functions**: Sliding rolling windows (`df.rolling(w)`), expanding windows (`df.expanding()`), cumulative operations (`cumsum`, `cumprod`, `cummin`, `cummax`), time series shifts (`lead`, `lag`, `diff`, `pctChange`), and SQL-like analytical window partitioning and ranking (`df.window().partitionBy(...).orderBy(...).rank()`).
 - Read and write CSV, JSON, Excel, Parquet, and YAML files.
 - **Columnar Engine**: High-performance contiguous memory layout (`ColumnVector` with primitive `int[]`, `double[]`, `long[]`, `float[]`, `boolean[]`, `String[]`, and `BitSet` null bitmasks), eliminating per-cell boxed object overhead and row hash lookups.
 - **Unified Mutation Modes**: Fluent `IN_PLACE` builder by default with opt-in `COPY_ON_WRITE` via `.asCopyOnWrite()` and `.asInPlace()`.
@@ -35,7 +36,7 @@ Add the core dependency to your `pom.xml`:
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-core</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 
@@ -46,12 +47,12 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-csv</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 </dependency>
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-json</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 </dependency>
 
 <!-- Or import all formats with the aggregator module: -->
@@ -59,7 +60,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-all</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 </dependency>
 -->
 ```
@@ -70,28 +71,28 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 
 ```groovy
 // Core library
-implementation 'com.cupoftea:cupoftea-core:0.4.0'
+implementation 'com.cupoftea:cupoftea-core:0.5.0'
 
 // Optional format modules
-implementation 'com.cupoftea:cupoftea-csv:0.4.0'
-implementation 'com.cupoftea:cupoftea-json:0.4.0'
+implementation 'com.cupoftea:cupoftea-csv:0.5.0'
+implementation 'com.cupoftea:cupoftea-json:0.5.0'
 
 // Or all formats at once:
-// implementation 'com.cupoftea:cupoftea-all:0.4.0'
+// implementation 'com.cupoftea:cupoftea-all:0.5.0'
 ```
 
 **Kotlin DSL (`build.gradle.kts`):**
 
 ```kotlin
 // Core library
-implementation("com.cupoftea:cupoftea-core:0.4.0")
+implementation("com.cupoftea:cupoftea-core:0.5.0")
 
 // Optional format modules
-implementation("com.cupoftea:cupoftea-csv:0.4.0")
-implementation("com.cupoftea:cupoftea-json:0.4.0")
+implementation("com.cupoftea:cupoftea-csv:0.5.0")
+implementation("com.cupoftea:cupoftea-json:0.5.0")
 
 // Or all formats at once:
-// implementation("com.cupoftea:cupoftea-all:0.4.0")
+// implementation("com.cupoftea:cupoftea-all:0.5.0")
 ```
 
 ## Available Modules
@@ -203,8 +204,8 @@ df.transformColumn("hire_date", df.col("hire_date").dt.plusMonths(6));
 ```
 
 ## Roadmap
-- Window and rolling functions.
-- Time series resampling and rolling statistics.
+- [x] Window and rolling functions.
+- [ ] Time series resampling and frequency conversion.
 
 ## Documentation
 - [Missing-Value (NA) Model, Schema, and Null Policy](docs/null_policy.md)
