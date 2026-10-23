@@ -39,6 +39,7 @@ import com.cupoftea.table.vector.ColumnVector;
 import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.Introselect;
 import com.cupoftea.table.vector.LongColumnVector;
 import com.cupoftea.table.vector.ObjectColumnVector;
 import com.cupoftea.table.vector.StringColumnVector;
@@ -1247,6 +1248,416 @@ public class DataFrame extends IDataFrame {
         this.columns.add(newVec);
         this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
+    }
+
+    // ==========================================
+    // Statistical Operations & Parity with Pandas
+    // ==========================================
+
+    private ColumnVector requireVector(String column) {
+        ColumnVector vec = getVector(column);
+        if (vec == null) {
+            throw new SchemaMismatchException("Column '" + column + "' does not exist in DataFrame");
+        }
+        return vec;
+    }
+
+    private ColumnVector requireNumericVector(String column) {
+        ColumnVector vec = requireVector(column);
+        if (!isNumericType(vec.getType())) {
+            throw new IllegalArgumentException("Column '" + column + "' of type " + (vec.getType() != null ? vec.getType().getSimpleName() : "unknown") + " is not numeric");
+        }
+        return vec;
+    }
+
+    private static boolean isNumericType(Class<?> type) {
+        if (type == null) return false;
+        return Number.class.isAssignableFrom(type)
+            || type == int.class
+            || type == long.class
+            || type == double.class
+            || type == float.class
+            || type == short.class
+            || type == byte.class;
+    }
+
+    private static boolean isTemporalType(Class<?> type) {
+        if (type == null) return false;
+        return LocalDate.class.isAssignableFrom(type)
+            || LocalDateTime.class.isAssignableFrom(type)
+            || Instant.class.isAssignableFrom(type)
+            || Date.class.isAssignableFrom(type);
+    }
+
+    @Override
+    public Double mean(String column) {
+        return requireNumericVector(column).mean();
+    }
+
+    @Override
+    public Double min(String column) {
+        return requireNumericVector(column).min();
+    }
+
+    @Override
+    public Double max(String column) {
+        return requireNumericVector(column).max();
+    }
+
+    @Override
+    public Double median(String column) {
+        return requireNumericVector(column).median();
+    }
+
+    @Override
+    public Double variance(String column) {
+        return requireNumericVector(column).variance(true);
+    }
+
+    @Override
+    public Double variance(String column, boolean isSample) {
+        return requireNumericVector(column).variance(isSample);
+    }
+
+    @Override
+    public Double var(String column) {
+        return requireNumericVector(column).var();
+    }
+
+    @Override
+    public Double var(String column, boolean isSample) {
+        return requireNumericVector(column).var(isSample);
+    }
+
+    @Override
+    public Double standardDeviation(String column) {
+        return requireNumericVector(column).standardDeviation(true);
+    }
+
+    @Override
+    public Double standardDeviation(String column, boolean isSample) {
+        return requireNumericVector(column).standardDeviation(isSample);
+    }
+
+    @Override
+    public Double std(String column) {
+        return requireNumericVector(column).std();
+    }
+
+    @Override
+    public Double std(String column, boolean isSample) {
+        return requireNumericVector(column).std(isSample);
+    }
+
+    @Override
+    public Double quantile(String column, double q) {
+        return requireNumericVector(column).quantile(q);
+    }
+
+    @Override
+    public Double skewness(String column) {
+        return requireNumericVector(column).skewness(true);
+    }
+
+    @Override
+    public Double skewness(String column, boolean isSample) {
+        return requireNumericVector(column).skewness(isSample);
+    }
+
+    @Override
+    public Double skew(String column) {
+        return requireNumericVector(column).skew();
+    }
+
+    @Override
+    public Double kurtosis(String column) {
+        return requireNumericVector(column).kurtosis(true);
+    }
+
+    @Override
+    public Double kurtosis(String column, boolean isSample) {
+        return requireNumericVector(column).kurtosis(isSample);
+    }
+
+    @Override
+    public Double kurt(String column) {
+        return requireNumericVector(column).kurt();
+    }
+
+    @Override
+    public Double covariance(String col1, String col2) {
+        return covariance(col1, col2, true);
+    }
+
+    @Override
+    public Double covariance(String col1, String col2, boolean isSample) {
+        ColumnVector v1 = requireNumericVector(col1);
+        ColumnVector v2 = requireNumericVector(col2);
+        int total = Math.min(v1.size(), v2.size());
+        int n = 0;
+        double sum1 = 0.0;
+        double sum2 = 0.0;
+        for (int i = 0; i < total; i++) {
+            if (!v1.isNull(i) && !v2.isNull(i)) {
+                double val1 = v1.getDouble(i);
+                double val2 = v2.getDouble(i);
+                if (!Double.isNaN(val1) && !Double.isNaN(val2)) {
+                    sum1 += val1;
+                    sum2 += val2;
+                    n++;
+                }
+            }
+        }
+        if (n < (isSample ? 2 : 1)) {
+            return Double.NaN;
+        }
+        double mean1 = sum1 / n;
+        double mean2 = sum2 / n;
+        double s12 = 0.0;
+        for (int i = 0; i < total; i++) {
+            if (!v1.isNull(i) && !v2.isNull(i)) {
+                double val1 = v1.getDouble(i);
+                double val2 = v2.getDouble(i);
+                if (!Double.isNaN(val1) && !Double.isNaN(val2)) {
+                    s12 += (val1 - mean1) * (val2 - mean2);
+                }
+            }
+        }
+        return s12 / (isSample ? (n - 1) : n);
+    }
+
+    @Override
+    public Double cov(String col1, String col2) {
+        return covariance(col1, col2, true);
+    }
+
+    @Override
+    public Double cov(String col1, String col2, boolean isSample) {
+        return covariance(col1, col2, isSample);
+    }
+
+    @Override
+    public Double correlation(String col1, String col2) {
+        ColumnVector v1 = requireNumericVector(col1);
+        ColumnVector v2 = requireNumericVector(col2);
+        int total = Math.min(v1.size(), v2.size());
+        int n = 0;
+        double sum1 = 0.0;
+        double sum2 = 0.0;
+        for (int i = 0; i < total; i++) {
+            if (!v1.isNull(i) && !v2.isNull(i)) {
+                double val1 = v1.getDouble(i);
+                double val2 = v2.getDouble(i);
+                if (!Double.isNaN(val1) && !Double.isNaN(val2)) {
+                    sum1 += val1;
+                    sum2 += val2;
+                    n++;
+                }
+            }
+        }
+        if (n < 2) {
+            return Double.NaN;
+        }
+        double mean1 = sum1 / n;
+        double mean2 = sum2 / n;
+        double s12 = 0.0;
+        double s11 = 0.0;
+        double s22 = 0.0;
+        for (int i = 0; i < total; i++) {
+            if (!v1.isNull(i) && !v2.isNull(i)) {
+                double val1 = v1.getDouble(i);
+                double val2 = v2.getDouble(i);
+                if (!Double.isNaN(val1) && !Double.isNaN(val2)) {
+                    double d1 = val1 - mean1;
+                    double d2 = val2 - mean2;
+                    s12 += d1 * d2;
+                    s11 += d1 * d1;
+                    s22 += d2 * d2;
+                }
+            }
+        }
+        if (s11 == 0.0 || s22 == 0.0) {
+            return Double.NaN;
+        }
+        double r = s12 / Math.sqrt(s11 * s22);
+        return Math.max(-1.0, Math.min(1.0, r));
+    }
+
+    @Override
+    public Double corr(String col1, String col2) {
+        return correlation(col1, col2);
+    }
+
+    @Override
+    public DataFrame corr() {
+        List<String> numericCols = new ArrayList<>();
+        for (Column col : this.header.getHeader()) {
+            if (isNumericType(col.columnType())) {
+                numericCols.add(col.columnName());
+            }
+        }
+        DataFrame matrix = new DataFrame();
+        if (numericCols.isEmpty()) {
+            return matrix;
+        }
+        ArrayList<Column> matrixHeaders = new ArrayList<>();
+        matrixHeaders.add(new Column("column", String.class));
+        for (String colName : numericCols) {
+            matrixHeaders.add(new Column(colName, Double.class));
+        }
+        matrix.setHeaders(matrixHeaders);
+
+        for (String rowCol : numericCols) {
+            HashMap<String, Object> rowMap = new HashMap<>();
+            rowMap.put("column", rowCol);
+            for (String colCol : numericCols) {
+                if (rowCol.equals(colCol)) {
+                    ColumnVector v = getVector(rowCol);
+                    if (v != null && v.validCount() >= 2 && v.variance() > 0.0) {
+                        rowMap.put(colCol, 1.0);
+                    } else if (v != null && v.validCount() == 1) {
+                        rowMap.put(colCol, 1.0);
+                    } else {
+                        rowMap.put(colCol, Double.NaN);
+                    }
+                } else {
+                    rowMap.put(colCol, correlation(rowCol, colCol));
+                }
+            }
+            matrix.addRow(rowMap);
+        }
+        matrix.setIndex("column");
+        return matrix;
+    }
+
+    @Override
+    public DataFrame describe() {
+        List<Column> targetCols = new ArrayList<>();
+        for (Column col : this.header.getHeader()) {
+            if (isNumericType(col.columnType()) || isTemporalType(col.columnType())) {
+                targetCols.add(col);
+            }
+        }
+        DataFrame summary = new DataFrame();
+        if (targetCols.isEmpty()) {
+            return summary;
+        }
+        ArrayList<Column> summaryHeaders = new ArrayList<>();
+        summaryHeaders.add(new Column("stat", String.class));
+        for (Column col : targetCols) {
+            summaryHeaders.add(new Column(col.columnName(), isNumericType(col.columnType()) ? Double.class : Object.class));
+        }
+        summary.setHeaders(summaryHeaders);
+
+        String[] statNames = new String[] { "count", "mean", "std", "min", "25%", "50%", "75%", "max" };
+        Map<String, Map<String, Object>> colSummaries = new LinkedHashMap<>();
+
+        for (Column col : targetCols) {
+            String colName = col.columnName();
+            ColumnVector vec = getVector(colName);
+            Map<String, Object> stats = new HashMap<>();
+            if (isNumericType(col.columnType())) {
+                int count = vec != null ? vec.validCount() : 0;
+                stats.put("count", (double) count);
+                stats.put("mean", count > 0 ? vec.mean() : Double.NaN);
+                stats.put("std", count > 1 ? vec.std() : Double.NaN);
+                stats.put("min", count > 0 ? vec.min() : Double.NaN);
+                stats.put("25%", count > 0 ? vec.quantile(0.25) : Double.NaN);
+                stats.put("50%", count > 0 ? vec.median() : Double.NaN);
+                stats.put("75%", count > 0 ? vec.quantile(0.75) : Double.NaN);
+                stats.put("max", count > 0 ? vec.max() : Double.NaN);
+            } else if (isTemporalType(col.columnType())) {
+                computeTemporalSummary(vec, col.columnType(), stats);
+            }
+            colSummaries.put(colName, stats);
+        }
+
+        for (String statName : statNames) {
+            HashMap<String, Object> row = new HashMap<>();
+            row.put("stat", statName);
+            for (Column col : targetCols) {
+                row.put(col.columnName(), colSummaries.get(col.columnName()).get(statName));
+            }
+            summary.addRow(row);
+        }
+        summary.setIndex("stat");
+        return summary;
+    }
+
+    private void computeTemporalSummary(ColumnVector vec, Class<?> type, Map<String, Object> stats) {
+        if (vec == null || vec.validCount() == 0) {
+            stats.put("count", 0.0);
+            stats.put("mean", null);
+            stats.put("std", null);
+            stats.put("min", null);
+            stats.put("25%", null);
+            stats.put("50%", null);
+            stats.put("75%", null);
+            stats.put("max", null);
+            return;
+        }
+        int count = vec.validCount();
+        stats.put("count", (double) count);
+        stats.put("std", null);
+
+        double[] epochs = new double[count];
+        int idx = 0;
+        for (int i = 0; i < vec.size(); i++) {
+            if (!vec.isNull(i)) {
+                Object obj = vec.getObject(i);
+                if (obj != null && !NA.isNA(obj)) {
+                    epochs[idx++] = toTemporalEpoch(obj, type);
+                }
+            }
+        }
+        if (idx == 0) {
+            stats.put("count", 0.0);
+            return;
+        }
+        double meanEpoch = 0.0;
+        for (int i = 0; i < idx; i++) meanEpoch += epochs[i];
+        meanEpoch /= idx;
+
+        double minEpoch = Introselect.quantile(Arrays.copyOf(epochs, idx), 0, idx, 0.0);
+        double q25Epoch = Introselect.quantile(Arrays.copyOf(epochs, idx), 0, idx, 0.25);
+        double q50Epoch = Introselect.quantile(Arrays.copyOf(epochs, idx), 0, idx, 0.50);
+        double q75Epoch = Introselect.quantile(Arrays.copyOf(epochs, idx), 0, idx, 0.75);
+        double maxEpoch = Introselect.quantile(Arrays.copyOf(epochs, idx), 0, idx, 1.0);
+
+        stats.put("mean", fromTemporalEpoch(meanEpoch, type));
+        stats.put("min", fromTemporalEpoch(minEpoch, type));
+        stats.put("25%", fromTemporalEpoch(q25Epoch, type));
+        stats.put("50%", fromTemporalEpoch(q50Epoch, type));
+        stats.put("75%", fromTemporalEpoch(q75Epoch, type));
+        stats.put("max", fromTemporalEpoch(maxEpoch, type));
+    }
+
+    private static double toTemporalEpoch(Object obj, Class<?> type) {
+        if (obj instanceof LocalDate ld) {
+            return ld.toEpochDay();
+        } else if (obj instanceof LocalDateTime ldt) {
+            return ldt.toEpochSecond(java.time.ZoneOffset.UTC);
+        } else if (obj instanceof Instant inst) {
+            return inst.toEpochMilli();
+        } else if (obj instanceof Date d) {
+            return d.getTime();
+        }
+        return 0.0;
+    }
+
+    private static Object fromTemporalEpoch(double epoch, Class<?> type) {
+        if (Double.isNaN(epoch)) return null;
+        long val = Math.round(epoch);
+        if (LocalDate.class.isAssignableFrom(type)) {
+            return LocalDate.ofEpochDay(val);
+        } else if (LocalDateTime.class.isAssignableFrom(type)) {
+            return LocalDateTime.ofEpochSecond(val, 0, java.time.ZoneOffset.UTC);
+        } else if (Instant.class.isAssignableFrom(type)) {
+            return Instant.ofEpochMilli(val);
+        } else if (Date.class.isAssignableFrom(type)) {
+            return new Date(val);
+        }
+        return val;
     }
 
     @Override

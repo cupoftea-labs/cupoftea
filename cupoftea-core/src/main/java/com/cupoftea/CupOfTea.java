@@ -1131,4 +1131,116 @@ public class CupOfTea {
     public CupOfTea crossJoin(IDataFrame other) {
         return new CupOfTea(this.dataFrame.crossJoin(other), this.mutationMode);
     }
+
+    // ==========================================
+    // Statistical Operations & Parity with Pandas
+    // ==========================================
+
+    public Double mean(String column) {
+        return this.dataFrame.mean(column);
+    }
+
+    public Double min(String column) {
+        return this.dataFrame.min(column);
+    }
+
+    public Double max(String column) {
+        return this.dataFrame.max(column);
+    }
+
+    public Double median(String column) {
+        return this.dataFrame.median(column);
+    }
+
+    public Double variance(String column) {
+        return this.dataFrame.variance(column);
+    }
+
+    public Double variance(String column, boolean isSample) {
+        return this.dataFrame.variance(column, isSample);
+    }
+
+    public Double var(String column) {
+        return this.dataFrame.var(column);
+    }
+
+    public Double var(String column, boolean isSample) {
+        return this.dataFrame.var(column, isSample);
+    }
+
+    public Double standardDeviation(String column) {
+        return this.dataFrame.standardDeviation(column);
+    }
+
+    public Double standardDeviation(String column, boolean isSample) {
+        return this.dataFrame.standardDeviation(column, isSample);
+    }
+
+    public Double std(String column) {
+        return this.dataFrame.std(column);
+    }
+
+    public Double std(String column, boolean isSample) {
+        return this.dataFrame.std(column, isSample);
+    }
+
+    public Double quantile(String column, double q) {
+        return this.dataFrame.quantile(column, q);
+    }
+
+    public Double skewness(String column) {
+        return this.dataFrame.skewness(column);
+    }
+
+    public Double skewness(String column, boolean isSample) {
+        return this.dataFrame.skewness(column, isSample);
+    }
+
+    public Double skew(String column) {
+        return this.dataFrame.skew(column);
+    }
+
+    public Double kurtosis(String column) {
+        return this.dataFrame.kurtosis(column);
+    }
+
+    public Double kurtosis(String column, boolean isSample) {
+        return this.dataFrame.kurtosis(column, isSample);
+    }
+
+    public Double kurt(String column) {
+        return this.dataFrame.kurt(column);
+    }
+
+    public Double covariance(String col1, String col2) {
+        return this.dataFrame.covariance(col1, col2);
+    }
+
+    public Double covariance(String col1, String col2, boolean isSample) {
+        return this.dataFrame.covariance(col1, col2, isSample);
+    }
+
+    public Double cov(String col1, String col2) {
+        return this.dataFrame.cov(col1, col2);
+    }
+
+    public Double cov(String col1, String col2, boolean isSample) {
+        return this.dataFrame.cov(col1, col2, isSample);
+    }
+
+    public Double correlation(String col1, String col2) {
+        return this.dataFrame.correlation(col1, col2);
+    }
+
+    public Double corr(String col1, String col2) {
+        return this.dataFrame.corr(col1, col2);
+    }
+
+    public CupOfTea corr() {
+        return new CupOfTea(this.dataFrame.corr(), this.mutationMode);
+    }
+
+    public CupOfTea describe() {
+        return new CupOfTea(this.dataFrame.describe(), this.mutationMode);
+    }
 }

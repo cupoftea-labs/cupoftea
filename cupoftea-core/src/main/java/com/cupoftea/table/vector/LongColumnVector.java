@@ -206,4 +206,130 @@ public class LongColumnVector extends ColumnVector {
     public long[] toLongArray() {
         return Arrays.copyOf(data, size);
     }
+
+    @Override
+    public double[] toPrimitiveDoubleArray() {
+        int count = validCount();
+        if (count == 0) {
+            return new double[0];
+        }
+        double[] result = new double[count];
+        int idx = 0;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                result[i] = (double) data[i];
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    result[idx++] = (double) data[i];
+                }
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public double sum() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        double s = 0.0;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                s += (double) data[i];
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    s += (double) data[i];
+                }
+            }
+        }
+        return s;
+    }
+
+    @Override
+    public double min() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        long minVal = Long.MAX_VALUE;
+        boolean found = false;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                if (!found || data[i] < minVal) {
+                    minVal = data[i];
+                    found = true;
+                }
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    if (!found || data[i] < minVal) {
+                        minVal = data[i];
+                        found = true;
+                    }
+                }
+            }
+        }
+        return found ? (double) minVal : Double.NaN;
+    }
+
+    @Override
+    public double max() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        long maxVal = Long.MIN_VALUE;
+        boolean found = false;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                if (!found || data[i] > maxVal) {
+                    maxVal = data[i];
+                    found = true;
+                }
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    if (!found || data[i] > maxVal) {
+                        maxVal = data[i];
+                        found = true;
+                    }
+                }
+            }
+        }
+        return found ? (double) maxVal : Double.NaN;
+    }
+
+    @Override
+    public double variance(boolean isSample) {
+        int n = validCount();
+        if (isSample && n < 2) {
+            return Double.NaN;
+        }
+        if (!isSample && n < 1) {
+            return Double.NaN;
+        }
+        double m = mean();
+        double sumSq = 0.0;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                double d = ((double) data[i]) - m;
+                sumSq += d * d;
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    double d = ((double) data[i]) - m;
+                    sumSq += d * d;
+                }
+            }
+        }
+        return sumSq / (isSample ? (n - 1) : n);
+    }
 }

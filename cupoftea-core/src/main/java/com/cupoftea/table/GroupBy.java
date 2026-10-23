@@ -141,6 +141,66 @@ public class GroupBy {
         return agg(Aggregations.listAgg(column, separator));
     }
 
+    public CupOfTea median(String column) {
+        return agg(Aggregations.median(column));
+    }
+
+    public CupOfTea variance(String column) {
+        return agg(Aggregations.variance(column));
+    }
+
+    public CupOfTea var(String column) {
+        return agg(Aggregations.var(column));
+    }
+
+    public CupOfTea standardDeviation(String column) {
+        return agg(Aggregations.standardDeviation(column));
+    }
+
+    public CupOfTea std(String column) {
+        return agg(Aggregations.std(column));
+    }
+
+    public CupOfTea quantile(String column, double q) {
+        return agg(Aggregations.quantile(column, q));
+    }
+
+    public CupOfTea skewness(String column) {
+        return agg(Aggregations.skewness(column));
+    }
+
+    public CupOfTea kurtosis(String column) {
+        return agg(Aggregations.kurtosis(column));
+    }
+
+    public CupOfTea agg(Aggregation aggregation, String column) {
+        if (aggregation == null) {
+            throw new IllegalArgumentException("Aggregation cannot be null");
+        }
+        return agg(aggregation.of(column));
+    }
+
+    public CupOfTea agg(Aggregation aggregation, String column, String alias) {
+        if (aggregation == null) {
+            throw new IllegalArgumentException("Aggregation cannot be null");
+        }
+        return agg(aggregation.of(column, alias));
+    }
+
+    public CupOfTea agg(Aggregation aggregation, String column, double quantile) {
+        if (aggregation == null) {
+            throw new IllegalArgumentException("Aggregation cannot be null");
+        }
+        return agg(aggregation.of(column, quantile));
+    }
+
+    public CupOfTea agg(Aggregation aggregation, String column, double quantile, String alias) {
+        if (aggregation == null) {
+            throw new IllegalArgumentException("Aggregation cannot be null");
+        }
+        return agg(aggregation.of(column, quantile, alias));
+    }
+
     private boolean hasColumn(String colName) {
         return findColumn(colName) != null;
     }
