@@ -129,9 +129,19 @@ public final class Schema implements Iterable<Column>, Serializable {
     public Header toHeader() {
         Header header = new Header();
         for (Column col : this.columns) {
-            header.addColumn(new Column(col.columnName(), col.columnType()));
+            header.addColumn(new Column(col.columnName(), col.columnType(), col.nullable()));
         }
         return header;
+    }
+
+    public boolean isNullable(String name) {
+        Column col = this.columnByName.get(name);
+        return col != null && col.nullable();
+    }
+
+    public boolean isNullable(int index) {
+        Column col = this.columns.get(index);
+        return col != null && col.nullable();
     }
 
     public Map<String, Class<?>> toMap() {
@@ -262,8 +272,18 @@ public final class Schema implements Iterable<Column>, Serializable {
             return this;
         }
 
+        public Builder add(String name, DataType type, boolean nullable) {
+            columns.add(new Column(name, type != null ? type.getJavaType() : null, nullable));
+            return this;
+        }
+
         public Builder add(String name, Class<?> type) {
             columns.add(new Column(name, type));
+            return this;
+        }
+
+        public Builder add(String name, Class<?> type, boolean nullable) {
+            columns.add(new Column(name, type, nullable));
             return this;
         }
 

@@ -47,8 +47,16 @@ public class Header {
      * @param columnType Class type of the new Column
      */
     public void addColumn(String columnName, Class<?> columnType) {
+        this.addColumn(columnName, columnType, true);
+    }
+
+    public void addColumn(String columnName, Class<?> columnType, boolean nullable) {
         int index = header.size();
-        header.add(index, new Column(columnName, columnType));
+        header.add(index, new Column(columnName, columnType, nullable));
+    }
+
+    public void addColumn(int index, String columnName, Class<?> columnType, boolean nullable) {
+        header.add(index, new Column(columnName, columnType, nullable));
     }
 
     public void moveColumn(String columnName, int finalIndex) {
@@ -69,7 +77,7 @@ public class Header {
 
     public void renameColumn(int index, String newName) {
         Column current = this.header.get(index);
-        this.header.set(index, new Column(newName, current.columnType()));
+        this.header.set(index, new Column(newName, current.columnType(), current.nullable()));
     }
 
     public void removeColumn(String columnName) {
@@ -108,7 +116,8 @@ public class Header {
 
     public void alterColumnType(String columnName, Class columnType){
         int index = this.header.indexOf(new Column(columnName, null));
-        this.header.set(index, new Column(columnName, columnType));
+        boolean nullable = index != -1 ? this.header.get(index).nullable() : true;
+        this.header.set(index, new Column(columnName, columnType, nullable));
     }
 
     public Header copy() {

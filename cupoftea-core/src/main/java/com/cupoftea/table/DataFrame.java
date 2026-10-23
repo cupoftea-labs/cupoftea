@@ -7,10 +7,10 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,11 +34,23 @@ import com.cupoftea.table.converters.LongConverter;
 import com.cupoftea.table.converters.StringConverter;
 import com.cupoftea.table.interfaces.IDataFrame;
 import com.cupoftea.table.interfaces.IDataTypeConverter;
+import com.cupoftea.table.vector.BooleanColumnVector;
+import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DoubleColumnVector;
+import com.cupoftea.table.vector.FloatColumnVector;
+import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.ObjectColumnVector;
+import com.cupoftea.table.vector.StringColumnVector;
 import com.cupoftea.utils.interfaces.IColumnCreator;
 import com.cupoftea.utils.interfaces.IFilter;
 import com.cupoftea.utils.interfaces.Order;
 import com.cupoftea.utils.interfaces.Orderer;
 
+/**
+ * Enterprise columnar DataFrame implementation.
+ * Stores data in contiguous typed {@link ColumnVector} instances rather than row HashMaps.
+ */
 public class DataFrame extends IDataFrame {
 
     private static final IntegerConverter INTEGER_CONVERTER = new IntegerConverter();
@@ -53,7 +65,7 @@ public class DataFrame extends IDataFrame {
     private static final InstantConverter INSTANT_CONVERTER = new InstantConverter();
     private static final BigDecimalConverter BIG_DECIMAL_CONVERTER = new BigDecimalConverter();
 
-    private static final Map<Class<?>, IDataTypeConverter<?>> CONVERTERS = Map.ofEntries(
+    public static final Map<Class<?>, IDataTypeConverter<?>> CONVERTERS = Map.ofEntries(
         Map.entry(Integer.class, INTEGER_CONVERTER),
         Map.entry(int.class, INTEGER_CONVERTER),
         Map.entry(Double.class, DOUBLE_CONVERTER),
@@ -72,15 +84,84 @@ public class DataFrame extends IDataFrame {
         Map.entry(BigDecimal.class, BIG_DECIMAL_CONVERTER)
     );
 
+    protected List<ColumnVector> columns = new ArrayList<>();
     private final HashMap<String, IColumnCreator> columnCreators = new HashMap<>();
     private final HashSet<String> pendingTypeInferenceColumns = new HashSet<>();
 
-    public DataFrame(){
+    public DataFrame() {
         super();
     }
 
-    public DataFrame(Schema schema){
+    public DataFrame(Schema schema) {
         super(schema);
+        if (schema != null) {
+            for (Column col : schema.getColumns()) {
+                this.columns.add(ColumnVector.create(col, 16));
+            }
+        }
+    }
+
+    @Override
+    public List<ColumnVector> getColumnVectors() {
+        return Collections.unmodifiableList(this.columns);
+    }
+
+    @Override
+    public ColumnVector getColumnVector(String columnName) {
+        return getVector(columnName);
+    }
+
+    @Override
+    public ColumnVector getColumnVector(int index) {
+        return this.columns.get(index);
+    }
+
+    private ColumnVector getVector(String columnName) {
+        if (columnName == null) {
+            return null;
+        }
+        for (ColumnVector vector : this.columns) {
+            if (columnName.equals(vector.getName())) {
+                return vector;
+            }
+        }
+        return null;
+    }
+
+    private int findVectorIndex(String columnName) {
+        if (columnName == null) {
+            return -1;
+        }
+        for (int i = 0; i < this.columns.size(); i++) {
+            if (columnName.equals(this.columns.get(i).getName())) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private void syncColumnsWithHeader() {
+        int currentSize = this.columns.isEmpty() ? 0 : this.columns.get(0).size();
+        List<ColumnVector> newVectors = new ArrayList<>(this.header.size());
+        for (Column col : this.header.getHeader()) {
+            ColumnVector vec = getVector(col.columnName());
+            if (vec == null) {
+                vec = ColumnVector.create(col, Math.max(16, currentSize));
+                for (int i = 0; i < currentSize; i++) {
+                    vec.appendNull();
+                }
+            }
+            newVectors.add(vec);
+        }
+        this.columns = newVectors;
+    }
+
+    @Override
+    public Integer size() {
+        if (this.header.size() > 0 && this.columns.size() != this.header.size()) {
+            syncColumnsWithHeader();
+        }
+        return this.columns.isEmpty() ? 0 : this.columns.get(0).size();
     }
 
     @Override
@@ -95,19 +176,6 @@ public class DataFrame extends IDataFrame {
         }
         ArrayList<Column> newHeaders = new ArrayList<>(schema.getColumns());
         this.setHeaders(newHeaders);
-        for (Column col : schema.getColumns()) {
-            if (col.columnType() != null && !this.rows.isEmpty()) {
-                IDataTypeConverter<?> converter = CONVERTERS.get(col.columnType());
-                if (converter != null) {
-                    for (var row : this.rows) {
-                        Object val = row.get(col.columnName());
-                        if (val != null && !col.columnType().isInstance(val)) {
-                            row.put(col.columnName(), converter.convert(val, val.getClass()));
-                        }
-                    }
-                }
-            }
-        }
         return this;
     }
 
@@ -122,39 +190,77 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
+    public void setHeaders(ArrayList<Column> headers) {
+        if (headers == null) {
+            this.header.clear();
+            this.columns.clear();
+            return;
+        }
+
+        int currentSize = this.size();
+        List<ColumnVector> newVectors = new ArrayList<>(headers.size());
+
+        for (Column col : headers) {
+            ColumnVector existing = getVector(col.columnName());
+            if (existing != null) {
+                if (col.columnType() != null && !Objects.equals(col.columnType(), existing.getType())) {
+                    IDataTypeConverter<?> converter = CONVERTERS.get(col.columnType());
+                    ColumnVector converted = ColumnVector.create(col.columnName(), col.columnType(), currentSize, col.nullable());
+                    for (int i = 0; i < currentSize; i++) {
+                        if (existing.isNull(i)) {
+                            converted.appendNull();
+                        } else {
+                            Object val = existing.getObject(i);
+                            Object convVal = (converter != null && val != null && !col.columnType().isInstance(val))
+                                    ? converter.convert(val, existing.getType() != null ? existing.getType() : String.class)
+                                    : val;
+                            converted.appendObject(convVal);
+                        }
+                    }
+                    newVectors.add(converted);
+                } else {
+                    existing.setName(col.columnName());
+                    existing.setNullable(col.nullable());
+                    newVectors.add(existing);
+                }
+            } else {
+                ColumnVector vec = ColumnVector.create(col, Math.max(16, currentSize));
+                for (int i = 0; i < currentSize; i++) {
+                    vec.appendNull();
+                }
+                newVectors.add(vec);
+            }
+        }
+
+        this.header.setHeader(headers);
+        this.columns = newVectors;
+    }
+
+    @Override
     public IDataFrame moveColumn(String columnName, int finalIndex) {
         this.header.moveColumn(columnName, finalIndex);
+        int fromIdx = findVectorIndex(columnName);
+        if (fromIdx != -1) {
+            ColumnVector vec = this.columns.remove(fromIdx);
+            this.columns.add(finalIndex, vec);
+        }
         return this;
     }
 
     @Override
     public IDataFrame moveColumn(int initialIndex, int finalIndex) {
         this.header.moveColumn(initialIndex, finalIndex);
+        ColumnVector vec = this.columns.remove(initialIndex);
+        this.columns.add(finalIndex, vec);
         return this;
     }
 
     @Override
     public IDataFrame renameColumn(String oldName, String newName) {
         this.header.renameColumn(oldName, newName);
-        this.renameRowKeys(oldName, newName);
-        return this;
-    }
-
-    @Override
-    public IDataFrame renameColumn(int index, String newName) {
-        String oldName = this.header.get(index).columnName();
-        this.header.renameColumn(index, newName);
-        this.renameRowKeys(oldName, newName);
-        return this;
-    }
-
-    private void renameRowKeys(String oldName, String newName) {
-        if (oldName.equals(newName)) {
-            return;
-        }
-        for (var row : this.rows) {
-            row.put(newName, row.get(oldName));
-            row.remove(oldName);
+        ColumnVector vec = getVector(oldName);
+        if (vec != null) {
+            vec.setName(newName);
         }
         if (this.columnCreators.containsKey(oldName)) {
             this.columnCreators.put(newName, this.columnCreators.remove(oldName));
@@ -162,62 +268,70 @@ public class DataFrame extends IDataFrame {
         if (this.pendingTypeInferenceColumns.remove(oldName)) {
             this.pendingTypeInferenceColumns.add(newName);
         }
+        if (Objects.equals(this.indexColumn, oldName)) {
+            this.indexColumn = newName;
+            this.index.setColumnName(newName);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame renameColumn(int index, String newName) {
+        String oldName = this.header.get(index).columnName();
+        return renameColumn(oldName, newName);
     }
 
     @Override
     public IDataFrame renameColumn(HashMap<String, String> name) {
-        name.forEach((key, value) -> {
-            this.renameColumn(key, value);
-        });
+        if (name != null) {
+            name.forEach(this::renameColumn);
+        }
         return this;
     }
 
-    /*
-     * @params columnName
-     * The column will be created in the last position with null value
-     */
     @Override
     public IDataFrame addColumn(String columnName) {
-        int index = this.header.columnCount();
-        this.addColumn(index, columnName);
-        return this;
+        return addColumn(this.header.columnCount(), columnName, (Class<?>) null);
     }
 
     @Override
     public IDataFrame addColumn(String columnName, Class<?> columnType) {
-        int index = this.header.columnCount();
-        this.addColumn(index, columnName, columnType);
-        return this;
+        return addColumn(this.header.columnCount(), columnName, columnType);
     }
 
     @Override
     public IDataFrame addColumn(int index, String columnName) {
-        this.addColumn(index, columnName, (Object) null);
-        return this;
+        return addColumn(index, columnName, (Class<?>) null);
     }
 
     @Override
     public IDataFrame addColumn(int index, String columnName, Class<?> columnType) {
-        header.addColumn(index, new Column(columnName, columnType));
-        for (HashMap<String, Object> row : this.rows) {
-            row.put(columnName, null);
+        this.header.addColumn(index, new Column(columnName, columnType));
+        int rowCount = this.size();
+        Class<?> vecType = columnType != null ? columnType : Object.class;
+        ColumnVector vec = ColumnVector.create(columnName, vecType, Math.max(16, rowCount), true);
+        for (int i = 0; i < rowCount; i++) {
+            vec.appendNull();
         }
+        this.columns.add(index, vec);
         return this;
     }
 
     @Override
     public IDataFrame addColumn(int index, String columnName, @Nullable Object data) {
         ArrayList<Object> dataArray = new ArrayList<>();
-        for (@SuppressWarnings("unused") var row : this.rows) {
+        int currentSize = this.size();
+        for (int i = 0; i < currentSize; i++) {
             dataArray.add(data);
         }
-        this.addColumn(index, columnName, dataArray);
-        return this;
+        return this.addColumn(index, columnName, dataArray);
     }
 
     @Override
     public IDataFrame addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
-        if (data == null) return this.addColumn(index, columnName, (Object) data);
+        if (data == null) {
+            return this.addColumn(index, columnName, (Object) null);
+        }
         if (data.size() != this.size()) {
             throw new SchemaMismatchException("Column data size (" + data.size() + ") does not match DataFrame size (" + this.size() + ")");
         }
@@ -229,22 +343,15 @@ public class DataFrame extends IDataFrame {
                 break;
             }
         }
-        header.addColumn(index, new Column(columnName, columnType)); 
-        int i = 0;
-        for (HashMap<String, Object> row : this.rows) {
-            row.put(columnName, data.get(i));
-            i++;
+        this.header.addColumn(index, new Column(columnName, columnType));
+        ColumnVector vec = ColumnVector.create(columnName, columnType, Math.max(16, data.size()), true);
+        for (Object val : data) {
+            vec.appendObject(val);
         }
+        this.columns.add(index, vec);
         return this;
     }
 
-    /**
-     * Create a new column whose values are defined by the Column Creator Function
-     * The column will be added to the end of the Data Frame
-     * 
-     * @param columnName Name of the new Column
-     * @param columnCreator Function that defines the values of the new column
-     */
     @Override
     public IDataFrame addColumn(String columnName, IColumnCreator columnCreator) {
         return this.addColumn(this.header.columnCount(), columnName, (Class<?>) null, columnCreator);
@@ -271,25 +378,15 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
-    public DataFrame copy() {
-        DataFrame copy = new DataFrame();
-        copy.header = this.header.copy();
-        copy.columnCreators.putAll(this.columnCreators);
-        copy.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
-        copy.indexColumn = this.indexColumn;
-        for (var row : this.rows) {
-            copy.rows.add(this.cloneRow(row));
-        }
-        return copy;
-    }
-
-    @Override
     public IDataFrame addColumn(int index, String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
         Class<?> resolvedType = columnType;
+        int rowCount = this.size();
+        List<Object> values = new ArrayList<>(rowCount);
 
-        for (var row : this.rows) {
-            Object value = columnCreator.createColumn(new Row(row));
-            row.put(columnName, value);
+        for (int i = 0; i < rowCount; i++) {
+            Row row = getRow(i);
+            Object value = columnCreator.createColumn(row);
+            values.add(value);
             if (resolvedType == null && value != null) {
                 resolvedType = value.getClass();
             }
@@ -304,6 +401,11 @@ public class DataFrame extends IDataFrame {
 
         this.columnCreators.put(columnName, columnCreator);
         this.header.addColumn(index, new Column(columnName, resolvedType));
+        ColumnVector vec = ColumnVector.create(columnName, resolvedType, Math.max(16, rowCount), true);
+        for (Object val : values) {
+            vec.appendObject(val);
+        }
+        this.columns.add(index, vec);
         return this;
     }
 
@@ -312,15 +414,19 @@ public class DataFrame extends IDataFrame {
         this.header.removeColumn(columnName);
         this.columnCreators.remove(columnName);
         this.pendingTypeInferenceColumns.remove(columnName);
-        for(var row : this.rows) {
-            row.remove(columnName);
+        int idx = findVectorIndex(columnName);
+        if (idx != -1) {
+            this.columns.remove(idx);
         }
-
+        if (Objects.equals(this.indexColumn, columnName)) {
+            this.indexColumn = null;
+            this.index.clear();
+        }
         return this;
     }
 
     @Override
-    public IDataFrame removeColumn(int index){
+    public IDataFrame removeColumn(int index) {
         String columnName = this.header.get(index).columnName();
         return this.removeColumn(columnName);
     }
@@ -337,91 +443,222 @@ public class DataFrame extends IDataFrame {
         if (converter == null) {
             throw new ConversionException("Column Type not Suported for Conversion");
         }
-        
-        for(var row : this.rows){
-            Object value = row.get(columnName);
-            if(value == null) continue;
-            Object convertedValue = converter.convert(value, oldColumnType);
-            row.put(columnName, convertedValue);
+
+        int vecIdx = findVectorIndex(columnName);
+        if (vecIdx != -1) {
+            ColumnVector oldVec = this.columns.get(vecIdx);
+            int rowCount = oldVec.size();
+            ColumnVector newVec = ColumnVector.create(columnName, newColumnType, Math.max(16, rowCount), oldVec.isNullable());
+
+            for (int i = 0; i < rowCount; i++) {
+                if (oldVec.isNull(i)) {
+                    newVec.appendNull();
+                } else {
+                    Object val = oldVec.getObject(i);
+                    Class<?> actualOldType = oldColumnType;
+                    if (actualOldType == null && val != null) {
+                        actualOldType = val.getClass();
+                    }
+                    if (actualOldType == null) {
+                        actualOldType = String.class;
+                    }
+                    Object converted = (val != null) ? converter.convert(val, actualOldType) : null;
+                    newVec.appendObject(converted);
+                }
+            }
+            this.columns.set(vecIdx, newVec);
         }
-            
+
         this.pendingTypeInferenceColumns.remove(columnName);
         this.header.alterColumnType(columnName, newColumnType);
-
         return this;
+    }
+
+    private boolean canAccept(ColumnVector vec, Object val) {
+        if (val == null || NA.isNA(val)) {
+            return true;
+        }
+        if (vec instanceof IntColumnVector) {
+            if (val instanceof Number) return true;
+            try {
+                Integer.parseInt(val.toString().trim());
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        if (vec instanceof LongColumnVector) {
+            if (val instanceof Number) return true;
+            try {
+                Long.parseLong(val.toString().trim());
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        if (vec instanceof DoubleColumnVector) {
+            if (val instanceof Number) return true;
+            try {
+                Double.parseDouble(val.toString().trim());
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        if (vec instanceof FloatColumnVector) {
+            if (val instanceof Number) return true;
+            try {
+                Float.parseFloat(val.toString().trim());
+                return true;
+            } catch (NumberFormatException e) {
+                return false;
+            }
+        }
+        if (vec instanceof BooleanColumnVector) {
+            if (val instanceof Boolean) return true;
+            String s = val.toString().trim();
+            return "true".equalsIgnoreCase(s) || "false".equalsIgnoreCase(s);
+        }
+        if (vec instanceof StringColumnVector) {
+            return val instanceof String;
+        }
+        return true;
+    }
+
+    private ColumnVector promoteToObjectVector(ColumnVector vec) {
+        int sz = vec.size();
+        ColumnVector objVec = new ObjectColumnVector(vec.getName(), Object.class, Math.max(16, sz), vec.isNullable());
+        for (int i = 0; i < sz; i++) {
+            if (vec.isNull(i)) {
+                objVec.appendNull();
+            } else {
+                objVec.appendObject(vec.getObject(i));
+            }
+        }
+        return objVec;
     }
 
     @Override
     public IDataFrame addRow(@NotNull Map<String, Object> row) {
-        return this.addRow(row, true);
-    }
+        if (this.header.size() == 0 && !row.isEmpty()) {
+            for (Map.Entry<String, Object> entry : row.entrySet()) {
+                String colName = entry.getKey();
+                Object val = entry.getValue();
+                Class<?> colType = val != null ? val.getClass() : Object.class;
+                this.header.addColumn(new Column(colName, colType));
+                this.columns.add(ColumnVector.create(colName, colType, 16, true));
+            }
+        } else if (this.header.size() > 0 && this.columns.size() != this.header.size()) {
+            syncColumnsWithHeader();
+        }
 
-    private IDataFrame addRow(@NotNull Map<String, Object> row, boolean clone) {
-        HashMap<String, Object> rowToAdd = clone ? this.cloneRow(row) : (row instanceof HashMap ? (HashMap<String, Object>) row : new HashMap<>(row));
+        Map<String, Object> evaluatedRow = new HashMap<>(row);
         for (var entry : this.columnCreators.entrySet()) {
             String columnName = entry.getKey();
             IColumnCreator creator = entry.getValue();
-            if (!rowToAdd.containsKey(columnName)) {
-                rowToAdd.put(columnName, creator.createColumn(new Row(rowToAdd)));
+            if (!evaluatedRow.containsKey(columnName)) {
+                evaluatedRow.put(columnName, creator.createColumn(new Row(evaluatedRow)));
             }
         }
+
         if (!this.pendingTypeInferenceColumns.isEmpty()) {
-            var iterator = this.pendingTypeInferenceColumns.iterator();
-            while (iterator.hasNext()) {
-                String columnName = iterator.next();
-                Object value = rowToAdd.get(columnName);
+            List<String> toInfer = new ArrayList<>(this.pendingTypeInferenceColumns);
+            for (String columnName : toInfer) {
+                Object value = evaluatedRow.get(columnName);
                 if (value != null) {
-                    this.header.alterColumnType(columnName, value.getClass());
-                    iterator.remove();
+                    this.alterColumnType(columnName, value.getClass());
                 }
             }
         }
-        rows.add(rowToAdd);
+
+        for (int i = 0; i < this.columns.size(); i++) {
+            ColumnVector vector = this.columns.get(i);
+            Object val = evaluatedRow.get(vector.getName());
+            if (val != null && !canAccept(vector, val)) {
+                ColumnVector promoted = promoteToObjectVector(vector);
+                this.columns.set(i, promoted);
+                this.header.alterColumnType(vector.getName(), Object.class);
+                vector = promoted;
+            }
+            if (val instanceof Group group) {
+                vector.appendObject(new Group(group));
+            } else {
+                vector.appendObject(val);
+            }
+        }
+
         return this;
     }
 
-    private HashMap<String, Object> cloneRow(@NotNull Map<String, Object> row) {
-        HashMap<String, Object> clonedRow = new HashMap<>(row);
-        for (var entry : clonedRow.entrySet()) {
-            if (entry.getValue() instanceof Group group) {
-                entry.setValue(new Group(group));
-            }
+    @Override
+    public Row getRow(int index) {
+        int total = this.size();
+        if (index < 0 || index >= total) {
+            throw new IndexOutOfBoundsException("Row index " + index + " out of bounds for DataFrame with " + total + " rows");
         }
-        return clonedRow;
+
+        Map<String, Object> orderedMap = new LinkedHashMap<>(this.header.size());
+        for (Column col : this.header.getHeader()) {
+            ColumnVector vec = getVector(col.columnName());
+            orderedMap.put(col.columnName(), vec != null ? vec.getObject(index) : null);
+        }
+        return new Row(orderedMap);
     }
 
     @Override
     public IDataFrame removeRow(int index) {
-        rows.remove(index);
+        int total = this.size();
+        if (index < 0 || index >= total) {
+            throw new IndexOutOfBoundsException("Row index " + index + " out of bounds for DataFrame with " + total + " rows");
+        }
+        for (ColumnVector vec : this.columns) {
+            vec.remove(index);
+        }
         return this;
     }
 
-
-    /**
-     * Removes the filtered rows from the DataFrame
-     * 
-     * @param filter the rows mathing this condition will be removed out of the DataFrame
-     * @return the same DataFrame but without the filtered rows
-     */
     @Override
     public IDataFrame removeRows(IFilter filter) {
-        this.rows.removeIf(row -> Boolean.TRUE.equals(filter.filter(new Row(row))));
+        int total = this.size();
+        java.util.BitSet retainMask = new java.util.BitSet(total);
+        int retainedCount = 0;
+        for (int i = 0; i < total; i++) {
+            Row row = getRow(i);
+            if (!Boolean.TRUE.equals(filter.filter(row))) {
+                retainMask.set(i);
+                retainedCount++;
+            }
+        }
+        for (ColumnVector vec : this.columns) {
+            vec.filterInPlace(retainMask, retainedCount);
+        }
         return this;
     }
 
     @Override
     public IDataFrame filter(IFilter filter) {
-
         DataFrame filteredDF = new DataFrame();
-
-        filteredDF.setHeaders(new ArrayList<>(this.getHeaders()));
+        filteredDF.header = this.header.copy();
         filteredDF.columnCreators.putAll(this.columnCreators);
         filteredDF.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        filteredDF.index = this.index.copy();
+        filteredDF.indexColumn = this.indexColumn;
 
-        for(var row : this.rows){
-            if(Boolean.TRUE.equals(filter.filter(new Row(row)))){
-                filteredDF.addRow(row, true);
+        int total = this.size();
+        java.util.BitSet matchMask = new java.util.BitSet(total);
+        int matchCount = 0;
+        for (int i = 0; i < total; i++) {
+            Row row = getRow(i);
+            if (Boolean.TRUE.equals(filter.filter(row))) {
+                matchMask.set(i);
+                matchCount++;
             }
+        }
+
+        for (ColumnVector vec : this.columns) {
+            ColumnVector copy = vec.copy();
+            copy.filterInPlace(matchMask, matchCount);
+            filteredDF.columns.add(copy);
         }
 
         return filteredDF;
@@ -430,11 +667,23 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame update(Map<String, Object> updateColumns) {
         if (updateColumns != null) {
-            for(var row : this.rows){
-                row.putAll(updateColumns);
+            int total = this.size();
+            for (Map.Entry<String, Object> entry : updateColumns.entrySet()) {
+                int vecIdx = findVectorIndex(entry.getKey());
+                if (vecIdx != -1) {
+                    ColumnVector vec = this.columns.get(vecIdx);
+                    Object val = entry.getValue();
+                    if (val != null && !canAccept(vec, val)) {
+                        vec = promoteToObjectVector(vec);
+                        this.columns.set(vecIdx, vec);
+                        this.header.alterColumnType(vec.getName(), Object.class);
+                    }
+                    for (int i = 0; i < total; i++) {
+                        vec.setObject(i, val);
+                    }
+                }
             }
         }
-
         return this;
     }
 
@@ -458,22 +707,23 @@ public class DataFrame extends IDataFrame {
         }
 
         Header newHeader = new Header();
+        List<ColumnVector> newVectors = new ArrayList<>(columnNames.size());
         for (String col : columnNames) {
             Column existing = this.header.get(col);
-            newHeader.addColumn(new Column(existing.columnName(), existing.columnType()));
+            newHeader.addColumn(new Column(existing.columnName(), existing.columnType(), existing.nullable()));
+            newVectors.add(getVector(col));
         }
+
         this.header = newHeader;
+        this.columns = newVectors;
 
         Set<String> keepSet = new HashSet<>(columnNames);
         this.columnCreators.keySet().removeIf(c -> !keepSet.contains(c));
         this.pendingTypeInferenceColumns.removeIf(c -> !keepSet.contains(c));
 
-        for (var row : this.rows) {
-            row.keySet().removeIf(k -> !keepSet.contains(k));
-        }
-
         if (this.indexColumn != null && !keepSet.contains(this.indexColumn)) {
             this.indexColumn = null;
+            this.index.clear();
         }
 
         return this;
@@ -502,6 +752,7 @@ public class DataFrame extends IDataFrame {
         }
         if (this.indexColumn != null && columnNames.contains(this.indexColumn)) {
             this.indexColumn = null;
+            this.index.clear();
         }
         return this;
     }
@@ -513,20 +764,11 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame head(int n) {
-        DataFrame result = new DataFrame();
-        result.header = this.header.copy();
-        result.columnCreators.putAll(this.columnCreators);
-        result.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
-        result.indexColumn = this.indexColumn;
-
-        if (n <= 0 || this.rows.isEmpty()) {
-            return result;
+        if (n <= 0 || this.size() == 0) {
+            return slice(0, 0);
         }
-        int limit = Math.min(n, this.rows.size());
-        for (int i = 0; i < limit; i++) {
-            result.rows.add(this.cloneRow(this.rows.get(i)));
-        }
-        return result;
+        int limit = Math.min(n, this.size());
+        return slice(0, limit);
     }
 
     @Override
@@ -536,20 +778,11 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame tail(int n) {
-        DataFrame result = new DataFrame();
-        result.header = this.header.copy();
-        result.columnCreators.putAll(this.columnCreators);
-        result.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
-        result.indexColumn = this.indexColumn;
-
-        if (n <= 0 || this.rows.isEmpty()) {
-            return result;
+        if (n <= 0 || this.size() == 0) {
+            return slice(0, 0);
         }
-        int start = Math.max(0, this.rows.size() - n);
-        for (int i = start; i < this.rows.size(); i++) {
-            result.rows.add(this.cloneRow(this.rows.get(i)));
-        }
-        return result;
+        int start = Math.max(0, this.size() - n);
+        return slice(start, this.size());
     }
 
     @Override
@@ -558,24 +791,25 @@ public class DataFrame extends IDataFrame {
         result.header = this.header.copy();
         result.columnCreators.putAll(this.columnCreators);
         result.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        result.index = this.index.copy();
         result.indexColumn = this.indexColumn;
 
-        int total = this.rows.size();
+        int total = this.size();
         int resolvedFrom = fromRow < 0 ? total + fromRow : fromRow;
         int resolvedTo = toRow < 0 ? total + toRow : toRow;
 
         resolvedFrom = Math.max(0, Math.min(resolvedFrom, total));
         resolvedTo = Math.max(resolvedFrom, Math.min(resolvedTo, total));
 
-        for (int i = resolvedFrom; i < resolvedTo; i++) {
-            result.rows.add(this.cloneRow(this.rows.get(i)));
+        for (ColumnVector vec : this.columns) {
+            result.columns.add(vec.slice(resolvedFrom, resolvedTo));
         }
         return result;
     }
 
     @Override
     public Row iloc(int index) {
-        int total = this.rows.size();
+        int total = this.size();
         int resolved = index < 0 ? total + index : index;
         if (resolved < 0 || resolved >= total) {
             throw new IndexOutOfBoundsException("Index " + index + " out of bounds for DataFrame with " + total + " rows");
@@ -585,22 +819,31 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public Object iloc(int rowIndex, int colIndex) {
-        Row r = iloc(rowIndex);
+        int total = this.size();
+        int resolvedRow = rowIndex < 0 ? total + rowIndex : rowIndex;
+        if (resolvedRow < 0 || resolvedRow >= total) {
+            throw new IndexOutOfBoundsException("Index " + rowIndex + " out of bounds for DataFrame with " + total + " rows");
+        }
         int totalCols = this.header.size();
         int resolvedCol = colIndex < 0 ? totalCols + colIndex : colIndex;
         if (resolvedCol < 0 || resolvedCol >= totalCols) {
             throw new IndexOutOfBoundsException("Column index " + colIndex + " out of bounds for length " + totalCols);
         }
-        return r.get(resolvedCol);
+        return this.columns.get(resolvedCol).getObject(resolvedRow);
     }
 
     @Override
     public Object iloc(int rowIndex, String columnName) {
-        Row r = iloc(rowIndex);
-        if (this.header.get(columnName) == null) {
+        int total = this.size();
+        int resolvedRow = rowIndex < 0 ? total + rowIndex : rowIndex;
+        if (resolvedRow < 0 || resolvedRow >= total) {
+            throw new IndexOutOfBoundsException("Index " + rowIndex + " out of bounds for DataFrame with " + total + " rows");
+        }
+        ColumnVector vec = getVector(columnName);
+        if (vec == null) {
             throw new IllegalArgumentException("Column '" + columnName + "' does not exist");
         }
-        return r.get(columnName);
+        return vec.getObject(resolvedRow);
     }
 
     @Override
@@ -614,12 +857,14 @@ public class DataFrame extends IDataFrame {
             throw new IllegalArgumentException("Column '" + columnName + "' does not exist in DataFrame");
         }
         this.indexColumn = columnName;
+        this.index.setColumnName(columnName);
         return this;
     }
 
     @Override
     public IDataFrame resetIndex() {
         this.indexColumn = null;
+        this.index.clear();
         return this;
     }
 
@@ -628,8 +873,10 @@ public class DataFrame extends IDataFrame {
         if (this.indexColumn == null) {
             throw new IllegalStateException("Cannot use loc(key) without setting an index column. Call setIndex(columnName) first.");
         }
-        for (int i = 0; i < this.rows.size(); i++) {
-            Object val = this.rows.get(i).get(this.indexColumn);
+        ColumnVector indexVec = getVector(this.indexColumn);
+        int total = this.size();
+        for (int i = 0; i < total; i++) {
+            Object val = indexVec != null ? indexVec.getObject(i) : null;
             if (Objects.equals(val, key) || (val != null && key != null && val.toString().equals(key.toString()))) {
                 return getRow(i);
             }
@@ -653,13 +900,15 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame fillna(Object value) {
-        for (var row : this.rows) {
-            for (Column col : this.header.getHeader()) {
-                String colName = col.columnName();
-                Object current = row.get(colName);
-                if (NA.isNA(current)) {
-                    row.put(colName, coerceToDeclaredType(value, col.columnType()));
-                }
+        for (int i = 0; i < this.columns.size(); i++) {
+            ColumnVector vec = this.columns.get(i);
+            if (!canAccept(vec, value)) {
+                ColumnVector promoted = promoteToObjectVector(vec);
+                this.columns.set(i, promoted);
+                this.header.alterColumnType(promoted.getName(), Object.class);
+                promoted.fillna(value);
+            } else {
+                vec.fillna(value);
             }
         }
         return this;
@@ -670,12 +919,16 @@ public class DataFrame extends IDataFrame {
         if (this.header.get(column) == null) {
             throw new IllegalArgumentException("Column '" + column + "' does not exist");
         }
-        Column col = this.header.get(column);
-        Object coerced = coerceToDeclaredType(value, col.columnType());
-        for (var row : this.rows) {
-            Object current = row.get(column);
-            if (NA.isNA(current)) {
-                row.put(column, coerced);
+        int vecIdx = findVectorIndex(column);
+        if (vecIdx != -1) {
+            ColumnVector vec = this.columns.get(vecIdx);
+            if (!canAccept(vec, value)) {
+                ColumnVector promoted = promoteToObjectVector(vec);
+                this.columns.set(vecIdx, promoted);
+                this.header.alterColumnType(promoted.getName(), Object.class);
+                promoted.fillna(value);
+            } else {
+                vec.fillna(value);
             }
         }
         return this;
@@ -746,27 +999,38 @@ public class DataFrame extends IDataFrame {
             targetColumns = columns;
         }
 
-        if (targetColumns.isEmpty()) {
+        if (targetColumns.isEmpty() || this.size() == 0) {
             return this;
         }
 
-        this.rows.removeIf(row -> {
-            if (matchAll) {
-                for (String col : targetColumns) {
-                    if (!NA.isNA(row.get(col))) {
-                        return false;
-                    }
+        int total = this.size();
+        java.util.BitSet dropMask = new java.util.BitSet(total);
+
+        if (matchAll) {
+            dropMask.set(0, total);
+            for (String colName : targetColumns) {
+                ColumnVector vec = getVector(colName);
+                if (vec != null) {
+                    dropMask.and(vec.getNulls());
                 }
-                return true;
-            } else {
-                for (String col : targetColumns) {
-                    if (NA.isNA(row.get(col))) {
-                        return true;
-                    }
-                }
-                return false;
             }
-        });
+        } else {
+            for (String colName : targetColumns) {
+                ColumnVector vec = getVector(colName);
+                if (vec != null) {
+                    dropMask.or(vec.getNulls());
+                }
+            }
+        }
+
+        java.util.BitSet retainMask = new java.util.BitSet(total);
+        retainMask.set(0, total);
+        retainMask.andNot(dropMask);
+        int retainedCount = retainMask.cardinality();
+
+        for (ColumnVector vec : this.columns) {
+            vec.filterInPlace(retainMask, retainedCount);
+        }
 
         return this;
     }
@@ -774,36 +1038,43 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame sum(String column) {
         Column groupedColumn = this.getColumnHeader(column);
-        Class<?> finalColumnType = null;
-        String columnName = column + "Sum";
-
         if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
             throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
         }
+        ColumnVector srcVec = getVector(column);
+        Class<?> finalColumnType = null;
+        String columnName = column + "Sum";
+        int total = this.size();
+        Object[] results = new Object[total];
 
-        for (var row : this.rows) {
-            Object sum = null;
-            Group value = (Group) row.get(column);
-
+        for (int i = 0; i < total; i++) {
+            Group value = srcVec != null ? (Group) srcVec.getObject(i) : null;
+            if (value == null) {
+                results[i] = null;
+                continue;
+            }
             if (value.getColumnType() == Integer.class) {
-                Integer integerSum = 0;
                 finalColumnType = Integer.class;
-                for (var valuesToSum : value.groupedValues) {
-                    integerSum += (Integer) valuesToSum;
+                int integerSum = 0;
+                for (var v : value.groupedValues) {
+                    integerSum += (Integer) v;
                 }
-                sum = integerSum;
+                results[i] = integerSum;
             } else if (value.getColumnType() == Double.class) {
                 finalColumnType = Double.class;
-                Double doubleSum = 0.0;
-                for (var valuesToSum : value.groupedValues) {
-                    doubleSum += (Double) valuesToSum;
+                double doubleSum = 0.0;
+                for (var v : value.groupedValues) {
+                    doubleSum += (Double) v;
                 }
-                sum = doubleSum;
+                results[i] = doubleSum;
             }
-
-            row.put(columnName, sum);
         }
 
+        ColumnVector newVec = ColumnVector.create(columnName, finalColumnType, Math.max(16, total), true);
+        for (int i = 0; i < total; i++) {
+            newVec.appendObject(results[i]);
+        }
+        this.columns.add(newVec);
         this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
     }
@@ -811,34 +1082,41 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame average(String column) {
         Column groupedColumn = this.getColumnHeader(column);
-        Class<?> finalColumnType = Double.class;
-        String columnName = column + "Average";
-
         if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
             throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
         }
+        ColumnVector srcVec = getVector(column);
+        Class<?> finalColumnType = Double.class;
+        String columnName = column + "Average";
+        int total = this.size();
+        Object[] results = new Object[total];
 
-        for (var row : this.rows) {
-            Object average = null;
-            Group value = (Group) row.get(column);
-
-            if (value.getColumnType() == Integer.class) {
-                Integer integerSum = 0;
-                for (var valuesToSum : value.groupedValues) {
-                    integerSum += (Integer) valuesToSum;
-                }
-                average = Double.valueOf(integerSum) / Double.valueOf(value.groupedValues.size());
-            } else if (value.getColumnType() == Double.class) {
-                Double doubleSum = 0.0;
-                for (var valuesToSum : value.groupedValues) {
-                    doubleSum += (Double) valuesToSum;
-                }
-                average = doubleSum / Double.valueOf(value.groupedValues.size());
+        for (int i = 0; i < total; i++) {
+            Group value = srcVec != null ? (Group) srcVec.getObject(i) : null;
+            if (value == null || value.groupedValues.isEmpty()) {
+                results[i] = null;
+                continue;
             }
-
-            row.put(columnName, average);
+            if (value.getColumnType() == Integer.class) {
+                int integerSum = 0;
+                for (var v : value.groupedValues) {
+                    integerSum += (Integer) v;
+                }
+                results[i] = Double.valueOf(integerSum) / Double.valueOf(value.groupedValues.size());
+            } else if (value.getColumnType() == Double.class) {
+                double doubleSum = 0.0;
+                for (var v : value.groupedValues) {
+                    doubleSum += (Double) v;
+                }
+                results[i] = doubleSum / Double.valueOf(value.groupedValues.size());
+            }
         }
 
+        ColumnVector newVec = ColumnVector.create(columnName, finalColumnType, Math.max(16, total), true);
+        for (int i = 0; i < total; i++) {
+            newVec.appendObject(results[i]);
+        }
+        this.columns.add(newVec);
         this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
     }
@@ -846,28 +1124,35 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame maximum(String column) {
         Column groupedColumn = this.getColumnHeader(column);
-        Class<?> finalColumnType = null;
-        String columnName = column + "Maximum";
-
         if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
             throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
         }
+        ColumnVector srcVec = getVector(column);
+        Class<?> finalColumnType = null;
+        String columnName = column + "Maximum";
+        int total = this.size();
+        Object[] results = new Object[total];
 
-        for (var row : this.rows) {
-            Object maximum = null;
-            Group value = (Group) row.get(column);
-
+        for (int i = 0; i < total; i++) {
+            Group value = srcVec != null ? (Group) srcVec.getObject(i) : null;
+            if (value == null || value.groupedValues.isEmpty()) {
+                results[i] = null;
+                continue;
+            }
             if (value.getColumnType() == Integer.class) {
                 finalColumnType = Integer.class;
-                maximum = java.util.Collections.max(value.groupedValues.stream().map(a -> (Integer) a).toList());
+                results[i] = Collections.max(value.groupedValues.stream().map(a -> (Integer) a).toList());
             } else if (value.getColumnType() == Double.class) {
                 finalColumnType = Double.class;
-                maximum = java.util.Collections.max(value.groupedValues.stream().map(a -> (Double) a).toList());
+                results[i] = Collections.max(value.groupedValues.stream().map(a -> (Double) a).toList());
             }
-
-            row.put(columnName, maximum);
         }
 
+        ColumnVector newVec = ColumnVector.create(columnName, finalColumnType, Math.max(16, total), true);
+        for (int i = 0; i < total; i++) {
+            newVec.appendObject(results[i]);
+        }
+        this.columns.add(newVec);
         this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
     }
@@ -875,28 +1160,35 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame minimum(String column) {
         Column groupedColumn = this.getColumnHeader(column);
-        Class<?> finalColumnType = null;
-        String columnName = column + "Minimum";
-
         if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
             throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
         }
+        ColumnVector srcVec = getVector(column);
+        Class<?> finalColumnType = null;
+        String columnName = column + "Minimum";
+        int total = this.size();
+        Object[] results = new Object[total];
 
-        for (var row : this.rows) {
-            Object minimum = null;
-            Group value = (Group) row.get(column);
-
+        for (int i = 0; i < total; i++) {
+            Group value = srcVec != null ? (Group) srcVec.getObject(i) : null;
+            if (value == null || value.groupedValues.isEmpty()) {
+                results[i] = null;
+                continue;
+            }
             if (value.getColumnType() == Integer.class) {
                 finalColumnType = Integer.class;
-                minimum = java.util.Collections.min(value.groupedValues.stream().map(a -> (Integer) a).toList());
+                results[i] = Collections.min(value.groupedValues.stream().map(a -> (Integer) a).toList());
             } else if (value.getColumnType() == Double.class) {
                 finalColumnType = Double.class;
-                minimum = java.util.Collections.min(value.groupedValues.stream().map(a -> (Double) a).toList());
+                results[i] = Collections.min(value.groupedValues.stream().map(a -> (Double) a).toList());
             }
-
-            row.put(columnName, minimum);
         }
 
+        ColumnVector newVec = ColumnVector.create(columnName, finalColumnType, Math.max(16, total), true);
+        for (int i = 0; i < total; i++) {
+            newVec.appendObject(results[i]);
+        }
+        this.columns.add(newVec);
         this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
     }
@@ -904,18 +1196,25 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame count(String column) {
         Column groupedColumn = this.getColumnHeader(column);
-        Class<?> finalColumnType = Integer.class;
-        String columnName = column + "Count";
-
         if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
             throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
         }
+        ColumnVector srcVec = getVector(column);
+        Class<?> finalColumnType = Integer.class;
+        String columnName = column + "Count";
+        int total = this.size();
+        Object[] results = new Object[total];
 
-        for (var row : this.rows) {
-            Group value = (Group) row.get(column);
-            row.put(columnName, value.groupedValues.size());
+        for (int i = 0; i < total; i++) {
+            Group value = srcVec != null ? (Group) srcVec.getObject(i) : null;
+            results[i] = value != null ? value.groupedValues.size() : 0;
         }
 
+        ColumnVector newVec = ColumnVector.create(columnName, finalColumnType, Math.max(16, total), true);
+        for (int i = 0; i < total; i++) {
+            newVec.appendObject(results[i]);
+        }
+        this.columns.add(newVec);
         this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
     }
@@ -923,45 +1222,89 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame aggregate(String column, String separator) {
         Column groupedColumn = this.getColumnHeader(column);
-        Class<?> finalColumnType = String.class;
-        String columnName = column + "Aggregate";
-
         if (groupedColumn == null || groupedColumn.columnType() != Group.class) {
             throw new SchemaMismatchException("Column '" + column + "' is not a grouped column");
         }
+        ColumnVector srcVec = getVector(column);
+        Class<?> finalColumnType = String.class;
+        String columnName = column + "Aggregate";
+        int total = this.size();
+        Object[] results = new Object[total];
 
-        for (var row : this.rows) {
-            Group value = (Group) row.get(column);
-            String aggValue = value.groupedValues.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(separator));
-            row.put(columnName, aggValue);
+        for (int i = 0; i < total; i++) {
+            Group value = srcVec != null ? (Group) srcVec.getObject(i) : null;
+            if (value != null) {
+                results[i] = value.groupedValues.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(separator));
+            } else {
+                results[i] = "";
+            }
         }
 
+        ColumnVector newVec = ColumnVector.create(columnName, finalColumnType, Math.max(16, total), true);
+        for (int i = 0; i < total; i++) {
+            newVec.appendObject(results[i]);
+        }
+        this.columns.add(newVec);
         this.header.addColumn(new Column(columnName, finalColumnType));
         return this;
     }
 
     @Override
     public IDataFrame orderBy(Orderer... orderer) {
-        if (this.rows.isEmpty() || orderer == null || orderer.length == 0) {
+        int total = this.size();
+        if (total <= 1 || orderer == null || orderer.length == 0) {
             return this;
         }
 
-        Comparator<HashMap<String, Object>> rowComparator = (a, b) -> 0;
-        for (var order : orderer) {
-            if (order == null || order.column() == null) {
-                continue;
-            }
-            String columnName = order.column();
-            Class<?> declaredType = this.findDeclaredColumnType(columnName);
-            Comparator<Object> valueComparator = (valA, valB) -> this.compareValues(valA, valB, declaredType);
-            if (order.type() == Order.DESCENDING) {
-                valueComparator = valueComparator.reversed();
-            }
-            Comparator<Object> nullSafeComparator = Comparator.nullsLast(valueComparator);
-            rowComparator = rowComparator.thenComparing(row -> row.get(columnName), nullSafeComparator);
+        Integer[] indices = new Integer[total];
+        for (int i = 0; i < total; i++) {
+            indices[i] = i;
         }
 
-        this.rows.sort(rowComparator);
+        Arrays.sort(indices, (idxA, idxB) -> {
+            for (var order : orderer) {
+                if (order == null || order.column() == null) {
+                    continue;
+                }
+                String columnName = order.column();
+                ColumnVector vec = getVector(columnName);
+                if (vec == null) {
+                    continue;
+                }
+                Object valA = vec.getObject(idxA);
+                Object valB = vec.getObject(idxB);
+
+                boolean nullA = NA.isNA(valA);
+                boolean nullB = NA.isNA(valB);
+
+                if (nullA && nullB) {
+                    continue;
+                }
+                if (nullA) {
+                    return 1; // nulls always placed last
+                }
+                if (nullB) {
+                    return -1; // nulls always placed last
+                }
+
+                Class<?> declaredType = findDeclaredColumnType(columnName);
+                int cmp = compareNonNullValues(valA, valB, declaredType);
+                if (cmp != 0) {
+                    return order.type() == Order.DESCENDING ? -cmp : cmp;
+                }
+            }
+            return 0;
+        });
+
+        int[] primitiveIndices = new int[total];
+        for (int i = 0; i < total; i++) {
+            primitiveIndices[i] = indices[i];
+        }
+
+        for (ColumnVector vec : this.columns) {
+            vec.permute(primitiveIndices);
+        }
+
         return this;
     }
 
@@ -975,17 +1318,7 @@ public class DataFrame extends IDataFrame {
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private int compareValues(Object rawA, Object rawB, Class<?> declaredType) {
-        if (NA.isNA(rawA) && NA.isNA(rawB)) {
-            return 0;
-        }
-        if (NA.isNA(rawA)) {
-            return 1;
-        }
-        if (NA.isNA(rawB)) {
-            return -1;
-        }
-
+    private int compareNonNullValues(Object rawA, Object rawB, Class<?> declaredType) {
         Object valA = this.coerceToDeclaredType(rawA, declaredType);
         Object valB = this.coerceToDeclaredType(rawB, declaredType);
 
@@ -1043,13 +1376,13 @@ public class DataFrame extends IDataFrame {
         }
         try {
             if (value instanceof String str) {
-                if (declaredType == Integer.class) return Integer.valueOf(str);
-                if (declaredType == Long.class) return Long.valueOf(str);
-                if (declaredType == Double.class) return Double.valueOf(str);
-                if (declaredType == Float.class) return Float.valueOf(str);
-                if (declaredType == Short.class) return Short.valueOf(str);
-                if (declaredType == Byte.class) return Byte.valueOf(str);
-                if (declaredType == Boolean.class) return Boolean.valueOf(str);
+                if (declaredType == Integer.class || declaredType == int.class) return Integer.valueOf(str);
+                if (declaredType == Long.class || declaredType == long.class) return Long.valueOf(str);
+                if (declaredType == Double.class || declaredType == double.class) return Double.valueOf(str);
+                if (declaredType == Float.class || declaredType == float.class) return Float.valueOf(str);
+                if (declaredType == Short.class || declaredType == short.class) return Short.valueOf(str);
+                if (declaredType == Byte.class || declaredType == byte.class) return Byte.valueOf(str);
+                if (declaredType == Boolean.class || declaredType == boolean.class) return Boolean.valueOf(str);
                 if (declaredType == BigDecimal.class) return new BigDecimal(str);
                 if (declaredType == Instant.class) return Instant.parse(str);
                 if (declaredType == LocalDate.class) return LocalDate.parse(str);
@@ -1072,4 +1405,34 @@ public class DataFrame extends IDataFrame {
         return new BigDecimal(numA.toString()).compareTo(new BigDecimal(numB.toString()));
     }
 
+    @Override
+    public DataFrame copy() {
+        DataFrame copy = new DataFrame();
+        copy.header = this.header.copy();
+        copy.columnCreators.putAll(this.columnCreators);
+        copy.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        copy.index = this.index.copy();
+        copy.indexColumn = this.indexColumn;
+        for (ColumnVector vec : this.columns) {
+            copy.columns.add(vec.copy());
+        }
+        return copy;
+    }
+
+    @Override
+    public void clear() {
+        this.columns.clear();
+        this.header.clear();
+        this.index.clear();
+        this.indexColumn = null;
+        this.columnCreators.clear();
+        this.pendingTypeInferenceColumns.clear();
+    }
+
+    @Override
+    public void clearRows() {
+        for (ColumnVector vec : this.columns) {
+            vec.clear();
+        }
+    }
 }

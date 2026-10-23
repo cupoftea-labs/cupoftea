@@ -11,6 +11,13 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Added
 
+- Columnar storage engine replacing internal row HashMaps with contiguous primitive vectors (`ColumnVector`, `IntColumnVector`, `LongColumnVector`, `DoubleColumnVector`, `FloatColumnVector`, `BooleanColumnVector`, `StringColumnVector`, `ObjectColumnVector`) ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
+- Missing/null value tracking across columnar vectors using contiguous `BitSet` bitmasks ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
+- Explicit `Index` model encapsulating row labels / index column designation with `getIndexObject()` on `IDataFrame` ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
+- Nullability metadata support on `Column` (`nullable()`, `isNullable()`) and `Schema` (`isNullable(name)`, `isNullable(index)`) ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
+- Column vector accessors `getColumnVectors()` and `getColumnVector(...)` on `IDataFrame` for high-throughput vectorized operations ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
+- Dedicated columnar vector unit test suite `ColumnVectorTest` verifying vector operations, slicing, permutations, in-place filters, and high-volume performance ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
+
 - Adopted Apache-2.0 open-source license and added full `LICENSE` file ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - Added automated integration test `ReadmeExampleIntegrationTest` in `cupoftea-all` validating that README code snippets compile and run accurately ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - Configured `maven-javadoc-plugin` (3.11.2) with Java 17 release support across the multi-module reactor ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
@@ -35,6 +42,9 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 - Documented null policy, type inference rules, and `BigDecimal` currency recommendations in `docs/null_policy.md` ([#142](https://github.com/filippo-pequini/CupOfTea/issues/142)).
 
 ### Changed
+
+- Replaced internal DataFrame `ArrayList<HashMap<String, Object>>` storage with typed `ColumnVector` columnar layout; `Row` maps and `getRows()` now act as lightweight, lazy interchange views without eager map allocations ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
+- Optimized filtering, sorting, slicing, column manipulation, and aggregation operations to execute directly on columnar vectors without per-cell boxed object overhead ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
 
 - Targeted Java 17 LTS compiler release (`maven.compiler.release` 17) to provide broad enterprise compatibility across all modules ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - Enriched `pom.xml` with complete project metadata (licenses, developers, SCM, issue management) for Maven/Gradle publication ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144), [#82](https://github.com/filippo-pequini/CupOfTea/issues/82), [#83](https://github.com/filippo-pequini/CupOfTea/issues/83)).
