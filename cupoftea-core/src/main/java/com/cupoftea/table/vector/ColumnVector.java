@@ -23,12 +23,25 @@ public abstract class ColumnVector implements Serializable {
     protected final BitSet nulls;
     protected int size;
 
+    public final transient StringAccessor str;
+    public final transient TemporalAccessor dt;
+
     protected ColumnVector(String name, Class<?> type, boolean nullable, int initialCapacity) {
         this.name = Objects.requireNonNull(name, "Column name cannot be null");
         this.type = type;
         this.nullable = nullable;
         this.nulls = new BitSet(Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity));
         this.size = 0;
+        this.str = new StringAccessor(this);
+        this.dt = new TemporalAccessor(this);
+    }
+
+    public StringAccessor str() {
+        return this.str != null ? this.str : new StringAccessor(this);
+    }
+
+    public TemporalAccessor dt() {
+        return this.dt != null ? this.dt : new TemporalAccessor(this);
     }
 
     public static ColumnVector create(String name, Class<?> type, int initialCapacity, boolean nullable) {

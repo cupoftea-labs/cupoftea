@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -408,6 +409,103 @@ public class DataFrame extends IDataFrame {
         }
         this.columns.add(index, vec);
         return this;
+    }
+
+    @Override
+    public ColumnRef col(String columnName) {
+        ColumnVector vec = getColumnVector(columnName);
+        if (vec == null) {
+            throw new IllegalArgumentException("Column '" + columnName + "' does not exist in DataFrame");
+        }
+        return new ColumnRef(this, vec);
+    }
+
+    @Override
+    public IDataFrame withColumn(String columnName, ColumnVector vector) {
+        Objects.requireNonNull(columnName, "Column name cannot be null");
+        Objects.requireNonNull(vector, "Column vector cannot be null");
+        int currentSize = this.size();
+        if (this.columns.isEmpty() && currentSize == 0) {
+            vector.setName(columnName);
+            this.header.addColumn(columnName, vector.getType(), vector.isNullable());
+            this.columns.add(vector);
+            return this;
+        }
+        if (vector.size() != currentSize) {
+            throw new SchemaMismatchException("Column data size (" + vector.size() + ") does not match DataFrame size (" + currentSize + ")");
+        }
+        int existingIdx = findVectorIndex(columnName);
+        vector.setName(columnName);
+        if (existingIdx != -1) {
+            this.columns.set(existingIdx, vector);
+            this.header.alterColumnType(columnName, vector.getType());
+            this.columnCreators.remove(columnName);
+            this.pendingTypeInferenceColumns.remove(columnName);
+        } else {
+            this.header.addColumn(columnName, vector.getType(), vector.isNullable());
+            this.columns.add(vector);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame withColumn(String columnName, ColumnRef columnRef) {
+        Objects.requireNonNull(columnRef, "ColumnRef cannot be null");
+        return withColumn(columnName, columnRef.getVector().copy());
+    }
+
+    @Override
+    public IDataFrame withColumn(String columnName, IColumnCreator columnCreator) {
+        return withColumn(columnName, null, columnCreator);
+    }
+
+    @Override
+    public IDataFrame withColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) {
+        int existingIdx = findVectorIndex(columnName);
+        if (existingIdx != -1) {
+            removeColumn(existingIdx);
+            return addColumn(existingIdx, columnName, columnType, columnCreator);
+        }
+        return addColumn(columnName, columnType, columnCreator);
+    }
+
+    @Override
+    public IDataFrame transformColumn(String columnName, ColumnVector vector) {
+        Objects.requireNonNull(columnName, "Column name cannot be null");
+        Objects.requireNonNull(vector, "Column vector cannot be null");
+        int idx = findVectorIndex(columnName);
+        if (idx == -1) {
+            throw new IllegalArgumentException("Column '" + columnName + "' does not exist in DataFrame");
+        }
+        if (vector.size() != this.size()) {
+            throw new SchemaMismatchException("Transformed vector size (" + vector.size() + ") does not match DataFrame size (" + this.size() + ")");
+        }
+        vector.setName(columnName);
+        this.columns.set(idx, vector);
+        this.header.alterColumnType(columnName, vector.getType());
+        this.columnCreators.remove(columnName);
+        this.pendingTypeInferenceColumns.remove(columnName);
+        return this;
+    }
+
+    @Override
+    public IDataFrame transformColumn(String columnName, ColumnRef columnRef) {
+        Objects.requireNonNull(columnRef, "ColumnRef cannot be null");
+        return transformColumn(columnName, columnRef.getVector());
+    }
+
+    @Override
+    public IDataFrame transformColumn(String columnName, Function<ColumnVector, ColumnVector> transformer) {
+        Objects.requireNonNull(transformer, "transformer cannot be null");
+        ColumnVector current = getColumnVector(columnName);
+        if (current == null) {
+            throw new IllegalArgumentException("Column '" + columnName + "' does not exist in DataFrame");
+        }
+        ColumnVector transformed = transformer.apply(current);
+        if (transformed == null) {
+            throw new NullPointerException("Transformer returned null for column '" + columnName + "'");
+        }
+        return transformColumn(columnName, transformed);
     }
 
     @Override
