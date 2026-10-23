@@ -1949,4 +1949,343 @@ public class DataFrame extends IDataFrame {
             vec.clear();
         }
     }
+
+    // ==========================================
+    // Window, Cumulative, and Analytical Operations
+    // ==========================================
+
+    public void replaceOrAddColumn(String columnName, Class<?> type, Object[] values) {
+        int total = values.length;
+        ColumnVector newVec = ColumnVector.create(columnName, type != null ? type : Object.class, Math.max(16, total), true);
+        for (int i = 0; i < total; i++) {
+            if (values[i] != null && !NA.isNA(values[i])) {
+                newVec.appendObject(values[i]);
+            } else {
+                newVec.appendNull();
+            }
+        }
+        int existingIdx = findVectorIndex(columnName);
+        if (existingIdx != -1) {
+            this.columns.set(existingIdx, newVec);
+            this.header.alterColumnType(columnName, type != null ? type : Object.class);
+        } else {
+            this.header.addColumn(new Column(columnName, type != null ? type : Object.class));
+            this.columns.add(newVec);
+        }
+    }
+
+    private List<String> resolveNumericColumns(String... columns) {
+        List<String> targetCols = new ArrayList<>();
+        if (columns == null || columns.length == 0) {
+            for (Column col : this.header.getHeader()) {
+                if (isNumericType(col.columnType())) {
+                    targetCols.add(col.columnName());
+                }
+            }
+        } else {
+            for (String col : columns) {
+                ColumnVector vec = getVector(col);
+                if (vec == null) {
+                    throw new SchemaMismatchException("Column '" + col + "' does not exist in DataFrame");
+                }
+                if (!isNumericType(vec.getType())) {
+                    throw new IllegalArgumentException("Column '" + col + "' of type " + (vec.getType() != null ? vec.getType().getSimpleName() : "unknown") + " is not numeric");
+                }
+                targetCols.add(col);
+            }
+        }
+        return targetCols;
+    }
+
+    @Override
+    public IDataFrame cumsum(String... columns) {
+        List<String> targetCols = resolveNumericColumns(columns);
+        int total = this.size();
+        for (String col : targetCols) {
+            ColumnVector vec = getVector(col);
+            Object[] results = new Object[total];
+            if (vec.getType() == BigDecimal.class) {
+                BigDecimal sum = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        BigDecimal v = (BigDecimal) vec.getObject(i);
+                        sum = (sum == null) ? v : sum.add(v);
+                        results[i] = sum;
+                    }
+                }
+            } else if (vec.getType() == Integer.class || vec.getType() == int.class) {
+                Integer sum = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        int v = vec.getInt(i);
+                        sum = (sum == null) ? v : (sum + v);
+                        results[i] = sum;
+                    }
+                }
+            } else if (vec.getType() == Long.class || vec.getType() == long.class) {
+                Long sum = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        long v = vec.getLong(i);
+                        sum = (sum == null) ? v : (sum + v);
+                        results[i] = sum;
+                    }
+                }
+            } else {
+                Double sum = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        double v = vec.getDouble(i);
+                        sum = (sum == null) ? v : (sum + v);
+                        results[i] = sum;
+                    }
+                }
+            }
+            replaceOrAddColumn(col, vec.getType(), results);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame cumprod(String... columns) {
+        List<String> targetCols = resolveNumericColumns(columns);
+        int total = this.size();
+        for (String col : targetCols) {
+            ColumnVector vec = getVector(col);
+            Object[] results = new Object[total];
+            if (vec.getType() == BigDecimal.class) {
+                BigDecimal prod = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        BigDecimal v = (BigDecimal) vec.getObject(i);
+                        prod = (prod == null) ? v : prod.multiply(v);
+                        results[i] = prod;
+                    }
+                }
+            } else if (vec.getType() == Integer.class || vec.getType() == int.class) {
+                Integer prod = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        int v = vec.getInt(i);
+                        prod = (prod == null) ? v : (prod * v);
+                        results[i] = prod;
+                    }
+                }
+            } else if (vec.getType() == Long.class || vec.getType() == long.class) {
+                Long prod = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        long v = vec.getLong(i);
+                        prod = (prod == null) ? v : (prod * v);
+                        results[i] = prod;
+                    }
+                }
+            } else {
+                Double prod = null;
+                for (int i = 0; i < total; i++) {
+                    if (vec.isNull(i)) {
+                        results[i] = null;
+                    } else {
+                        double v = vec.getDouble(i);
+                        prod = (prod == null) ? v : (prod * v);
+                        results[i] = prod;
+                    }
+                }
+            }
+            replaceOrAddColumn(col, vec.getType(), results);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame cummin(String... columns) {
+        List<String> targetCols = resolveNumericColumns(columns);
+        int total = this.size();
+        for (String col : targetCols) {
+            ColumnVector vec = getVector(col);
+            Object[] results = new Object[total];
+            Object minVal = null;
+            for (int i = 0; i < total; i++) {
+                if (vec.isNull(i)) {
+                    results[i] = null;
+                } else {
+                    Object v = vec.getObject(i);
+                    if (minVal == null || compareNonNullValues(v, minVal, vec.getType()) < 0) {
+                        minVal = v;
+                    }
+                    results[i] = minVal;
+                }
+            }
+            replaceOrAddColumn(col, vec.getType(), results);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame cummax(String... columns) {
+        List<String> targetCols = resolveNumericColumns(columns);
+        int total = this.size();
+        for (String col : targetCols) {
+            ColumnVector vec = getVector(col);
+            Object[] results = new Object[total];
+            Object maxVal = null;
+            for (int i = 0; i < total; i++) {
+                if (vec.isNull(i)) {
+                    results[i] = null;
+                } else {
+                    Object v = vec.getObject(i);
+                    if (maxVal == null || compareNonNullValues(v, maxVal, vec.getType()) > 0) {
+                        maxVal = v;
+                    }
+                    results[i] = maxVal;
+                }
+            }
+            replaceOrAddColumn(col, vec.getType(), results);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame lead(String column, int offset, String outputColumn) {
+        ColumnVector vec = requireVector(column);
+        String targetCol = outputColumn != null ? outputColumn : column;
+        int total = this.size();
+        Object[] results = new Object[total];
+        for (int i = 0; i < total; i++) {
+            int targetIdx = i + offset;
+            if (targetIdx >= 0 && targetIdx < total) {
+                results[i] = vec.getObject(targetIdx);
+            } else {
+                results[i] = null;
+            }
+        }
+        replaceOrAddColumn(targetCol, vec.getType(), results);
+        return this;
+    }
+
+    @Override
+    public IDataFrame lag(String column, int offset, String outputColumn) {
+        return lead(column, -offset, outputColumn);
+    }
+
+    @Override
+    public IDataFrame diff(String column, int periods, String outputColumn) {
+        ColumnVector vec = requireNumericVector(column);
+        String targetCol = outputColumn != null ? outputColumn : column;
+        int total = this.size();
+        Object[] results = new Object[total];
+        boolean isDecimal = (vec.getType() == BigDecimal.class);
+
+        for (int i = 0; i < total; i++) {
+            int priorIdx = i - periods;
+            if (priorIdx >= 0 && priorIdx < total) {
+                if (vec.isNull(i) || vec.isNull(priorIdx)) {
+                    results[i] = null;
+                } else if (isDecimal) {
+                    BigDecimal curr = (BigDecimal) vec.getObject(i);
+                    BigDecimal prior = (BigDecimal) vec.getObject(priorIdx);
+                    results[i] = curr.subtract(prior);
+                } else if (vec.getType() == Integer.class || vec.getType() == int.class) {
+                    results[i] = vec.getInt(i) - vec.getInt(priorIdx);
+                } else if (vec.getType() == Long.class || vec.getType() == long.class) {
+                    results[i] = vec.getLong(i) - vec.getLong(priorIdx);
+                } else {
+                    results[i] = vec.getDouble(i) - vec.getDouble(priorIdx);
+                }
+            } else {
+                results[i] = null;
+            }
+        }
+        Class<?> outType = isDecimal ? BigDecimal.class : vec.getType();
+        replaceOrAddColumn(targetCol, outType, results);
+        return this;
+    }
+
+    @Override
+    public IDataFrame diff(String... columns) {
+        List<String> targetCols = resolveNumericColumns(columns);
+        for (String col : targetCols) {
+            diff(col, 1, col);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame pctChange(String column, int periods, String outputColumn) {
+        ColumnVector vec = requireNumericVector(column);
+        String targetCol = outputColumn != null ? outputColumn : column;
+        int total = this.size();
+        Object[] results = new Object[total];
+
+        for (int i = 0; i < total; i++) {
+            int priorIdx = i - periods;
+            if (priorIdx >= 0 && priorIdx < total) {
+                if (vec.isNull(i) || vec.isNull(priorIdx)) {
+                    results[i] = null;
+                } else {
+                    double prior = vec.getDouble(priorIdx);
+                    double curr = vec.getDouble(i);
+                    if (prior == 0.0) {
+                        results[i] = curr > 0 ? Double.POSITIVE_INFINITY : (curr < 0 ? Double.NEGATIVE_INFINITY : Double.NaN);
+                    } else {
+                        results[i] = (curr - prior) / prior;
+                    }
+                }
+            } else {
+                results[i] = null;
+            }
+        }
+        replaceOrAddColumn(targetCol, Double.class, results);
+        return this;
+    }
+
+    @Override
+    public IDataFrame pctChange(String... columns) {
+        List<String> targetCols = resolveNumericColumns(columns);
+        for (String col : targetCols) {
+            pctChange(col, 1, col);
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame rank(String column, String outputColumn) {
+        requireVector(column);
+        new com.cupoftea.table.window.Window(this).orderBy(column).rank(outputColumn != null ? outputColumn : "rank");
+        return this;
+    }
+
+    @Override
+    public IDataFrame denseRank(String column, String outputColumn) {
+        requireVector(column);
+        new com.cupoftea.table.window.Window(this).orderBy(column).denseRank(outputColumn != null ? outputColumn : "dense_rank");
+        return this;
+    }
+
+    @Override
+    public IDataFrame percentRank(String column, String outputColumn) {
+        requireVector(column);
+        new com.cupoftea.table.window.Window(this).orderBy(column).percentRank(outputColumn != null ? outputColumn : "percent_rank");
+        return this;
+    }
+
+    @Override
+    public IDataFrame rowNumber(String outputColumn) {
+        new com.cupoftea.table.window.Window(this).rowNumber(outputColumn != null ? outputColumn : "row_number");
+        return this;
+    }
 }

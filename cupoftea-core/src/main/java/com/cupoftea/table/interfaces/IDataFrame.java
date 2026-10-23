@@ -585,4 +585,83 @@ public abstract class IDataFrame {
     public com.cupoftea.io.DataFrameWriter write() {
         return new com.cupoftea.io.DataFrameWriter(this);
     }
+
+    // ==========================================
+    // Window, Rolling, and Analytical Operations
+    // ==========================================
+
+    public com.cupoftea.table.window.RollingWindow rolling(int windowSize) {
+        return new com.cupoftea.table.window.RollingWindow(this, windowSize);
+    }
+
+    public com.cupoftea.table.window.ExpandingWindow expanding() {
+        return new com.cupoftea.table.window.ExpandingWindow(this, 1);
+    }
+
+    public com.cupoftea.table.window.ExpandingWindow expanding(int minPeriods) {
+        return new com.cupoftea.table.window.ExpandingWindow(this, minPeriods);
+    }
+
+    public com.cupoftea.table.window.Window window() {
+        return new com.cupoftea.table.window.Window(this);
+    }
+
+    public abstract IDataFrame cumsum(String... columns);
+    public abstract IDataFrame cumprod(String... columns);
+    public abstract IDataFrame cummin(String... columns);
+    public abstract IDataFrame cummax(String... columns);
+
+    public abstract IDataFrame lead(String column, int offset, String outputColumn);
+    public IDataFrame lead(String column, int offset) {
+        return lead(column, offset, column);
+    }
+    public IDataFrame lead(String column) {
+        return lead(column, 1, column);
+    }
+
+    public abstract IDataFrame lag(String column, int offset, String outputColumn);
+    public IDataFrame lag(String column, int offset) {
+        return lag(column, offset, column);
+    }
+    public IDataFrame lag(String column) {
+        return lag(column, 1, column);
+    }
+
+    public abstract IDataFrame diff(String column, int periods, String outputColumn);
+    public IDataFrame diff(String column, int periods) {
+        return diff(column, periods, column);
+    }
+    public IDataFrame diff(String column) {
+        return diff(column, 1, column);
+    }
+    public abstract IDataFrame diff(String... columns);
+
+    public abstract IDataFrame pctChange(String column, int periods, String outputColumn);
+    public IDataFrame pctChange(String column, int periods) {
+        return pctChange(column, periods, column);
+    }
+    public IDataFrame pctChange(String column) {
+        return pctChange(column, 1, column);
+    }
+    public abstract IDataFrame pctChange(String... columns);
+
+    public abstract IDataFrame rank(String column, String outputColumn);
+    public IDataFrame rank(String column) {
+        return rank(column, "rank");
+    }
+
+    public abstract IDataFrame denseRank(String column, String outputColumn);
+    public IDataFrame denseRank(String column) {
+        return denseRank(column, "dense_rank");
+    }
+
+    public abstract IDataFrame percentRank(String column, String outputColumn);
+    public IDataFrame percentRank(String column) {
+        return percentRank(column, "percent_rank");
+    }
+
+    public abstract IDataFrame rowNumber(String outputColumn);
+    public IDataFrame rowNumber() {
+        return rowNumber("row_number");
+    }
 }

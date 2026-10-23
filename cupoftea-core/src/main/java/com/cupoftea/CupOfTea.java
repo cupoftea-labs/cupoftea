@@ -34,6 +34,9 @@ import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
 import com.cupoftea.table.interfaces.IDataFrame;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.window.ExpandingWindow;
+import com.cupoftea.table.window.RollingWindow;
+import com.cupoftea.table.window.Window;
 import com.cupoftea.utils.Printer;
 import com.cupoftea.utils.configurations.PrinterConfiguration;
 import com.cupoftea.utils.interfaces.IColumnCreator;
@@ -1491,5 +1494,157 @@ public class CupOfTea {
 
     public CupOfTea describe() {
         return new CupOfTea(this.dataFrame.describe(), this.mutationMode);
+    }
+
+    // ==========================================
+    // Window, Rolling, and Analytical Operations
+    // ==========================================
+
+    public RollingWindow rolling(int windowSize) {
+        return new RollingWindow(this, windowSize);
+    }
+
+    public ExpandingWindow expanding() {
+        return new ExpandingWindow(this, 1);
+    }
+
+    public ExpandingWindow expanding(int minPeriods) {
+        return new ExpandingWindow(this, minPeriods);
+    }
+
+    public Window window() {
+        return new Window(this);
+    }
+
+    public CupOfTea cumsum(String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.cumsum(columns);
+        return target;
+    }
+
+    public CupOfTea cumprod(String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.cumprod(columns);
+        return target;
+    }
+
+    public CupOfTea cummin(String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.cummin(columns);
+        return target;
+    }
+
+    public CupOfTea cummax(String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.cummax(columns);
+        return target;
+    }
+
+    public CupOfTea lead(String column, int offset, String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.lead(column, offset, outputColumn);
+        return target;
+    }
+
+    public CupOfTea lead(String column, int offset) {
+        return lead(column, offset, column);
+    }
+
+    public CupOfTea lead(String column) {
+        return lead(column, 1, column);
+    }
+
+    public CupOfTea lag(String column, int offset, String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.lag(column, offset, outputColumn);
+        return target;
+    }
+
+    public CupOfTea lag(String column, int offset) {
+        return lag(column, offset, column);
+    }
+
+    public CupOfTea lag(String column) {
+        return lag(column, 1, column);
+    }
+
+    public CupOfTea diff(String column, int periods, String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.diff(column, periods, outputColumn);
+        return target;
+    }
+
+    public CupOfTea diff(String column, int periods) {
+        return diff(column, periods, column);
+    }
+
+    public CupOfTea diff(String column) {
+        return diff(column, 1, column);
+    }
+
+    public CupOfTea diff(String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.diff(columns);
+        return target;
+    }
+
+    public CupOfTea pctChange(String column, int periods, String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.pctChange(column, periods, outputColumn);
+        return target;
+    }
+
+    public CupOfTea pctChange(String column, int periods) {
+        return pctChange(column, periods, column);
+    }
+
+    public CupOfTea pctChange(String column) {
+        return pctChange(column, 1, column);
+    }
+
+    public CupOfTea pctChange(String... columns) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.pctChange(columns);
+        return target;
+    }
+
+    public CupOfTea rank(String column, String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.rank(column, outputColumn);
+        return target;
+    }
+
+    public CupOfTea rank(String column) {
+        return rank(column, "rank");
+    }
+
+    public CupOfTea denseRank(String column, String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.denseRank(column, outputColumn);
+        return target;
+    }
+
+    public CupOfTea denseRank(String column) {
+        return denseRank(column, "dense_rank");
+    }
+
+    public CupOfTea percentRank(String column, String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.percentRank(column, outputColumn);
+        return target;
+    }
+
+    public CupOfTea percentRank(String column) {
+        return percentRank(column, "percent_rank");
+    }
+
+    public CupOfTea rowNumber(String outputColumn) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.rowNumber(outputColumn);
+        return target;
+    }
+
+    public CupOfTea rowNumber() {
+        return rowNumber("row_number");
     }
 }
