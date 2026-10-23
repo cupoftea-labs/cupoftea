@@ -86,9 +86,9 @@ CupOfTea is a multi-module Maven reactor. When bumping versions:
     1. Reads the current version from `pom.xml` (`X.Y.Z`).
     2. Checks if the Git tag `vX.Y.Z` already exists.
     3. If not, creates and pushes the Git tag `vX.Y.Z`.
-    4. Extracts release notes for `## [X.Y.Z]` from `CHANGELOG.md`.
+    4. Identifies the previous release tag on `main` and aggregates **all changes in between** (via `.github/scripts/generate-release-notes.py`), combining CHANGELOG highlights with categorized commits and PR references so no intermediate features are omitted.
     5. Builds and packages all JAR assets (`cupoftea-all.jar`, `cupoftea-core.jar`, etc.).
-    6. Publishes a GitHub Release with the release notes and packaged binaries attached.
+    6. Publishes a GitHub Release with the compiled release notes and packaged binaries attached.
 
 ---
 

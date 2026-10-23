@@ -30,6 +30,11 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
       - name: Extract project version from pom.xml
         id: get_version
         run: |
@@ -50,21 +55,16 @@ jobs:
             echo "Tag $TAG does not exist. Proceeding with release."
           fi
 
-      - name: Extract release notes from CHANGELOG.md
+      - name: Generate release notes between current and new tag
         id: extract_notes
         if: steps.check_tag.outputs.exists == 'false'
         run: |
-          VERSION="${{ steps.get_version.outputs.VERSION }}"
-          awk -v ver="$VERSION" '
-            $0 ~ "^## \\[" ver "\\]" { found=1; next }
-            found && /^## / { exit }
-            found { print }
-          ' CHANGELOG.md > RELEASE_NOTES.md
-
-          if [ ! -s RELEASE_NOTES.md ]; then
-            echo "No explicit notes found in CHANGELOG.md for version $VERSION, using commit history."
-            git log -1 --pretty=format:"%B" > RELEASE_NOTES.md
-          fi
+          TAG="${{ steps.get_version.outputs.TAG_NAME }}"
+          echo "Generating comprehensive release notes for $TAG comparing to previous tag..."
+          python3 .github/scripts/generate-release-notes.py \
+            --new-tag "$TAG" \
+            --changelog CHANGELOG.md \
+            --output RELEASE_NOTES.md
           cat RELEASE_NOTES.md
 
       - name: Build and package JARs

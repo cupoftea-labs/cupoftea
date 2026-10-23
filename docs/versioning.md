@@ -53,9 +53,9 @@ Use structured prefix messages:
    When merged into `master` (or `main`), the automated GitHub Actions workflow (`.github/workflows/release.yml`) will:
    - Verify the version in `pom.xml` (`0.3.0`).
    - Automatically tag `v0.3.0`.
-   - Extract the release notes from `CHANGELOG.md`.
+   - Identify the previous tag and collect **all changes in between** (commits, PRs, and changelog highlights via `.github/scripts/generate-release-notes.py`).
    - Build all module JAR packages.
-   - Publish the GitHub Release with attached binaries.
+   - Publish the GitHub Release with the complete release notes and attached binaries.
 
 ---
 
