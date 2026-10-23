@@ -188,6 +188,39 @@ public abstract class IDataFrame {
     public abstract IDataFrame count(String column);
     public abstract IDataFrame aggregate(String column, String separator);
 
+    // Statistical scalar operations
+    public abstract Double mean(String column);
+    public abstract Double min(String column);
+    public abstract Double max(String column);
+    public abstract Double median(String column);
+    public abstract Double variance(String column);
+    public abstract Double variance(String column, boolean isSample);
+    public abstract Double var(String column);
+    public abstract Double var(String column, boolean isSample);
+    public abstract Double standardDeviation(String column);
+    public abstract Double standardDeviation(String column, boolean isSample);
+    public abstract Double std(String column);
+    public abstract Double std(String column, boolean isSample);
+    public abstract Double quantile(String column, double q);
+    public abstract Double skewness(String column);
+    public abstract Double skewness(String column, boolean isSample);
+    public abstract Double skew(String column);
+    public abstract Double kurtosis(String column);
+    public abstract Double kurtosis(String column, boolean isSample);
+    public abstract Double kurt(String column);
+
+    // Bivariate statistics
+    public abstract Double covariance(String col1, String col2);
+    public abstract Double covariance(String col1, String col2, boolean isSample);
+    public abstract Double cov(String col1, String col2);
+    public abstract Double cov(String col1, String col2, boolean isSample);
+    public abstract Double correlation(String col1, String col2);
+    public abstract Double corr(String col1, String col2);
+
+    // Correlation matrix & summary
+    public abstract IDataFrame corr();
+    public abstract IDataFrame describe();
+
     public Integer size() {
         return this.rows.size();
     }

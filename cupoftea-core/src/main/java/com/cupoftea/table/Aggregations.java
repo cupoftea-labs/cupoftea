@@ -4,10 +4,13 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import com.cupoftea.table.vector.Introselect;
 
 public class Aggregations {
 
@@ -214,6 +217,223 @@ public class Aggregations {
                 return String.class;
             }
         };
+    }
+
+    public static Aggregate median(String column) {
+        return createMedianAggregate(column, column + "Median");
+    }
+
+    private static Aggregate createMedianAggregate(String column, String defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName) {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                double[] vals = extractDoubleArray(rows, column);
+                if (vals.length == 0) {
+                    return null;
+                }
+                return Introselect.quantile(vals, 0, vals.length, 0.5);
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                return Double.class;
+            }
+        };
+    }
+
+    public static Aggregate quantile(String column, double q) {
+        String tag = (q == (long) q) ? String.valueOf((long) q) : String.valueOf(q).replace('.', '_');
+        return createQuantileAggregate(column, column + "Quantile_" + tag, q);
+    }
+
+    private static Aggregate createQuantileAggregate(String column, String defaultOutputName, double q) {
+        return new BaseAggregate(column, defaultOutputName) {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                double[] vals = extractDoubleArray(rows, column);
+                if (vals.length == 0) {
+                    return null;
+                }
+                return Introselect.quantile(vals, 0, vals.length, q);
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                return Double.class;
+            }
+        };
+    }
+
+    public static Aggregate variance(String column) {
+        return createVarAggregate(column, column + "Variance", true);
+    }
+
+    public static Aggregate var(String column) {
+        return createVarAggregate(column, column + "Var", true);
+    }
+
+    private static Aggregate createVarAggregate(String column, String defaultOutputName, boolean isSample) {
+        return new BaseAggregate(column, defaultOutputName) {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                double[] vals = extractDoubleArray(rows, column);
+                if (vals.length < (isSample ? 2 : 1)) {
+                    return null;
+                }
+                double mean = computeMean(vals);
+                double sumSq = 0.0;
+                for (double v : vals) {
+                    double d = v - mean;
+                    sumSq += d * d;
+                }
+                return sumSq / (isSample ? (vals.length - 1) : vals.length);
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                return Double.class;
+            }
+        };
+    }
+
+    public static Aggregate standardDeviation(String column) {
+        return createStdAggregate(column, column + "StandardDeviation", true);
+    }
+
+    public static Aggregate std(String column) {
+        return createStdAggregate(column, column + "Std", true);
+    }
+
+    private static Aggregate createStdAggregate(String column, String defaultOutputName, boolean isSample) {
+        return new BaseAggregate(column, defaultOutputName) {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                double[] vals = extractDoubleArray(rows, column);
+                if (vals.length < (isSample ? 2 : 1)) {
+                    return null;
+                }
+                double mean = computeMean(vals);
+                double sumSq = 0.0;
+                for (double v : vals) {
+                    double d = v - mean;
+                    sumSq += d * d;
+                }
+                double variance = sumSq / (isSample ? (vals.length - 1) : vals.length);
+                return Math.sqrt(variance);
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                return Double.class;
+            }
+        };
+    }
+
+    public static Aggregate skewness(String column) {
+        return new BaseAggregate(column, column + "Skewness") {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                double[] vals = extractDoubleArray(rows, column);
+                int n = vals.length;
+                if (n < 3) {
+                    return null;
+                }
+                double mean = computeMean(vals);
+                double sum2 = 0.0;
+                double sum3 = 0.0;
+                for (double v : vals) {
+                    double d = v - mean;
+                    sum2 += d * d;
+                    sum3 += d * d * d;
+                }
+                double m2 = sum2 / n;
+                if (m2 == 0.0) {
+                    return null;
+                }
+                double m3 = sum3 / n;
+                double g1 = m3 / Math.pow(m2, 1.5);
+                return (Math.sqrt((double) n * (n - 1)) / (n - 2.0)) * g1;
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                return Double.class;
+            }
+        };
+    }
+
+    public static Aggregate kurtosis(String column) {
+        return new BaseAggregate(column, column + "Kurtosis") {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                double[] vals = extractDoubleArray(rows, column);
+                int n = vals.length;
+                if (n < 4) {
+                    return null;
+                }
+                double mean = computeMean(vals);
+                double sum2 = 0.0;
+                double sum4 = 0.0;
+                for (double v : vals) {
+                    double d = v - mean;
+                    double d2 = d * d;
+                    sum2 += d2;
+                    sum4 += d2 * d2;
+                }
+                double m2 = sum2 / n;
+                if (m2 == 0.0) {
+                    return null;
+                }
+                double m4 = sum4 / n;
+                double term1 = ((double) (n - 1)) / ((n - 2.0) * (n - 3.0));
+                double term2 = (n + 1.0) * (m4 / (m2 * m2)) - 3.0 * (n - 1.0);
+                return term1 * term2;
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                return Double.class;
+            }
+        };
+    }
+
+    private static double[] extractDoubleArray(List<HashMap<String, Object>> rows, String column) {
+        if (rows == null || column == null) {
+            return new double[0];
+        }
+        int nonNullCount = 0;
+        for (HashMap<String, Object> row : rows) {
+            Object val = row.get(column);
+            if (val != null && !NA.isNA(val)) {
+                nonNullCount++;
+            }
+        }
+        if (nonNullCount == 0) {
+            return new double[0];
+        }
+        double[] result = new double[nonNullCount];
+        int idx = 0;
+        for (HashMap<String, Object> row : rows) {
+            Object val = row.get(column);
+            if (val != null && !NA.isNA(val)) {
+                BigDecimal bd = toBigDecimal(val);
+                if (bd != null) {
+                    result[idx++] = bd.doubleValue();
+                }
+            }
+        }
+        if (idx < nonNullCount) {
+            return Arrays.copyOf(result, idx);
+        }
+        return result;
+    }
+
+    private static double computeMean(double[] vals) {
+        double s = 0.0;
+        for (double v : vals) {
+            s += v;
+        }
+        return s / vals.length;
     }
 
     public static abstract class BaseAggregate implements Aggregate {

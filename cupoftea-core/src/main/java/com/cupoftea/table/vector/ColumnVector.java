@@ -254,4 +254,295 @@ public abstract class ColumnVector implements Serializable {
     public void appendString(String val) {
         appendObject(val);
     }
+
+    // ==========================================
+    // Statistical Operations & Vectorization
+    // ==========================================
+
+    /**
+     * Returns the count of non-null and non-NA elements currently stored.
+     */
+    public int validCount() {
+        return size - (nulls.isEmpty() ? 0 : nulls.get(0, size).cardinality());
+    }
+
+    /**
+     * Extracts non-null, non-NA values into a contiguous primitive {@code double[]} array.
+     */
+    public double[] toPrimitiveDoubleArray() {
+        int count = validCount();
+        if (count == 0) {
+            return new double[0];
+        }
+        double[] result = new double[count];
+        int idx = 0;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                result[idx++] = getDouble(i);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Computes the sum of non-null values, or {@link Double#NaN} if column has no valid values.
+     */
+    public double sum() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        double total = 0.0;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                total += getDouble(i);
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Computes the arithmetic mean, or {@link Double#NaN} if column has no valid values.
+     */
+    public double mean() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        return sum() / count;
+    }
+
+    /**
+     * Computes the minimum value, or {@link Double#NaN} if column has no valid values.
+     */
+    public double min() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        double minVal = Double.POSITIVE_INFINITY;
+        boolean found = false;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                double val = getDouble(i);
+                if (!found || Double.compare(val, minVal) < 0) {
+                    minVal = val;
+                    found = true;
+                }
+            }
+        }
+        return found ? minVal : Double.NaN;
+    }
+
+    /**
+     * Computes the maximum value, or {@link Double#NaN} if column has no valid values.
+     */
+    public double max() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        double maxVal = Double.NEGATIVE_INFINITY;
+        boolean found = false;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                double val = getDouble(i);
+                if (!found || Double.compare(val, maxVal) > 0) {
+                    maxVal = val;
+                    found = true;
+                }
+            }
+        }
+        return found ? maxVal : Double.NaN;
+    }
+
+    /**
+     * Calculates the exact median (50th percentile) skipping null and NA values.
+     */
+    public double median() {
+        return quantile(0.5);
+    }
+
+    /**
+     * Computes sample variance (ddof=1) skipping null and NA values.
+     */
+    public double variance() {
+        return variance(true);
+    }
+
+    /**
+     * Computes sample (isSample=true, ddof=1) or population (isSample=false, ddof=0) variance.
+     */
+    public double variance(boolean isSample) {
+        int n = validCount();
+        if (isSample && n < 2) {
+            return Double.NaN;
+        }
+        if (!isSample && n < 1) {
+            return Double.NaN;
+        }
+        double m = mean();
+        double sumSq = 0.0;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                double d = getDouble(i) - m;
+                sumSq += d * d;
+            }
+        }
+        return sumSq / (isSample ? (n - 1) : n);
+    }
+
+    /**
+     * Alias for {@link #variance()}.
+     */
+    public double var() {
+        return variance(true);
+    }
+
+    /**
+     * Alias for {@link #variance(boolean)}.
+     */
+    public double var(boolean isSample) {
+        return variance(isSample);
+    }
+
+    /**
+     * Computes sample standard deviation (ddof=1) skipping null and NA values.
+     */
+    public double standardDeviation() {
+        return standardDeviation(true);
+    }
+
+    /**
+     * Computes sample (isSample=true, ddof=1) or population (isSample=false, ddof=0) standard deviation.
+     */
+    public double standardDeviation(boolean isSample) {
+        double v = variance(isSample);
+        return Double.isNaN(v) ? Double.NaN : Math.sqrt(v);
+    }
+
+    /**
+     * Alias for {@link #standardDeviation()}.
+     */
+    public double std() {
+        return standardDeviation(true);
+    }
+
+    /**
+     * Alias for {@link #standardDeviation(boolean)}.
+     */
+    public double std(boolean isSample) {
+        return standardDeviation(isSample);
+    }
+
+    /**
+     * Calculates arbitrary quantiles / percentiles using linear interpolation.
+     *
+     * @param q quantile fraction between 0.0 and 1.0
+     * @return the interpolated quantile value
+     */
+    public double quantile(double q) {
+        int n = validCount();
+        if (n == 0) {
+            return Double.NaN;
+        }
+        double[] arr = toPrimitiveDoubleArray();
+        return Introselect.quantile(arr, 0, arr.length, q);
+    }
+
+    /**
+     * Computes sample Fisher-Pearson skewness skipping null and NA values.
+     */
+    public double skewness() {
+        return skewness(true);
+    }
+
+    /**
+     * Computes sample or population skewness.
+     */
+    public double skewness(boolean isSample) {
+        int n = validCount();
+        if (isSample && n < 3) {
+            return Double.NaN;
+        }
+        if (!isSample && n < 1) {
+            return Double.NaN;
+        }
+        double m = mean();
+        double sum2 = 0.0;
+        double sum3 = 0.0;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                double d = getDouble(i) - m;
+                sum2 += d * d;
+                sum3 += d * d * d;
+            }
+        }
+        double m2 = sum2 / n;
+        if (m2 == 0.0) {
+            return Double.NaN;
+        }
+        double m3 = sum3 / n;
+        double g1 = m3 / Math.pow(m2, 1.5);
+        if (!isSample) {
+            return g1;
+        }
+        return (Math.sqrt((double) n * (n - 1)) / (n - 2.0)) * g1;
+    }
+
+    /**
+     * Alias for {@link #skewness()}.
+     */
+    public double skew() {
+        return skewness(true);
+    }
+
+    /**
+     * Computes sample excess kurtosis skipping null and NA values.
+     */
+    public double kurtosis() {
+        return kurtosis(true);
+    }
+
+    /**
+     * Computes sample or population excess kurtosis.
+     */
+    public double kurtosis(boolean isSample) {
+        int n = validCount();
+        if (isSample && n < 4) {
+            return Double.NaN;
+        }
+        if (!isSample && n < 1) {
+            return Double.NaN;
+        }
+        double m = mean();
+        double sum2 = 0.0;
+        double sum4 = 0.0;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                double d = getDouble(i) - m;
+                double d2 = d * d;
+                sum2 += d2;
+                sum4 += d2 * d2;
+            }
+        }
+        double m2 = sum2 / n;
+        if (m2 == 0.0) {
+            return Double.NaN;
+        }
+        double m4 = sum4 / n;
+        if (!isSample) {
+            return (m4 / (m2 * m2)) - 3.0;
+        }
+        double term1 = ((double) (n - 1)) / ((n - 2.0) * (n - 3.0));
+        double term2 = (n + 1.0) * (m4 / (m2 * m2)) - 3.0 * (n - 1.0);
+        return term1 * term2;
+    }
+
+    /**
+     * Alias for {@link #kurtosis()}.
+     */
+    public double kurt() {
+        return kurtosis(true);
+    }
 }

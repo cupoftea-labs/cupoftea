@@ -11,6 +11,14 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 
 ### Added
 
+- Statistical operations on `ColumnVector`, `DataFrame`, and `CupOfTea`: `median`, `variance` / `var`, `standardDeviation` / `std`, `quantile`, `skewness` / `skew`, and `kurtosis` / `kurt` ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
+- Guaranteed $O(n)$ rank selection and linear-interpolated quantile calculation using `Introselect` ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
+- Primitive vector math vectorizations across `DoubleColumnVector`, `IntColumnVector`, `LongColumnVector`, and `FloatColumnVector` without boxing overhead ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
+- Bivariate statistics: pairwise `covariance` / `cov`, Pearson `correlation` / `corr`, and square correlation matrix `corr()` ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
+- Descriptive summary `describe()` producing a formatted summary DataFrame with 8 standard metrics (`count`, `mean`, `std`, `min`, `25%`, `50%`, `75%`, `max`) supporting numeric and temporal columns with index access ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
+- Extended `GroupBy.agg(...)` and introduced `Aggregation` enum with `MEDIAN`, `STD`, `VAR`, `QUANTILE`, `SKEWNESS`, `KURTOSIS` plus fluent shortcut methods on `GroupBy` ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
+
+
 - Columnar storage engine replacing internal row HashMaps with contiguous primitive vectors (`ColumnVector`, `IntColumnVector`, `LongColumnVector`, `DoubleColumnVector`, `FloatColumnVector`, `BooleanColumnVector`, `StringColumnVector`, `ObjectColumnVector`) ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
 - Missing/null value tracking across columnar vectors using contiguous `BitSet` bitmasks ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
 - Explicit `Index` model encapsulating row labels / index column designation with `getIndexObject()` on `IDataFrame` ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).

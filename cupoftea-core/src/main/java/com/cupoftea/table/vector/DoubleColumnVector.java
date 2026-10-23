@@ -214,4 +214,127 @@ public class DoubleColumnVector extends ColumnVector {
     public double[] toDoubleArray() {
         return Arrays.copyOf(data, size);
     }
+
+    @Override
+    public double[] toPrimitiveDoubleArray() {
+        int count = validCount();
+        if (count == 0) {
+            return new double[0];
+        }
+        if (nulls.isEmpty()) {
+            return Arrays.copyOf(data, size);
+        }
+        double[] result = new double[count];
+        int idx = 0;
+        for (int i = 0; i < size; i++) {
+            if (!nulls.get(i)) {
+                result[idx++] = data[i];
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public double sum() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        double s = 0.0;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                s += data[i];
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    s += data[i];
+                }
+            }
+        }
+        return s;
+    }
+
+    @Override
+    public double min() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        double minVal = Double.POSITIVE_INFINITY;
+        boolean found = false;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                if (!found || Double.compare(data[i], minVal) < 0) {
+                    minVal = data[i];
+                    found = true;
+                }
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    if (!found || Double.compare(data[i], minVal) < 0) {
+                        minVal = data[i];
+                        found = true;
+                    }
+                }
+            }
+        }
+        return found ? minVal : Double.NaN;
+    }
+
+    @Override
+    public double max() {
+        int count = validCount();
+        if (count == 0) {
+            return Double.NaN;
+        }
+        double maxVal = Double.NEGATIVE_INFINITY;
+        boolean found = false;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                if (!found || Double.compare(data[i], maxVal) > 0) {
+                    maxVal = data[i];
+                    found = true;
+                }
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    if (!found || Double.compare(data[i], maxVal) > 0) {
+                        maxVal = data[i];
+                        found = true;
+                    }
+                }
+            }
+        }
+        return found ? maxVal : Double.NaN;
+    }
+
+    @Override
+    public double variance(boolean isSample) {
+        int n = validCount();
+        if (isSample && n < 2) {
+            return Double.NaN;
+        }
+        if (!isSample && n < 1) {
+            return Double.NaN;
+        }
+        double m = mean();
+        double sumSq = 0.0;
+        if (nulls.isEmpty()) {
+            for (int i = 0; i < size; i++) {
+                double d = data[i] - m;
+                sumSq += d * d;
+            }
+        } else {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    double d = data[i] - m;
+                    sumSq += d * d;
+                }
+            }
+        }
+        return sumSq / (isSample ? (n - 1) : n);
+    }
 }

@@ -11,6 +11,7 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - Exact currency arithmetic using `BigDecimal` (`Schema.DECIMAL`).
 - Column selection, row filtering, grouping, aggregation, and slicing operations.
 - Relational joins: `innerJoin`, `leftJoin`, `rightJoin`, `outerJoin`, `crossJoin` with automatic column deduplication, multi-key support, and customizable suffixes.
+- **Statistical Operations & Summary**: High-performance linear $O(n)$ quantiles and median (via Introselect), sample and population variance and standard deviation, skewness, kurtosis, covariance, correlation matrix (`corr()`), and descriptive summary (`describe()`).
 - Read and write CSV, JSON, Excel, Parquet, and YAML files.
 - **Columnar Engine**: High-performance contiguous memory layout (`ColumnVector` with primitive `int[]`, `double[]`, `long[]`, `float[]`, `boolean[]`, `String[]`, and `BitSet` null bitmasks), eliminating per-cell boxed object overhead and row hash lookups.
 - **Unified Mutation Modes**: Fluent `IN_PLACE` builder by default with opt-in `COPY_ON_WRITE` via `.asCopyOnWrite()` and `.asInPlace()`.
@@ -180,9 +181,8 @@ CupOfTea df = CupOfTea.read().option("separator", ";").csv(new File("data.csv"))
 ```
 
 ## Roadmap
-- Statistical operations (median, standard deviation, variance).
 - Window and rolling functions.
-- Columnar storage engine.
+- Time series resampling and rolling statistics.
 
 ## Documentation
 - [Missing-Value (NA) Model, Schema, and Null Policy](docs/null_policy.md)
