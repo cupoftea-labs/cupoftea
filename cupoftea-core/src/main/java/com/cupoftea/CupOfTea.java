@@ -21,7 +21,9 @@ import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.io.DataFrameReader;
 import com.cupoftea.io.DataFrameWriter;
 import com.cupoftea.table.Column;
+import com.cupoftea.table.ConcatAxis;
 import com.cupoftea.table.DataFrame;
+import com.cupoftea.table.DataFrameConcatenator;
 import com.cupoftea.table.GroupBy;
 import com.cupoftea.table.ILoc;
 import com.cupoftea.table.JoinType;
@@ -1130,6 +1132,192 @@ public class CupOfTea {
 
     public CupOfTea crossJoin(IDataFrame other) {
         return new CupOfTea(this.dataFrame.crossJoin(other), this.mutationMode);
+    }
+
+    // --- Concat Operations ---
+
+    public CupOfTea concat(CupOfTea other) {
+        return concat(other != null ? other.getDataFrame() : null, ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    public CupOfTea concat(CupOfTea other, ConcatAxis axis) {
+        return concat(other != null ? other.getDataFrame() : null, axis, JoinType.OUTER, false);
+    }
+
+    public CupOfTea concat(CupOfTea other, int axis) {
+        return concat(other != null ? other.getDataFrame() : null, ConcatAxis.fromValue(axis), JoinType.OUTER, false);
+    }
+
+    public CupOfTea concat(CupOfTea other, JoinType how) {
+        return concat(other != null ? other.getDataFrame() : null, ConcatAxis.ROWS, how, false);
+    }
+
+    public CupOfTea concat(CupOfTea other, String how) {
+        return concat(other != null ? other.getDataFrame() : null, ConcatAxis.ROWS, JoinType.fromString(how), false);
+    }
+
+    public CupOfTea concat(CupOfTea other, ConcatAxis axis, JoinType how) {
+        return concat(other != null ? other.getDataFrame() : null, axis, how, false);
+    }
+
+    public CupOfTea concat(CupOfTea other, int axis, JoinType how) {
+        return concat(other != null ? other.getDataFrame() : null, ConcatAxis.fromValue(axis), how, false);
+    }
+
+    public CupOfTea concat(CupOfTea other, int axis, String how) {
+        return concat(other != null ? other.getDataFrame() : null, ConcatAxis.fromValue(axis), JoinType.fromString(how), false);
+    }
+
+    public CupOfTea concat(CupOfTea other, ConcatAxis axis, String how) {
+        return concat(other != null ? other.getDataFrame() : null, axis, JoinType.fromString(how), false);
+    }
+
+    public CupOfTea concat(CupOfTea other, boolean ignoreIndex) {
+        return concat(other != null ? other.getDataFrame() : null, ConcatAxis.ROWS, JoinType.OUTER, ignoreIndex);
+    }
+
+    public CupOfTea concat(CupOfTea other, ConcatAxis axis, JoinType how, boolean ignoreIndex) {
+        return concat(other != null ? other.getDataFrame() : null, axis, how, ignoreIndex);
+    }
+
+    public CupOfTea concatWith(CupOfTea... others) {
+        List<IDataFrame> frames = new ArrayList<>();
+        frames.add(this.dataFrame);
+        if (others != null) {
+            for (CupOfTea o : others) {
+                if (o != null) {
+                    frames.add(o.getDataFrame());
+                } else {
+                    throw new IllegalArgumentException("DataFrame element cannot be null");
+                }
+            }
+        }
+        return new CupOfTea(DataFrameConcatenator.concat(frames, ConcatAxis.ROWS, JoinType.OUTER, false), this.mutationMode);
+    }
+
+    public CupOfTea concatWith(List<CupOfTea> others) {
+        List<IDataFrame> frames = new ArrayList<>();
+        frames.add(this.dataFrame);
+        if (others != null) {
+            for (CupOfTea o : others) {
+                if (o != null) {
+                    frames.add(o.getDataFrame());
+                } else {
+                    throw new IllegalArgumentException("DataFrame element cannot be null");
+                }
+            }
+        }
+        return new CupOfTea(DataFrameConcatenator.concat(frames, ConcatAxis.ROWS, JoinType.OUTER, false), this.mutationMode);
+    }
+
+    public CupOfTea concatHorizontal(CupOfTea other, String leftSuffix, String rightSuffix) {
+        return concatHorizontal(other != null ? other.getDataFrame() : null, leftSuffix, rightSuffix);
+    }
+
+    public CupOfTea concat(IDataFrame other) {
+        return concat(other, ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    public CupOfTea concat(IDataFrame other, ConcatAxis axis) {
+        return concat(other, axis, JoinType.OUTER, false);
+    }
+
+    public CupOfTea concat(IDataFrame other, int axis) {
+        return concat(other, ConcatAxis.fromValue(axis), JoinType.OUTER, false);
+    }
+
+    public CupOfTea concat(IDataFrame other, JoinType how) {
+        return concat(other, ConcatAxis.ROWS, how, false);
+    }
+
+    public CupOfTea concat(IDataFrame other, String how) {
+        return concat(other, ConcatAxis.ROWS, JoinType.fromString(how), false);
+    }
+
+    public CupOfTea concat(IDataFrame other, ConcatAxis axis, JoinType how) {
+        return concat(other, axis, how, false);
+    }
+
+    public CupOfTea concat(IDataFrame other, int axis, JoinType how) {
+        return concat(other, ConcatAxis.fromValue(axis), how, false);
+    }
+
+    public CupOfTea concat(IDataFrame other, int axis, String how) {
+        return concat(other, ConcatAxis.fromValue(axis), JoinType.fromString(how), false);
+    }
+
+    public CupOfTea concat(IDataFrame other, ConcatAxis axis, String how) {
+        return concat(other, axis, JoinType.fromString(how), false);
+    }
+
+    public CupOfTea concat(IDataFrame other, boolean ignoreIndex) {
+        return concat(other, ConcatAxis.ROWS, JoinType.OUTER, ignoreIndex);
+    }
+
+    public CupOfTea concat(IDataFrame other, ConcatAxis axis, JoinType how, boolean ignoreIndex) {
+        if (other == null) {
+            throw new IllegalArgumentException("Other DataFrame cannot be null");
+        }
+        IDataFrame concatenated = this.dataFrame.concat(other, axis, how, ignoreIndex);
+        return new CupOfTea(concatenated, this.mutationMode);
+    }
+
+    public CupOfTea concatHorizontal(IDataFrame other, String leftSuffix, String rightSuffix) {
+        if (other == null) {
+            throw new IllegalArgumentException("Other DataFrame cannot be null");
+        }
+        IDataFrame concatenated = this.dataFrame.concatHorizontal(other, leftSuffix, rightSuffix);
+        return new CupOfTea(concatenated, this.mutationMode);
+    }
+
+    // --- Static Concat Methods on CupOfTea ---
+
+    public static CupOfTea concat(CupOfTea... dfs) {
+        return concat(dfs != null ? Arrays.asList(dfs) : Collections.emptyList(), ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    public static CupOfTea concat(List<CupOfTea> dfs) {
+        return concat(dfs, ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    public static CupOfTea concat(ConcatAxis axis, CupOfTea... dfs) {
+        return concat(dfs != null ? Arrays.asList(dfs) : Collections.emptyList(), axis, JoinType.OUTER, false);
+    }
+
+    public static CupOfTea concat(int axis, CupOfTea... dfs) {
+        return concat(dfs != null ? Arrays.asList(dfs) : Collections.emptyList(), ConcatAxis.fromValue(axis), JoinType.OUTER, false);
+    }
+
+    public static CupOfTea concat(List<CupOfTea> dfs, ConcatAxis axis) {
+        return concat(dfs, axis, JoinType.OUTER, false);
+    }
+
+    public static CupOfTea concat(List<CupOfTea> dfs, int axis) {
+        return concat(dfs, ConcatAxis.fromValue(axis), JoinType.OUTER, false);
+    }
+
+    public static CupOfTea concat(List<CupOfTea> dfs, JoinType how) {
+        return concat(dfs, ConcatAxis.ROWS, how, false);
+    }
+
+    public static CupOfTea concat(List<CupOfTea> dfs, ConcatAxis axis, JoinType how) {
+        return concat(dfs, axis, how, false);
+    }
+
+    public static CupOfTea concat(List<CupOfTea> dfs, ConcatAxis axis, JoinType how, boolean ignoreIndex) {
+        if (dfs == null || dfs.isEmpty()) {
+            throw new IllegalArgumentException("DataFrames list cannot be null or empty");
+        }
+        List<IDataFrame> rawFrames = new ArrayList<>(dfs.size());
+        MutationMode mode = dfs.get(0) != null ? dfs.get(0).getMutationMode() : MutationMode.IN_PLACE;
+        for (CupOfTea cot : dfs) {
+            if (cot == null) {
+                throw new IllegalArgumentException("DataFrame element cannot be null");
+            }
+            rawFrames.add(cot.getDataFrame());
+        }
+        IDataFrame concatenated = DataFrameConcatenator.concat(rawFrames, axis, how, ignoreIndex);
+        return new CupOfTea(concatenated, mode);
     }
 
     // ==========================================
