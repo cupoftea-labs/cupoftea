@@ -21,6 +21,8 @@ import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.io.DataFrameReader;
 import com.cupoftea.io.DataFrameWriter;
+import com.cupoftea.table.Aggregate;
+import com.cupoftea.table.Aggregation;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.ColumnRef;
 import com.cupoftea.table.ConcatAxis;
@@ -29,6 +31,7 @@ import com.cupoftea.table.DataFrameConcatenator;
 import com.cupoftea.table.GroupBy;
 import com.cupoftea.table.ILoc;
 import com.cupoftea.table.JoinType;
+import com.cupoftea.table.Keep;
 import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
@@ -522,6 +525,145 @@ public class CupOfTea {
         CupOfTea target = targetForMutation();
         target.dataFrame.dropna(how, columns);
         return target;
+    }
+
+    // --- Deduplication ---
+
+    public CupOfTea dropDuplicates() {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropDuplicates();
+        return target;
+    }
+
+    public CupOfTea dropDuplicates(Keep keep) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropDuplicates(keep);
+        return target;
+    }
+
+    public CupOfTea dropDuplicates(String... subset) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropDuplicates(subset);
+        return target;
+    }
+
+    public CupOfTea dropDuplicates(Keep keep, String... subset) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropDuplicates(keep, subset);
+        return target;
+    }
+
+    public CupOfTea dropDuplicates(List<String> subset) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropDuplicates(subset);
+        return target;
+    }
+
+    public CupOfTea dropDuplicates(List<String> subset, Keep keep) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.dropDuplicates(subset, keep);
+        return target;
+    }
+
+    public CupOfTea distinct() {
+        return dropDuplicates();
+    }
+
+    public CupOfTea distinct(Keep keep) {
+        return dropDuplicates(keep);
+    }
+
+    public CupOfTea distinct(String... subset) {
+        return dropDuplicates(subset);
+    }
+
+    public CupOfTea distinct(Keep keep, String... subset) {
+        return dropDuplicates(keep, subset);
+    }
+
+    public CupOfTea distinct(List<String> subset) {
+        return dropDuplicates(subset);
+    }
+
+    public CupOfTea distinct(List<String> subset, Keep keep) {
+        return dropDuplicates(subset, keep);
+    }
+
+    // --- Reshaping: Pivot ---
+
+    public CupOfTea pivot(String indexCol, String columnsCol, String valuesCol) {
+        return pivot(indexCol, columnsCol, valuesCol, (Aggregate) null);
+    }
+
+    public CupOfTea pivot(String indexCol, String columnsCol, String valuesCol, Aggregation agg) {
+        IDataFrame result = this.dataFrame.pivot(indexCol, columnsCol, valuesCol, agg);
+        if (this.mutationMode == MutationMode.IN_PLACE) {
+            this.dataFrame = result;
+            return this;
+        }
+        return new CupOfTea(result, this.mutationMode);
+    }
+
+    public CupOfTea pivot(String indexCol, String columnsCol, String valuesCol, Aggregate agg) {
+        IDataFrame result = this.dataFrame.pivot(indexCol, columnsCol, valuesCol, agg);
+        if (this.mutationMode == MutationMode.IN_PLACE) {
+            this.dataFrame = result;
+            return this;
+        }
+        return new CupOfTea(result, this.mutationMode);
+    }
+
+    // --- Reshaping: Melt ---
+
+    public CupOfTea melt() {
+        return melt(null, null, "variable", "value");
+    }
+
+    public CupOfTea melt(List<String> idVars) {
+        return melt(idVars, null, "variable", "value");
+    }
+
+    public CupOfTea melt(List<String> idVars, List<String> valueVars) {
+        return melt(idVars, valueVars, "variable", "value");
+    }
+
+    public CupOfTea melt(List<String> idVars, List<String> valueVars, String varName, String valueName) {
+        IDataFrame result = this.dataFrame.melt(idVars, valueVars, varName, valueName);
+        if (this.mutationMode == MutationMode.IN_PLACE) {
+            this.dataFrame = result;
+            return this;
+        }
+        return new CupOfTea(result, this.mutationMode);
+    }
+
+    // --- Random Sampling ---
+
+    public CupOfTea sample(int n) {
+        return new CupOfTea(this.dataFrame.sample(n), this.mutationMode);
+    }
+
+    public CupOfTea sample(int n, boolean replace) {
+        return new CupOfTea(this.dataFrame.sample(n, replace), this.mutationMode);
+    }
+
+    public CupOfTea sample(int n, long seed) {
+        return new CupOfTea(this.dataFrame.sample(n, seed), this.mutationMode);
+    }
+
+    public CupOfTea sample(int n, boolean replace, long seed) {
+        return new CupOfTea(this.dataFrame.sample(n, replace, seed), this.mutationMode);
+    }
+
+    public CupOfTea sample(double fraction) {
+        return new CupOfTea(this.dataFrame.sample(fraction), this.mutationMode);
+    }
+
+    public CupOfTea sample(double fraction, long seed) {
+        return new CupOfTea(this.dataFrame.sample(fraction, seed), this.mutationMode);
+    }
+
+    public CupOfTea sample(double fraction, boolean replace, long seed) {
+        return new CupOfTea(this.dataFrame.sample(fraction, replace, seed), this.mutationMode);
     }
 
     public CupOfTea print() {

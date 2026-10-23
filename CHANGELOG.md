@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-10-23
+
+### Added
+
+- Reshaping operations: pivot table (`df.pivot(...)`) supporting custom aggregations (`Aggregation` and `Aggregate`) and type preservation ([#177](https://github.com/filippo-pequini/CupOfTea/issues/177)).
+- Unpivot / melt operation (`df.melt(...)`) transforming wide format to long format with direct columnar vector recreation ([#177](https://github.com/filippo-pequini/CupOfTea/issues/177)).
+- Deduplication operations (`df.dropDuplicates(...)` and `df.distinct(...)`) with configurable retention strategies (`Keep.FIRST`, `Keep.LAST`, `Keep.NONE`) and optional column subsets, respecting `MutationMode` ([#177](https://github.com/filippo-pequini/CupOfTea/issues/177)).
+- Random sampling (`df.sample(...)`) supporting row count, fractional sampling, optional replacement, and reproducible pseudo-random seeding ([#177](https://github.com/filippo-pequini/CupOfTea/issues/177)).
+
 ## [0.5.0] - 2026-10-23
 
 ### Added
@@ -59,7 +68,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Descriptive summary `describe()` producing a formatted summary DataFrame with 8 standard metrics (`count`, `mean`, `std`, `min`, `25%`, `50%`, `75%`, `max`) supporting numeric and temporal columns with index access ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
 - Extended `GroupBy.agg(...)` and introduced `Aggregation` enum with `MEDIAN`, `STD`, `VAR`, `QUANTILE`, `SKEWNESS`, `KURTOSIS` plus fluent shortcut methods on `GroupBy` ([#175](https://github.com/filippo-pequini/CupOfTea/issues/175)).
 - Adoption of Semantic Versioning (SemVer 2.0.0) with automated GitHub tag and release workflow on push to main/master branches.
-
 
 - Columnar storage engine replacing internal row HashMaps with contiguous primitive vectors (`ColumnVector`, `IntColumnVector`, `LongColumnVector`, `DoubleColumnVector`, `FloatColumnVector`, `BooleanColumnVector`, `StringColumnVector`, `ObjectColumnVector`) ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
 - Missing/null value tracking across columnar vectors using contiguous `BitSet` bitmasks ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).

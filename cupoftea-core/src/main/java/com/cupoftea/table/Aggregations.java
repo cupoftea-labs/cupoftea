@@ -219,6 +219,48 @@ public class Aggregations {
         };
     }
 
+    public static Aggregate first(String column) {
+        return new BaseAggregate(column, column + "First") {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                for (HashMap<String, Object> row : rows) {
+                    Object val = row.get(column);
+                    if (val != null && !NA.isNA(val)) {
+                        return val;
+                    }
+                }
+                return rows.isEmpty() ? null : rows.get(0).get(column);
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                Class<?> colType = findColumnType(column, sourceHeaders);
+                return colType != null ? colType : Object.class;
+            }
+        };
+    }
+
+    public static Aggregate last(String column) {
+        return new BaseAggregate(column, column + "Last") {
+            @Override
+            public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
+                for (int i = rows.size() - 1; i >= 0; i--) {
+                    Object val = rows.get(i).get(column);
+                    if (val != null && !NA.isNA(val)) {
+                        return val;
+                    }
+                }
+                return rows.isEmpty() ? null : rows.get(rows.size() - 1).get(column);
+            }
+
+            @Override
+            public Class<?> getResultType(List<Column> sourceHeaders) {
+                Class<?> colType = findColumnType(column, sourceHeaders);
+                return colType != null ? colType : Object.class;
+            }
+        };
+    }
+
     public static Aggregate median(String column) {
         return createMedianAggregate(column, column + "Median");
     }
