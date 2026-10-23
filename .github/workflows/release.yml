@@ -1,0 +1,99 @@
+name: Release & Tag
+
+on:
+  push:
+    branches:
+      - master
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Tag and GitHub Release
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Extract project version from pom.xml
+        id: get_version
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "TAG_NAME=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Detected version: ${VERSION}"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          TAG="${{ steps.get_version.outputs.TAG_NAME }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists, skipping release creation."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $TAG does not exist. Proceeding with release."
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        id: extract_notes
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## \\[" ver "\\]" { found=1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "No explicit notes found in CHANGELOG.md for version $VERSION, using commit history."
+            git log -1 --pretty=format:"%B" > RELEASE_NOTES.md
+          fi
+          cat RELEASE_NOTES.md
+
+      - name: Build and package JARs
+        if: steps.check_tag.outputs.exists == 'false'
+        run: mvn -B package -DskipTests
+
+      - name: Create Git Tag and GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.get_version.outputs.TAG_NAME }}"
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+
+          # Gather release artifacts from target directories
+          ASSETS=()
+          for jar in cupoftea-*/target/*.jar target/*.jar; do
+            if [ -f "$jar" ] && [[ ! "$jar" == *"original-"* ]] && [[ ! "$jar" == *"-javadoc.jar"* ]] && [[ ! "$jar" == *"-sources.jar"* ]]; then
+              ASSETS+=("$jar")
+            fi
+          done
+
+          gh release create "$TAG" \
+            "${ASSETS[@]}" \
+            --title "Release $TAG" \
+            --notes-file RELEASE_NOTES.md \
+            --verify-tag

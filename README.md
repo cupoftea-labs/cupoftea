@@ -35,7 +35,7 @@ Add the core dependency to your `pom.xml`:
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-core</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.2.0</version>
 </dependency>
 ```
 
@@ -46,12 +46,12 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-csv</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.2.0</version>
 </dependency>
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-json</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.2.0</version>
 </dependency>
 
 <!-- Or import all formats with the aggregator module: -->
@@ -59,7 +59,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-all</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.2.0</version>
 </dependency>
 -->
 ```
@@ -70,28 +70,28 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 
 ```groovy
 // Core library
-implementation 'com.cupoftea:cupoftea-core:1.0-SNAPSHOT'
+implementation 'com.cupoftea:cupoftea-core:0.2.0'
 
 // Optional format modules
-implementation 'com.cupoftea:cupoftea-csv:1.0-SNAPSHOT'
-implementation 'com.cupoftea:cupoftea-json:1.0-SNAPSHOT'
+implementation 'com.cupoftea:cupoftea-csv:0.2.0'
+implementation 'com.cupoftea:cupoftea-json:0.2.0'
 
 // Or all formats at once:
-// implementation 'com.cupoftea:cupoftea-all:1.0-SNAPSHOT'
+// implementation 'com.cupoftea:cupoftea-all:0.2.0'
 ```
 
 **Kotlin DSL (`build.gradle.kts`):**
 
 ```kotlin
 // Core library
-implementation("com.cupoftea:cupoftea-core:1.0-SNAPSHOT")
+implementation("com.cupoftea:cupoftea-core:0.2.0")
 
 // Optional format modules
-implementation("com.cupoftea:cupoftea-csv:1.0-SNAPSHOT")
-implementation("com.cupoftea:cupoftea-json:1.0-SNAPSHOT")
+implementation("com.cupoftea:cupoftea-csv:0.2.0")
+implementation("com.cupoftea:cupoftea-json:0.2.0")
 
 // Or all formats at once:
-// implementation("com.cupoftea:cupoftea-all:1.0-SNAPSHOT")
+// implementation("com.cupoftea:cupoftea-all:0.2.0")
 ```
 
 ## Available Modules
@@ -186,6 +186,7 @@ CupOfTea df = CupOfTea.read().option("separator", ";").csv(new File("data.csv"))
 
 ## Documentation
 - [Missing-Value (NA) Model, Schema, and Null Policy](docs/null_policy.md)
+- [Semantic Versioning & Release Best Practices](docs/versioning.md)
 
 ## Contributions
 Contributions are welcome! To contribute, follow these steps:
