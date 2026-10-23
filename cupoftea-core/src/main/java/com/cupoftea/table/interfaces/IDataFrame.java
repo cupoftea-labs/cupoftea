@@ -8,11 +8,13 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.cupoftea.table.Column;
+import com.cupoftea.table.ColumnRef;
 import com.cupoftea.table.ConcatAxis;
 import com.cupoftea.table.DataFrameConcatenator;
 import com.cupoftea.table.Header;
@@ -138,6 +140,16 @@ public abstract class IDataFrame {
     public abstract IDataFrame removeColumn(String columnName);
     public abstract IDataFrame removeColumn(int index);
     public abstract IDataFrame alterColumnType(String columnName, Class<?> newColumnType);
+
+    public abstract ColumnRef col(String columnName);
+    public abstract IDataFrame withColumn(String columnName, ColumnVector vector);
+    public abstract IDataFrame withColumn(String columnName, ColumnRef columnRef);
+    public abstract IDataFrame withColumn(String columnName, IColumnCreator columnCreator);
+    public abstract IDataFrame withColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator);
+    public abstract IDataFrame transformColumn(String columnName, ColumnVector vector);
+    public abstract IDataFrame transformColumn(String columnName, ColumnRef columnRef);
+    public abstract IDataFrame transformColumn(String columnName, Function<ColumnVector, ColumnVector> transformer);
+
     public abstract IDataFrame addRow(@NotNull Map<String, Object> row);
     public abstract IDataFrame removeRow(int index);
     public abstract IDataFrame removeRows(IFilter filter);

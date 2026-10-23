@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-10-23
+
+### Added
+
+- Fluent column reference helper `col(String name)` on `IDataFrame`, `DataFrame`, and `CupOfTea` ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Vectorized string expression helper (`.str`) and direct `StringColumnVector` operations: `toLowerCase`, `toUpperCase`, `capitalize`, `trim`, `strip`, `lstrip`, `rstrip`, `contains`, `startsWith`, `endsWith`, `replace`, `replaceAll`, `split`, `substring` / `slice`, `length`, `padLeft`, and `padRight` ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Vectorized temporal expression helper (`.dt`) operating on `LocalDate`, `LocalDateTime`, `Instant`, and `Date` columns ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Temporal calendar extraction: `year`, `month`, `monthName`, `dayOfMonth`, `dayOfWeek`, `dayOfYear`, and `quarter` ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Temporal time extraction: `hour`, `minute`, `second`, and `nano` ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Vectorized date arithmetic: `plusDays`, `minusDays`, `plusMonths`, `minusMonths`, `plusYears`, `minusYears`, `plusHours`, and `minusHours` ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Temporal difference calculations: `daysBetween` and `hoursBetween` across columns or constant timestamps with time zone and Daylight Saving Time (DST) awareness ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Temporal formatting and parsing: `format`, `parseLocalDate`, `parseLocalDateTime`, and `parseInstant` ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Temporal truncation and flooring: `startOfMonth`, `startOfYear`, `startOfDay`, and `truncateTo` ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- In-place column transformation (`transformColumn`) and new column generation (`withColumn`) supporting both vector expressions and lambdas ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Strict null-safe and NA value propagation preserving columnar bitmasks without exceptions ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+- Comprehensive unit tests covering Unicode characters, emojis, leap years, and Daylight Saving Time (DST) transitions ([#178](https://github.com/filippo-pequini/CupOfTea/issues/178)).
+
 ## [0.3.0] - 2026-10-23
 
 ### Added

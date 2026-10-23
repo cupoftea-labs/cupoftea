@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
@@ -21,6 +22,7 @@ import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.io.DataFrameReader;
 import com.cupoftea.io.DataFrameWriter;
 import com.cupoftea.table.Column;
+import com.cupoftea.table.ColumnRef;
 import com.cupoftea.table.ConcatAxis;
 import com.cupoftea.table.DataFrame;
 import com.cupoftea.table.DataFrameConcatenator;
@@ -31,6 +33,7 @@ import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
 import com.cupoftea.table.interfaces.IDataFrame;
+import com.cupoftea.table.vector.ColumnVector;
 import com.cupoftea.utils.Printer;
 import com.cupoftea.utils.configurations.PrinterConfiguration;
 import com.cupoftea.utils.interfaces.IColumnCreator;
@@ -150,6 +153,22 @@ public class CupOfTea {
         return this.dataFrame.getColumnHeader(columnName);
     }
 
+    public ColumnRef col(String columnName) {
+        return this.dataFrame.col(columnName);
+    }
+
+    public ColumnVector getColumnVector(String columnName) {
+        return this.dataFrame.getColumnVector(columnName);
+    }
+
+    public ColumnVector getColumnVector(int index) {
+        return this.dataFrame.getColumnVector(index);
+    }
+
+    public List<ColumnVector> getColumnVectors() {
+        return this.dataFrame.getColumnVectors();
+    }
+
     public Integer size() {
         return this.dataFrame.size();
     }
@@ -261,6 +280,48 @@ public class CupOfTea {
     public CupOfTea addColumn(int index, String columnName, IColumnCreator columnCreator, Class<?> columnType) {
         CupOfTea target = targetForMutation();
         target.dataFrame.addColumn(index, columnName, columnCreator, columnType);
+        return target;
+    }
+
+    public CupOfTea withColumn(String columnName, ColumnVector vector) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.withColumn(columnName, vector);
+        return target;
+    }
+
+    public CupOfTea withColumn(String columnName, ColumnRef columnRef) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.withColumn(columnName, columnRef);
+        return target;
+    }
+
+    public CupOfTea withColumn(String columnName, IColumnCreator columnCreator) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.withColumn(columnName, columnCreator);
+        return target;
+    }
+
+    public CupOfTea withColumn(String columnName, Class<?> columnType, IColumnCreator columnCreator) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.withColumn(columnName, columnType, columnCreator);
+        return target;
+    }
+
+    public CupOfTea transformColumn(String columnName, ColumnVector vector) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.transformColumn(columnName, vector);
+        return target;
+    }
+
+    public CupOfTea transformColumn(String columnName, ColumnRef columnRef) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.transformColumn(columnName, columnRef);
+        return target;
+    }
+
+    public CupOfTea transformColumn(String columnName, Function<ColumnVector, ColumnVector> transformer) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.transformColumn(columnName, transformer);
         return target;
     }
 

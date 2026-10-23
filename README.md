@@ -35,7 +35,7 @@ Add the core dependency to your `pom.xml`:
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-core</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
@@ -46,12 +46,12 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-csv</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-json</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 
 <!-- Or import all formats with the aggregator module: -->
@@ -59,7 +59,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-all</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 -->
 ```
@@ -70,28 +70,28 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 
 ```groovy
 // Core library
-implementation 'com.cupoftea:cupoftea-core:0.3.0'
+implementation 'com.cupoftea:cupoftea-core:0.4.0'
 
 // Optional format modules
-implementation 'com.cupoftea:cupoftea-csv:0.3.0'
-implementation 'com.cupoftea:cupoftea-json:0.3.0'
+implementation 'com.cupoftea:cupoftea-csv:0.4.0'
+implementation 'com.cupoftea:cupoftea-json:0.4.0'
 
 // Or all formats at once:
-// implementation 'com.cupoftea:cupoftea-all:0.3.0'
+// implementation 'com.cupoftea:cupoftea-all:0.4.0'
 ```
 
 **Kotlin DSL (`build.gradle.kts`):**
 
 ```kotlin
 // Core library
-implementation("com.cupoftea:cupoftea-core:0.3.0")
+implementation("com.cupoftea:cupoftea-core:0.4.0")
 
 // Optional format modules
-implementation("com.cupoftea:cupoftea-csv:0.3.0")
-implementation("com.cupoftea:cupoftea-json:0.3.0")
+implementation("com.cupoftea:cupoftea-csv:0.4.0")
+implementation("com.cupoftea:cupoftea-json:0.4.0")
 
 // Or all formats at once:
-// implementation("com.cupoftea:cupoftea-all:0.3.0")
+// implementation("com.cupoftea:cupoftea-all:0.4.0")
 ```
 
 ## Available Modules
@@ -182,6 +182,24 @@ Format-specific options can also be configured:
 ```java
 // Read CSV with custom separator
 CupOfTea df = CupOfTea.read().option("separator", ";").csv(new File("data.csv"));
+```
+
+### Vectorized String and Temporal Operations (.str and .dt)
+
+CupOfTea provides specialized, fluent columnar expressions for string manipulation and date/time feature engineering:
+
+```java
+// Vectorized text manipulation
+df.withColumn("name_upper", df.col("name").str.toUpperCase());
+df.transformColumn("name", df.col("name").str.trim().capitalize());
+
+// Check prefix, suffix, and containment (returns BooleanColumnVector)
+BooleanColumnVector isEng = df.col("department").str.startsWith("Eng");
+
+// Vectorized temporal operations
+df.withColumn("hire_year", df.col("hire_date").dt.year());
+df.withColumn("days_since", df.col("hire_date").dt.daysBetween(LocalDate.now()));
+df.transformColumn("hire_date", df.col("hire_date").dt.plusMonths(6));
 ```
 
 ## Roadmap

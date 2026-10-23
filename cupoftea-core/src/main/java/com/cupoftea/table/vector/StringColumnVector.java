@@ -2,6 +2,8 @@ package com.cupoftea.table.vector;
 
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Locale;
+import java.util.Objects;
 
 import com.cupoftea.table.NA;
 
@@ -207,5 +209,258 @@ public class StringColumnVector extends ColumnVector {
 
     public String[] toStringArray() {
         return Arrays.copyOf(data, size);
+    }
+
+    // ==========================================
+    // Vectorized String Operations
+    // ==========================================
+
+    public StringColumnVector toLowerCase() {
+        return toLowerCase(false);
+    }
+
+    public StringColumnVector toLowerCaseInPlace() {
+        return toLowerCase(true);
+    }
+
+    public StringColumnVector toLowerCase(boolean inPlace) {
+        return applyTransform(inPlace, s -> s.toLowerCase(Locale.ROOT));
+    }
+
+    public StringColumnVector toUpperCase() {
+        return toUpperCase(false);
+    }
+
+    public StringColumnVector toUpperCaseInPlace() {
+        return toUpperCase(true);
+    }
+
+    public StringColumnVector toUpperCase(boolean inPlace) {
+        return applyTransform(inPlace, s -> s.toUpperCase(Locale.ROOT));
+    }
+
+    public StringColumnVector capitalize() {
+        return capitalize(false);
+    }
+
+    public StringColumnVector capitalizeInPlace() {
+        return capitalize(true);
+    }
+
+    public StringColumnVector capitalize(boolean inPlace) {
+        return applyTransform(inPlace, StringAccessor::capitalizeString);
+    }
+
+    public StringColumnVector trim() {
+        return trim(false);
+    }
+
+    public StringColumnVector trimInPlace() {
+        return trim(true);
+    }
+
+    public StringColumnVector trim(boolean inPlace) {
+        return applyTransform(inPlace, String::trim);
+    }
+
+    public StringColumnVector strip() {
+        return strip(false);
+    }
+
+    public StringColumnVector stripInPlace() {
+        return strip(true);
+    }
+
+    public StringColumnVector strip(boolean inPlace) {
+        return applyTransform(inPlace, String::strip);
+    }
+
+    public StringColumnVector lstrip() {
+        return lstrip(false);
+    }
+
+    public StringColumnVector lstripInPlace() {
+        return lstrip(true);
+    }
+
+    public StringColumnVector lstrip(boolean inPlace) {
+        return applyTransform(inPlace, String::stripLeading);
+    }
+
+    public StringColumnVector rstrip() {
+        return rstrip(false);
+    }
+
+    public StringColumnVector rstripInPlace() {
+        return rstrip(true);
+    }
+
+    public StringColumnVector rstrip(boolean inPlace) {
+        return applyTransform(inPlace, String::stripTrailing);
+    }
+
+    public BooleanColumnVector contains(CharSequence sub) {
+        Objects.requireNonNull(sub, "sub cannot be null");
+        BooleanColumnVector res = new BooleanColumnVector(name, size, true);
+        for (int i = 0; i < size; i++) {
+            if (nulls.get(i)) {
+                res.appendNull();
+            } else {
+                res.appendBoolean(data[i].contains(sub));
+            }
+        }
+        return res;
+    }
+
+    public BooleanColumnVector startsWith(String prefix) {
+        Objects.requireNonNull(prefix, "prefix cannot be null");
+        BooleanColumnVector res = new BooleanColumnVector(name, size, true);
+        for (int i = 0; i < size; i++) {
+            if (nulls.get(i)) {
+                res.appendNull();
+            } else {
+                res.appendBoolean(data[i].startsWith(prefix));
+            }
+        }
+        return res;
+    }
+
+    public BooleanColumnVector endsWith(String suffix) {
+        Objects.requireNonNull(suffix, "suffix cannot be null");
+        BooleanColumnVector res = new BooleanColumnVector(name, size, true);
+        for (int i = 0; i < size; i++) {
+            if (nulls.get(i)) {
+                res.appendNull();
+            } else {
+                res.appendBoolean(data[i].endsWith(suffix));
+            }
+        }
+        return res;
+    }
+
+    public StringColumnVector replace(String target, String replacement) {
+        return replace(target, replacement, false);
+    }
+
+    public StringColumnVector replaceInPlace(String target, String replacement) {
+        return replace(target, replacement, true);
+    }
+
+    public StringColumnVector replace(String target, String replacement, boolean inPlace) {
+        Objects.requireNonNull(target, "target cannot be null");
+        Objects.requireNonNull(replacement, "replacement cannot be null");
+        return applyTransform(inPlace, s -> s.replace(target, replacement));
+    }
+
+    public StringColumnVector replaceAll(String regex, String replacement) {
+        return replaceAll(regex, replacement, false);
+    }
+
+    public StringColumnVector replaceAllInPlace(String regex, String replacement) {
+        return replaceAll(regex, replacement, true);
+    }
+
+    public StringColumnVector replaceAll(String regex, String replacement, boolean inPlace) {
+        Objects.requireNonNull(regex, "regex cannot be null");
+        Objects.requireNonNull(replacement, "replacement cannot be null");
+        return applyTransform(inPlace, s -> s.replaceAll(regex, replacement));
+    }
+
+    public ObjectColumnVector split(String regex, int n) {
+        Objects.requireNonNull(regex, "regex cannot be null");
+        ObjectColumnVector res = new ObjectColumnVector(name, String[].class, size, true);
+        for (int i = 0; i < size; i++) {
+            if (nulls.get(i)) {
+                res.appendNull();
+            } else {
+                res.appendObject(data[i].split(regex, n));
+            }
+        }
+        return res;
+    }
+
+    public ObjectColumnVector split(String regex) {
+        return split(regex, -1);
+    }
+
+    public StringColumnVector substring(int start, int end) {
+        return substring(start, end, false);
+    }
+
+    public StringColumnVector substringInPlace(int start, int end) {
+        return substring(start, end, true);
+    }
+
+    public StringColumnVector substring(int start, int end, boolean inPlace) {
+        return applyTransform(inPlace, s -> StringAccessor.sliceString(s, start, end));
+    }
+
+    public StringColumnVector substring(int start) {
+        return substring(start, false);
+    }
+
+    public StringColumnVector substringInPlace(int start) {
+        return substring(start, true);
+    }
+
+    public StringColumnVector substring(int start, boolean inPlace) {
+        return applyTransform(inPlace, s -> StringAccessor.sliceString(s, start));
+    }
+
+    public IntColumnVector length() {
+        IntColumnVector res = new IntColumnVector(name, size, true);
+        for (int i = 0; i < size; i++) {
+            if (nulls.get(i)) {
+                res.appendNull();
+            } else {
+                res.appendInt(data[i].length());
+            }
+        }
+        return res;
+    }
+
+    public StringColumnVector padLeft(int width, char pad) {
+        return padLeft(width, pad, false);
+    }
+
+    public StringColumnVector padLeftInPlace(int width, char pad) {
+        return padLeft(width, pad, true);
+    }
+
+    public StringColumnVector padLeft(int width, char pad, boolean inPlace) {
+        return applyTransform(inPlace, s -> StringAccessor.padLeftString(s, width, pad));
+    }
+
+    public StringColumnVector padRight(int width, char pad) {
+        return padRight(width, pad, false);
+    }
+
+    public StringColumnVector padRightInPlace(int width, char pad) {
+        return padRight(width, pad, true);
+    }
+
+    public StringColumnVector padRight(int width, char pad, boolean inPlace) {
+        return applyTransform(inPlace, s -> StringAccessor.padRightString(s, width, pad));
+    }
+
+    private StringColumnVector applyTransform(boolean inPlace, StringAccessor.StringTransformer transformer) {
+        if (inPlace) {
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    data[i] = transformer.transform(data[i]);
+                }
+            }
+            return this;
+        } else {
+            String[] copyData = new String[size];
+            for (int i = 0; i < size; i++) {
+                if (!nulls.get(i)) {
+                    copyData[i] = transformer.transform(data[i]);
+                }
+            }
+            BitSet copyNulls = new BitSet(size);
+            copyNulls.or(nulls);
+            return new StringColumnVector(name, nullable, copyData, copyNulls, size);
+        }
     }
 }
