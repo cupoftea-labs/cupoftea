@@ -17,7 +17,14 @@ The Maven artifact remains `1.0-SNAPSHOT` until the first tagged release.
 - Nullability metadata support on `Column` (`nullable()`, `isNullable()`) and `Schema` (`isNullable(name)`, `isNullable(index)`) ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
 - Column vector accessors `getColumnVectors()` and `getColumnVector(...)` on `IDataFrame` for high-throughput vectorized operations ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
 - Dedicated columnar vector unit test suite `ColumnVectorTest` verifying vector operations, slicing, permutations, in-place filters, and high-volume performance ([#141](https://github.com/filippo-pequini/CupOfTea/issues/141)).
-
+- Implemented relational DataFrame join operations: `join`, `innerJoin`, `leftJoin`, `rightJoin`, `outerJoin`, and `crossJoin` on `CupOfTea` and `IDataFrame` / `DataFrame` ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
+- Added `JoinType` enum (`INNER`, `LEFT`, `RIGHT`, `OUTER`, `CROSS`) with string parsing (`fromString`) supporting SQL and pandas naming conventions ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
+- Implemented O(N + M) hash-based join engine in `DataFrameJoiner` supporting single-column, multi-column, and natural joins on inferred common columns or designated index columns ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
+- Supported asymmetric join column names via `leftOn` and `rightOn` retaining both key columns ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
+- Added automatic column disambiguation for overlapping column names with customizable suffixes (`leftSuffix`, `rightSuffix`, defaulting to `_left` and `_right`) ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
+- Ensured missing-value (`null` / `NA`) keys do not match each other conforming to SQL and pandas null semantics ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
+- Added numeric type tolerance in join keys allowing `Integer`, `Long`, and integer-valued `Double` keys to match ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
+- Ensured joins strictly honor and preserve the caller's `MutationMode` without mutating inputs ([#90](https://github.com/filippo-pequini/CupOfTea/issues/90)).
 - Adopted Apache-2.0 open-source license and added full `LICENSE` file ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - Added automated integration test `ReadmeExampleIntegrationTest` in `cupoftea-all` validating that README code snippets compile and run accurately ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).
 - Configured `maven-javadoc-plugin` (3.11.2) with Java 17 release support across the multi-module reactor ([#144](https://github.com/filippo-pequini/CupOfTea/issues/144)).

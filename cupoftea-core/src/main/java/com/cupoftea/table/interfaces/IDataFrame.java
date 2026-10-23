@@ -2,6 +2,7 @@ package com.cupoftea.table.interfaces;
 
 import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -15,6 +16,7 @@ import com.cupoftea.table.Column;
 import com.cupoftea.table.Header;
 import com.cupoftea.table.ILoc;
 import com.cupoftea.table.Index;
+import com.cupoftea.table.JoinType;
 import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
@@ -188,6 +190,134 @@ public abstract class IDataFrame {
 
     public Integer size() {
         return this.rows.size();
+    }
+
+    // Join operations
+
+    public IDataFrame join(IDataFrame other) {
+        return join(other, JoinType.INNER, (List<String>) null, (List<String>) null, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, String on) {
+        return join(other, JoinType.INNER, on != null ? Collections.singletonList(on) : null, on != null ? Collections.singletonList(on) : null, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, List<String> on) {
+        return join(other, JoinType.INNER, on, on, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, JoinType how, String on) {
+        return join(other, how, on != null ? Collections.singletonList(on) : null, on != null ? Collections.singletonList(on) : null, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, JoinType how, List<String> on) {
+        return join(other, how, on, on, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, String how, List<String> on) {
+        return join(other, JoinType.fromString(how), on, on, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, String leftOn, String rightOn) {
+        return join(other, JoinType.INNER, leftOn != null ? Collections.singletonList(leftOn) : null, rightOn != null ? Collections.singletonList(rightOn) : null, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, JoinType how, String leftOn, String rightOn) {
+        return join(other, how, leftOn != null ? Collections.singletonList(leftOn) : null, rightOn != null ? Collections.singletonList(rightOn) : null, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, String how, String leftOn, String rightOn) {
+        return join(other, JoinType.fromString(how), leftOn != null ? Collections.singletonList(leftOn) : null, rightOn != null ? Collections.singletonList(rightOn) : null, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return join(other, JoinType.INNER, leftOn, rightOn, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, JoinType how, List<String> leftOn, List<String> rightOn) {
+        return join(other, how, leftOn, rightOn, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, String how, List<String> leftOn, List<String> rightOn) {
+        return join(other, JoinType.fromString(how), leftOn, rightOn, "_left", "_right");
+    }
+
+    public IDataFrame join(IDataFrame other, String how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
+        return join(other, JoinType.fromString(how), leftOn, rightOn, leftSuffix, rightSuffix);
+    }
+
+    public abstract IDataFrame join(IDataFrame other, JoinType how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix);
+
+    public IDataFrame innerJoin(IDataFrame other, String... on) {
+        List<String> onList = (on != null && on.length > 0) ? Arrays.asList(on) : null;
+        return join(other, JoinType.INNER, onList, onList, "_left", "_right");
+    }
+
+    public IDataFrame innerJoin(IDataFrame other, List<String> on) {
+        return join(other, JoinType.INNER, on, on, "_left", "_right");
+    }
+
+    public IDataFrame innerJoin(IDataFrame other, String leftOn, String rightOn) {
+        return join(other, JoinType.INNER, leftOn, rightOn);
+    }
+
+    public IDataFrame innerJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return join(other, JoinType.INNER, leftOn, rightOn);
+    }
+
+    public IDataFrame leftJoin(IDataFrame other, String... on) {
+        List<String> onList = (on != null && on.length > 0) ? Arrays.asList(on) : null;
+        return join(other, JoinType.LEFT, onList, onList, "_left", "_right");
+    }
+
+    public IDataFrame leftJoin(IDataFrame other, List<String> on) {
+        return join(other, JoinType.LEFT, on, on, "_left", "_right");
+    }
+
+    public IDataFrame leftJoin(IDataFrame other, String leftOn, String rightOn) {
+        return join(other, JoinType.LEFT, leftOn, rightOn);
+    }
+
+    public IDataFrame leftJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return join(other, JoinType.LEFT, leftOn, rightOn);
+    }
+
+    public IDataFrame rightJoin(IDataFrame other, String... on) {
+        List<String> onList = (on != null && on.length > 0) ? Arrays.asList(on) : null;
+        return join(other, JoinType.RIGHT, onList, onList, "_left", "_right");
+    }
+
+    public IDataFrame rightJoin(IDataFrame other, List<String> on) {
+        return join(other, JoinType.RIGHT, on, on, "_left", "_right");
+    }
+
+    public IDataFrame rightJoin(IDataFrame other, String leftOn, String rightOn) {
+        return join(other, JoinType.RIGHT, leftOn, rightOn);
+    }
+
+    public IDataFrame rightJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return join(other, JoinType.RIGHT, leftOn, rightOn);
+    }
+
+    public IDataFrame outerJoin(IDataFrame other, String... on) {
+        List<String> onList = (on != null && on.length > 0) ? Arrays.asList(on) : null;
+        return join(other, JoinType.OUTER, onList, onList, "_left", "_right");
+    }
+
+    public IDataFrame outerJoin(IDataFrame other, List<String> on) {
+        return join(other, JoinType.OUTER, on, on, "_left", "_right");
+    }
+
+    public IDataFrame outerJoin(IDataFrame other, String leftOn, String rightOn) {
+        return join(other, JoinType.OUTER, leftOn, rightOn);
+    }
+
+    public IDataFrame outerJoin(IDataFrame other, List<String> leftOn, List<String> rightOn) {
+        return join(other, JoinType.OUTER, leftOn, rightOn);
+    }
+
+    public IDataFrame crossJoin(IDataFrame other) {
+        return join(other, JoinType.CROSS, null, null, "_left", "_right");
     }
 
     public void setHeaders(ArrayList<Column> headers) {

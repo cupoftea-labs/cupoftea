@@ -1394,6 +1394,11 @@ public class DataFrame extends IDataFrame {
         return value;
     }
 
+    @Override
+    public IDataFrame join(IDataFrame other, JoinType how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
+        return DataFrameJoiner.join(this, other, how, leftOn, rightOn, leftSuffix, rightSuffix);
+    }
+
     private int compareNumbers(Number numA, Number numB) {
         if (numA instanceof Double || numB instanceof Double || numA instanceof Float || numB instanceof Float) {
             double dA = numA.doubleValue();
