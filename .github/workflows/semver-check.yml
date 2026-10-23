@@ -1,0 +1,38 @@
+name: SemVer PR Verification
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+      - main
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      base_ref:
+        description: 'Base branch to compare against'
+        required: false
+        default: 'develop'
+
+jobs:
+  semver-check:
+    name: Enforce Semantic Versioning
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository with full git history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Verify SemVer Update and Strictly Greater Version
+        env:
+          GITHUB_BASE_REF: ${{ github.base_ref || github.event.inputs.base_ref || 'develop' }}
+        run: |
+          echo "Comparing PR against base branch: $GITHUB_BASE_REF"
+          python3 .github/scripts/check-semver.py --base-ref "$GITHUB_BASE_REF"

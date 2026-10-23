@@ -56,3 +56,15 @@ Use structured prefix messages:
    - Extract the release notes from `CHANGELOG.md`.
    - Build all module JAR packages.
    - Publish the GitHub Release with attached binaries.
+
+---
+
+## 4. Pull Request Requirements (Merge Gate)
+
+GitHub Actions runs `.github/workflows/semver-check.yml` on every Pull Request targeting `develop`, `master`, or `main`.
+
+A PR **will be blocked from merging** if:
+1. **Version is not updated**: The version in `pom.xml` matches the base branch.
+2. **Version is not strictly greater**: The new version is lower than the base branch version (`new_version <= base_version`).
+3. **Submodule version mismatch**: Any of the 9 reactor submodules (`cupoftea-core`, `cupoftea-csv`, etc.) differs from the root `pom.xml`.
+4. **Missing Changelog**: No entry corresponding to the new version exists in `CHANGELOG.md`.

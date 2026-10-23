@@ -89,3 +89,17 @@ CupOfTea is a multi-module Maven reactor. When bumping versions:
     4. Extracts release notes for `## [X.Y.Z]` from `CHANGELOG.md`.
     5. Builds and packages all JAR assets (`cupoftea-all.jar`, `cupoftea-core.jar`, etc.).
     6. Publishes a GitHub Release with the release notes and packaged binaries attached.
+
+---
+
+## 6. Pull Request Version Check & Merge Gate
+
+- **Merge Blocking Rule**: A Pull Request **cannot be merged** if the version is not updated.
+- **Strictly Greater Version (`new_version > base_version`)**: Every PR must increment the version so that the new version is strictly greater than the base branch version. Unchanged versions or version downgrades will fail the check and block merging.
+- **Automated Verification Workflow** (`.github/workflows/semver-check.yml`):
+  - Runs automatically on every pull request targeting `develop`, `master`, or `main`.
+  - Executes `.github/scripts/check-semver.py` to verify:
+    1. The PR version is strictly greater than the target base branch version.
+    2. All 9 reactor submodules match the root `pom.xml` version.
+    3. `CHANGELOG.md` contains an entry for the new version (`## [X.Y.Z] - YYYY-MM-DD`).
+
