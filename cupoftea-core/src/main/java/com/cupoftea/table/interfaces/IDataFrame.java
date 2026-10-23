@@ -13,6 +13,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.cupoftea.table.Column;
+import com.cupoftea.table.ConcatAxis;
+import com.cupoftea.table.DataFrameConcatenator;
 import com.cupoftea.table.Header;
 import com.cupoftea.table.ILoc;
 import com.cupoftea.table.Index;
@@ -351,6 +353,217 @@ public abstract class IDataFrame {
 
     public IDataFrame crossJoin(IDataFrame other) {
         return join(other, JoinType.CROSS, null, null, "_left", "_right");
+    }
+
+    // --- Concat Operations ---
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along rows (vertical concatenation) using outer join semantics.
+     *
+     * @param other DataFrame to concatenate with
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other) {
+        return concat(other, ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along the specified axis using outer join semantics.
+     *
+     * @param other DataFrame to concatenate with
+     * @param axis  axis along which to concatenate (ROWS or COLUMNS)
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, ConcatAxis axis) {
+        return concat(other, axis, JoinType.OUTER, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along the specified axis (0 for ROWS, 1 for COLUMNS) using outer join semantics.
+     *
+     * @param other DataFrame to concatenate with
+     * @param axis  0 for ROWS, 1 for COLUMNS
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, int axis) {
+        return concat(other, ConcatAxis.fromValue(axis), JoinType.OUTER, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along rows using the specified join type.
+     *
+     * @param other DataFrame to concatenate with
+     * @param how   join type (OUTER or INNER)
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, JoinType how) {
+        return concat(other, ConcatAxis.ROWS, how, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along rows using the specified join type name ("outer" or "inner").
+     *
+     * @param other DataFrame to concatenate with
+     * @param how   join type name ("outer", "inner")
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, String how) {
+        return concat(other, ConcatAxis.ROWS, JoinType.fromString(how), false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along the specified axis using the given join type.
+     *
+     * @param other DataFrame to concatenate with
+     * @param axis  axis along which to concatenate
+     * @param how   join type (OUTER or INNER)
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, ConcatAxis axis, JoinType how) {
+        return concat(other, axis, how, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along the specified axis using the given join type.
+     *
+     * @param other DataFrame to concatenate with
+     * @param axis  0 for ROWS, 1 for COLUMNS
+     * @param how   join type (OUTER or INNER)
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, int axis, JoinType how) {
+        return concat(other, ConcatAxis.fromValue(axis), how, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along the specified axis using the given join type name.
+     *
+     * @param other DataFrame to concatenate with
+     * @param axis  0 for ROWS, 1 for COLUMNS
+     * @param how   join type name ("outer", "inner")
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, int axis, String how) {
+        return concat(other, ConcatAxis.fromValue(axis), JoinType.fromString(how), false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along the specified axis using the given join type name.
+     *
+     * @param other DataFrame to concatenate with
+     * @param axis  axis along which to concatenate
+     * @param how   join type name ("outer", "inner")
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, ConcatAxis axis, String how) {
+        return concat(other, axis, JoinType.fromString(how), false);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame along rows with optional index resetting.
+     *
+     * @param other       DataFrame to concatenate with
+     * @param ignoreIndex whether to reset the index
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, boolean ignoreIndex) {
+        return concat(other, ConcatAxis.ROWS, JoinType.OUTER, ignoreIndex);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame with full control over axis, join type, and index resetting.
+     *
+     * @param other       DataFrame to concatenate with
+     * @param axis        axis along which to concatenate
+     * @param how         join type
+     * @param ignoreIndex whether to reset the index
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concat(IDataFrame other, ConcatAxis axis, JoinType how, boolean ignoreIndex) {
+        if (other == null) {
+            throw new IllegalArgumentException("Other DataFrame cannot be null");
+        }
+        return DataFrameConcatenator.concat(List.of(this, other), axis, how, ignoreIndex);
+    }
+
+    /**
+     * Concatenates this DataFrame with another DataFrame horizontally with custom suffixes for colliding columns.
+     *
+     * @param other       DataFrame to concatenate with
+     * @param leftSuffix  suffix for colliding columns from this DataFrame
+     * @param rightSuffix suffix for colliding columns from other DataFrame
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concatHorizontal(IDataFrame other, String leftSuffix, String rightSuffix) {
+        return DataFrameConcatenator.concatHorizontal(this, other, leftSuffix, rightSuffix, JoinType.OUTER, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with multiple other DataFrames along rows.
+     *
+     * @param others other DataFrames to concatenate
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concatWith(IDataFrame... others) {
+        List<IDataFrame> frames = new ArrayList<>();
+        frames.add(this);
+        if (others != null) {
+            Collections.addAll(frames, others);
+        }
+        return DataFrameConcatenator.concat(frames, ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    /**
+     * Concatenates this DataFrame with a list of other DataFrames along rows.
+     *
+     * @param others other DataFrames to concatenate
+     * @return a new concatenated DataFrame
+     */
+    public IDataFrame concatWith(List<? extends IDataFrame> others) {
+        List<IDataFrame> frames = new ArrayList<>();
+        frames.add(this);
+        if (others != null) {
+            frames.addAll(others);
+        }
+        return DataFrameConcatenator.concat(frames, ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    // --- Static Concat Methods on IDataFrame ---
+
+    public static IDataFrame concat(List<? extends IDataFrame> frames) {
+        return DataFrameConcatenator.concat(frames, ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    public static IDataFrame concat(List<? extends IDataFrame> frames, ConcatAxis axis) {
+        return DataFrameConcatenator.concat(frames, axis, JoinType.OUTER, false);
+    }
+
+    public static IDataFrame concat(List<? extends IDataFrame> frames, int axis) {
+        return DataFrameConcatenator.concat(frames, ConcatAxis.fromValue(axis), JoinType.OUTER, false);
+    }
+
+    public static IDataFrame concat(List<? extends IDataFrame> frames, JoinType how) {
+        return DataFrameConcatenator.concat(frames, ConcatAxis.ROWS, how, false);
+    }
+
+    public static IDataFrame concat(List<? extends IDataFrame> frames, ConcatAxis axis, JoinType how) {
+        return DataFrameConcatenator.concat(frames, axis, how, false);
+    }
+
+    public static IDataFrame concat(List<? extends IDataFrame> frames, ConcatAxis axis, JoinType how, boolean ignoreIndex) {
+        return DataFrameConcatenator.concat(frames, axis, how, ignoreIndex);
+    }
+
+    public static IDataFrame concat(IDataFrame... frames) {
+        return DataFrameConcatenator.concat(frames != null ? List.of(frames) : Collections.emptyList(), ConcatAxis.ROWS, JoinType.OUTER, false);
+    }
+
+    public static IDataFrame concat(ConcatAxis axis, IDataFrame... frames) {
+        return DataFrameConcatenator.concat(frames != null ? List.of(frames) : Collections.emptyList(), axis, JoinType.OUTER, false);
+    }
+
+    public static IDataFrame concat(int axis, IDataFrame... frames) {
+        return DataFrameConcatenator.concat(frames != null ? List.of(frames) : Collections.emptyList(), ConcatAxis.fromValue(axis), JoinType.OUTER, false);
     }
 
     public void setHeaders(ArrayList<Column> headers) {

@@ -94,5 +94,13 @@ public class ReadmeExampleIntegrationTest {
         depts.addRow(java.util.Map.of("department", "Engineering", "budget", 500000.0));
         CupOfTea joined = df.innerJoin(depts, "department");
         assertThat(joined.size()).isEqualTo(2); // Alice and Charlie
+
+        // DataFrame concatenation
+        CupOfTea moreData = new CupOfTea();
+        moreData.addColumn("id", Integer.class).addColumn("name", String.class).addColumn("age", Integer.class);
+        moreData.addRow(java.util.Map.of("id", 105, "name", "Edward", "age", 40));
+        CupOfTea stacked = df.concat(moreData);
+        assertThat(stacked.size()).isEqualTo(5);
+        assertThat(stacked.getRow(4).getString("name")).isEqualTo("Edward");
     }
 }

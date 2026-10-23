@@ -35,7 +35,7 @@ Add the core dependency to your `pom.xml`:
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-core</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
@@ -46,12 +46,12 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-csv</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-json</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 
 <!-- Or import all formats with the aggregator module: -->
@@ -59,7 +59,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-all</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 -->
 ```
@@ -70,28 +70,28 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 
 ```groovy
 // Core library
-implementation 'com.cupoftea:cupoftea-core:0.2.0'
+implementation 'com.cupoftea:cupoftea-core:0.3.0'
 
 // Optional format modules
-implementation 'com.cupoftea:cupoftea-csv:0.2.0'
-implementation 'com.cupoftea:cupoftea-json:0.2.0'
+implementation 'com.cupoftea:cupoftea-csv:0.3.0'
+implementation 'com.cupoftea:cupoftea-json:0.3.0'
 
 // Or all formats at once:
-// implementation 'com.cupoftea:cupoftea-all:0.2.0'
+// implementation 'com.cupoftea:cupoftea-all:0.3.0'
 ```
 
 **Kotlin DSL (`build.gradle.kts`):**
 
 ```kotlin
 // Core library
-implementation("com.cupoftea:cupoftea-core:0.2.0")
+implementation("com.cupoftea:cupoftea-core:0.3.0")
 
 // Optional format modules
-implementation("com.cupoftea:cupoftea-csv:0.2.0")
-implementation("com.cupoftea:cupoftea-json:0.2.0")
+implementation("com.cupoftea:cupoftea-csv:0.3.0")
+implementation("com.cupoftea:cupoftea-json:0.3.0")
 
 // Or all formats at once:
-// implementation("com.cupoftea:cupoftea-all:0.2.0")
+// implementation("com.cupoftea:cupoftea-all:0.3.0")
 ```
 
 ## Available Modules
@@ -161,6 +161,10 @@ public class Main {
         // Or left, right, outer, cross joins:
         // CupOfTea left = df.leftJoin(depts, "department");
         // CupOfTea cross = df.crossJoin(depts);
+
+        // DataFrame concatenation (vertical / rows or horizontal / columns)
+        CupOfTea moreData = CupOfTea.read().csv("more_data.csv");
+        CupOfTea stacked = df.concat(moreData); // or CupOfTea.concat(df, moreData)
 
         // Write to multiple formats
         filtered.write().csv("filtered.csv");

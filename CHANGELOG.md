@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-23
+
+### Added
+
+- DataFrame concatenation engine `DataFrameConcatenator` supporting both vertical (`ConcatAxis.ROWS` / axis=0) and horizontal (`ConcatAxis.COLUMNS` / axis=1) concatenation ([#89](https://github.com/filippo-pequini/CupOfTea/issues/89)).
+- Fluent instance and static concatenation methods on `CupOfTea` and `IDataFrame` (`concat`, `concatWith`, `concatHorizontal`) with support for varargs, lists, and pairs of DataFrames ([#89](https://github.com/filippo-pequini/CupOfTea/issues/89)).
+- Automatic schema alignment by column name and configurable join semantics (`JoinType.OUTER` default padding with nulls/NA, `JoinType.INNER` retaining intersection) ([#89](https://github.com/filippo-pequini/CupOfTea/issues/89)).
+- Columnar numeric type widening (e.g., Integer to Long, Double, or BigDecimal) and fallback to Object for heterogeneous types ([#89](https://github.com/filippo-pequini/CupOfTea/issues/89)).
+- Horizontal concatenation with customizable disambiguation column suffixes (`leftSuffix`, `rightSuffix`) and automatic length padding/truncation based on join type ([#89](https://github.com/filippo-pequini/CupOfTea/issues/89)).
+- Consistent preservation of index columns and strict compliance with `MutationMode` (`IN_PLACE` and `COPY_ON_WRITE`) without mutating inputs ([#89](https://github.com/filippo-pequini/CupOfTea/issues/89)).
+- Dedicated unit test suite `ConcatTest` covering vertical, horizontal, multi-frame, type widening, empty frames, and error cases ([#89](https://github.com/filippo-pequini/CupOfTea/issues/89)).
+
 ## [0.2.0] - 2026-10-22
 
 ### Added
