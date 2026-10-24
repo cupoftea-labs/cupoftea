@@ -107,6 +107,31 @@ public class DataFrameWriter {
         write("yaml", buildOptions().file(file).build());
     }
 
+    // --- HTML ---
+
+    public void html(String path) {
+        if (path == null) {
+            throw new IllegalArgumentException("Path cannot be null");
+        }
+        html(new File(path));
+    }
+
+    public void html(File file) {
+        if (file == null) {
+            throw new IllegalArgumentException("File cannot be null");
+        }
+        try {
+            java.nio.file.Files.writeString(
+                    file.toPath(),
+                    dataFrame.toHtml(com.cupoftea.utils.configurations.TableHtmlConfiguration.builder()
+                            .fullDocument(true)
+                            .build()),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            throw new com.cupoftea.exceptions.ExportException("Failed to write HTML file: " + file.getPath(), e);
+        }
+    }
+
     // --- GENERIC FORMAT ---
 
     public void format(String format, String path) {

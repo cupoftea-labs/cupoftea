@@ -13,6 +13,8 @@ import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.cupoftea.plot.Plot;
+import com.cupoftea.plot.PlotRegistry;
 import com.cupoftea.table.Aggregate;
 import com.cupoftea.table.Aggregation;
 import com.cupoftea.table.Column;
@@ -28,6 +30,8 @@ import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.utils.TableHtmlRenderer;
+import com.cupoftea.utils.configurations.TableHtmlConfiguration;
 import com.cupoftea.utils.interfaces.IColumnCreator;
 import com.cupoftea.utils.interfaces.IFilter;
 import com.cupoftea.utils.interfaces.Orderer;
@@ -700,5 +704,74 @@ public abstract class IDataFrame {
     public abstract IDataFrame rowNumber(String outputColumn);
     public IDataFrame rowNumber() {
         return rowNumber("row_number");
+    }
+
+    /**
+     * Obtains a declarative plotting builder for visualizing this DataFrame.
+     * Requires the optional {@code cupoftea-plot} module on the classpath.
+     *
+     * @return a {@link Plot} instance
+     */
+    public Plot plot() {
+        return PlotRegistry.createPlot(this);
+    }
+
+    /**
+     * Obtains a declarative plotting builder backed by a specific plotting engine.
+     *
+     * @param engine plotting engine name (e.g. "vegalite")
+     * @return a {@link Plot} instance
+     */
+    public Plot plot(String engine) {
+        return PlotRegistry.createPlot(this, engine);
+    }
+
+    /**
+     * Renders this DataFrame as a clean, responsive HTML table with sticky headers,
+     * data type indicators, and client-side pagination.
+     *
+     * @return HTML string representation
+     */
+    public String toHtml() {
+        return toHtml(new TableHtmlConfiguration());
+    }
+
+    /**
+     * Renders this DataFrame as an HTML table displaying up to {@code maxRows} rows.
+     *
+     * @param maxRows maximum number of rows to include
+     * @return HTML string representation
+     */
+    public String toHtml(int maxRows) {
+        return toHtml(TableHtmlConfiguration.builder().maxRows(maxRows).build());
+    }
+
+    /**
+     * Renders this DataFrame as an HTML table using the specified configuration.
+     *
+     * @param configuration table HTML rendering configuration
+     * @return HTML string representation
+     */
+    public String toHtml(TableHtmlConfiguration configuration) {
+        return TableHtmlRenderer.render(this, configuration);
+    }
+
+    /**
+     * Jupyter / IJava notebook MIME representation method.
+     * Automatically invoked by Jupyter kernels when this DataFrame is evaluated in a cell.
+     *
+     * @return HTML table string
+     */
+    public String renderHtml() {
+        return toHtml();
+    }
+
+    /**
+     * Jupyter / Polyglot notebook MIME representation bundle.
+     *
+     * @return map mapping MIME type ("text/html") to HTML representation
+     */
+    public Map<String, String> render() {
+        return Collections.singletonMap("text/html", toHtml());
     }
 }

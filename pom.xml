@@ -6,7 +6,7 @@
 
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-parent</artifactId>
-    <version>0.7.0</version>
+    <version>0.8.0</version>
     <packaging>pom</packaging>
 
     <name>CupOfTea Parent</name>
@@ -51,6 +51,7 @@
         <module>cupoftea-html</module>
         <module>cupoftea-yaml</module>
         <module>cupoftea-xml</module>
+        <module>cupoftea-plot</module>
         <module>cupoftea-all</module>
     </modules>
 
@@ -60,7 +61,7 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <cupoftea.version>0.7.0</cupoftea.version>
+        <cupoftea.version>0.8.0</cupoftea.version>
         <lombok.version>1.18.38</lombok.version>
         <annotations.version>26.0.2</annotations.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
@@ -125,6 +126,11 @@
             <dependency>
                 <groupId>com.cupoftea</groupId>
                 <artifactId>cupoftea-xml</artifactId>
+                <version>${cupoftea.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.cupoftea</groupId>
+                <artifactId>cupoftea-plot</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
 

@@ -21,6 +21,7 @@ import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.io.DataFrameReader;
 import com.cupoftea.io.DataFrameWriter;
+import com.cupoftea.plot.Plot;
 import com.cupoftea.table.Aggregate;
 import com.cupoftea.table.Aggregation;
 import com.cupoftea.table.Column;
@@ -42,6 +43,7 @@ import com.cupoftea.table.window.RollingWindow;
 import com.cupoftea.table.window.Window;
 import com.cupoftea.utils.Printer;
 import com.cupoftea.utils.configurations.PrinterConfiguration;
+import com.cupoftea.utils.configurations.TableHtmlConfiguration;
 import com.cupoftea.utils.interfaces.IColumnCreator;
 import com.cupoftea.utils.interfaces.IFilter;
 import com.cupoftea.utils.interfaces.Orderer;
@@ -1093,6 +1095,7 @@ public class CupOfTea {
         return target;
     }
 
+
     // --- Join operations ---
 
     public CupOfTea join(CupOfTea other) {
@@ -1824,5 +1827,74 @@ public class CupOfTea {
 
     public CupOfTea rowNumber() {
         return rowNumber("row_number");
+    }
+
+    /**
+     * Obtains a declarative plotting builder for visualizing this DataFrame.
+     * Requires the optional {@code cupoftea-plot} module on the classpath.
+     *
+     * @return a {@link Plot} instance
+     */
+    public Plot plot() {
+        return this.dataFrame.plot();
+    }
+
+    /**
+     * Obtains a declarative plotting builder backed by a specific plotting engine.
+     *
+     * @param engine plotting engine name (e.g. "vegalite")
+     * @return a {@link Plot} instance
+     */
+    public Plot plot(String engine) {
+        return this.dataFrame.plot(engine);
+    }
+
+    /**
+     * Renders this DataFrame as a clean, responsive HTML table with sticky headers,
+     * data type indicators, and client-side pagination.
+     *
+     * @return HTML string representation
+     */
+    public String toHtml() {
+        return this.dataFrame.toHtml();
+    }
+
+    /**
+     * Renders this DataFrame as an HTML table displaying up to {@code maxRows} rows.
+     *
+     * @param maxRows maximum number of rows to include
+     * @return HTML string representation
+     */
+    public String toHtml(int maxRows) {
+        return this.dataFrame.toHtml(maxRows);
+    }
+
+    /**
+     * Renders this DataFrame as an HTML table using the specified configuration.
+     *
+     * @param configuration table HTML rendering configuration
+     * @return HTML string representation
+     */
+    public String toHtml(TableHtmlConfiguration configuration) {
+        return this.dataFrame.toHtml(configuration);
+    }
+
+    /**
+     * Jupyter / IJava notebook MIME representation method.
+     * Automatically invoked by Jupyter kernels when this DataFrame is evaluated in a cell.
+     *
+     * @return HTML table string
+     */
+    public String renderHtml() {
+        return this.dataFrame.renderHtml();
+    }
+
+    /**
+     * Jupyter / Polyglot notebook MIME representation bundle.
+     *
+     * @return map mapping MIME type ("text/html") to HTML representation
+     */
+    public Map<String, String> render() {
+        return this.dataFrame.render();
     }
 }

@@ -106,6 +106,27 @@ public class AllFormatsIntegrationTest {
         assertThat(FormatRegistry.getWriter("yaml")).isPresent();
 
         assertThat(FormatRegistry.getReader("xml")).isPresent();
+
+        com.cupoftea.plot.PlotRegistry.reload();
+        assertThat(com.cupoftea.plot.PlotRegistry.getProvider("vegalite")).isPresent();
+    }
+
+    @Test
+    @DisplayName("Should create charts and render HTML using CupOfTea All")
+    void testPlotIntegrationInAll() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("x", Integer.class);
+        df.addColumn("y", Double.class);
+        df.addRow(java.util.Map.of("x", 1, "y", 10.5));
+        df.addRow(java.util.Map.of("x", 2, "y", 20.0));
+
+        com.cupoftea.plot.Chart chart = df.plot().scatter("x", "y").title("Test Plot");
+        assertThat(chart).isNotNull();
+        assertThat(chart.toHtml()).contains("cupoftea-plot");
+        assertThat(chart.toVegaLiteJson()).contains("https://vega.github.io/schema/vega-lite/v5.json");
+
+        // Tabular HTML rendering
+        assertThat(df.toHtml()).contains("class=\"cot-container\"");
     }
 
     @Test
