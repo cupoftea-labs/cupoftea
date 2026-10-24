@@ -19,11 +19,15 @@ public class FloatColumnVector extends ColumnVector {
         this.data = new float[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
-    private FloatColumnVector(String name, boolean nullable, float[] data, BitSet nulls, int size) {
+    public FloatColumnVector(String name, boolean nullable, float[] data, BitSet nulls, int size) {
         super(name, Float.class, nullable, data.length);
         this.data = data;
         this.nulls.or(nulls);
         this.size = size;
+    }
+
+    public float[] getRawData() {
+        return data;
     }
 
     private void ensureCapacity(int minCapacity) {

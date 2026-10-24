@@ -106,6 +106,16 @@ public class DataFrame extends IDataFrame {
         }
     }
 
+    public DataFrame(List<ColumnVector> vectors) {
+        super();
+        if (vectors != null) {
+            for (ColumnVector vec : vectors) {
+                this.columns.add(vec);
+                this.header.addColumn(new Column(vec.getName(), vec.getType(), vec.isNullable()));
+            }
+        }
+    }
+
     @Override
     public List<ColumnVector> getColumnVectors() {
         return Collections.unmodifiableList(this.columns);

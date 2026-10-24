@@ -20,11 +20,15 @@ public class IntColumnVector extends ColumnVector {
         this.data = new int[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
-    private IntColumnVector(String name, boolean nullable, int[] data, BitSet nulls, int size) {
+    public IntColumnVector(String name, boolean nullable, int[] data, BitSet nulls, int size) {
         super(name, Integer.class, nullable, data.length);
         this.data = data;
         this.nulls.or(nulls);
         this.size = size;
+    }
+
+    public int[] getRawData() {
+        return data;
     }
 
     private void ensureCapacity(int minCapacity) {

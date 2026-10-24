@@ -19,11 +19,15 @@ public class BooleanColumnVector extends ColumnVector {
         this.data = new boolean[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
-    private BooleanColumnVector(String name, boolean nullable, boolean[] data, BitSet nulls, int size) {
+    public BooleanColumnVector(String name, boolean nullable, boolean[] data, BitSet nulls, int size) {
         super(name, Boolean.class, nullable, data.length);
         this.data = data;
         this.nulls.or(nulls);
         this.size = size;
+    }
+
+    public boolean[] getRawData() {
+        return data;
     }
 
     private void ensureCapacity(int minCapacity) {

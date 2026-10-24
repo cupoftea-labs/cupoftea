@@ -6,7 +6,7 @@
 
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-parent</artifactId>
-    <version>0.6.0</version>
+    <version>0.7.0</version>
     <packaging>pom</packaging>
 
     <name>CupOfTea Parent</name>
@@ -47,6 +47,7 @@
         <module>cupoftea-json</module>
         <module>cupoftea-excel</module>
         <module>cupoftea-parquet</module>
+        <module>cupoftea-arrow</module>
         <module>cupoftea-html</module>
         <module>cupoftea-yaml</module>
         <module>cupoftea-xml</module>
@@ -59,7 +60,7 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <cupoftea.version>0.6.0</cupoftea.version>
+        <cupoftea.version>0.7.0</cupoftea.version>
         <lombok.version>1.18.38</lombok.version>
         <annotations.version>26.0.2</annotations.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
@@ -75,6 +76,7 @@
         <commons-io.version>2.18.0</commons-io.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <org.json.version>20250107</org.json.version>
+        <arrow.version>18.2.0</arrow.version>
     </properties>
 
     <dependencyManagement>
@@ -103,6 +105,11 @@
             <dependency>
                 <groupId>com.cupoftea</groupId>
                 <artifactId>cupoftea-parquet</artifactId>
+                <version>${cupoftea.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.cupoftea</groupId>
+                <artifactId>cupoftea-arrow</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
@@ -208,6 +215,18 @@
                 <artifactId>hadoop-mapreduce-client-core</artifactId>
                 <version>${hadoop.version}</version>
             </dependency>
+
+            <!-- Apache Arrow -->
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.apache.hadoop</groupId>
                 <artifactId>hadoop-hdfs</artifactId>
@@ -260,6 +279,9 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.6.0</version>
+                    <configuration>
+                        <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>

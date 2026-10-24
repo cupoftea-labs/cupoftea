@@ -166,6 +166,24 @@ public class DataFrameReader {
         return read("parquet", buildOptions().file(file).build());
     }
 
+    // --- ARROW / FEATHER ---
+
+    public CupOfTea arrow(String path) {
+        return arrow(new File(path));
+    }
+
+    public CupOfTea arrow(File file) {
+        return read("arrow", buildOptions().file(file).build());
+    }
+
+    public CupOfTea feather(String path) {
+        return feather(new File(path));
+    }
+
+    public CupOfTea feather(File file) {
+        return read("feather", buildOptions().file(file).build());
+    }
+
     // --- HTML ---
 
     public CupOfTea html(String pathOrHtml) {

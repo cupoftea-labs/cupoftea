@@ -111,6 +111,7 @@ def check_submodules(root_version, repo_root="."):
         "cupoftea-json",
         "cupoftea-excel",
         "cupoftea-parquet",
+        "cupoftea-arrow",
         "cupoftea-html",
         "cupoftea-yaml",
         "cupoftea-xml",
