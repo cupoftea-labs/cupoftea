@@ -21,11 +21,15 @@ public class StringColumnVector extends ColumnVector {
         this.data = new String[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
-    private StringColumnVector(String name, boolean nullable, String[] data, BitSet nulls, int size) {
+    public StringColumnVector(String name, boolean nullable, String[] data, BitSet nulls, int size) {
         super(name, String.class, nullable, data.length);
         this.data = data;
         this.nulls.or(nulls);
         this.size = size;
+    }
+
+    public String[] getRawData() {
+        return data;
     }
 
     private void ensureCapacity(int minCapacity) {

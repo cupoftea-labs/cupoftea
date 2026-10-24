@@ -807,6 +807,42 @@ public class CupOfTea {
         return this;
     }
 
+    // --- Arrow / Feather Importers / Exporters ---
+
+    public CupOfTea importFromArrow(File file) {
+        if (file == null) {
+            throw new ImportException("File cannot be null");
+        }
+        CupOfTea loaded = read().target(this.dataFrame).arrow(file);
+        this.dataFrame = loaded.dataFrame;
+        return this;
+    }
+
+    public CupOfTea exportToArrow(File file) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().arrow(file);
+        return this;
+    }
+
+    public CupOfTea importFromFeather(File file) {
+        if (file == null) {
+            throw new ImportException("File cannot be null");
+        }
+        CupOfTea loaded = read().target(this.dataFrame).feather(file);
+        this.dataFrame = loaded.dataFrame;
+        return this;
+    }
+
+    public CupOfTea exportToFeather(File file) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().feather(file);
+        return this;
+    }
+
     // --- JSON Importers / Exporters ---
 
     public CupOfTea importFromJson(String json) {

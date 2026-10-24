@@ -25,11 +25,15 @@ public class ObjectColumnVector extends ColumnVector {
         this.data = new Object[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
-    private ObjectColumnVector(String name, Class<?> type, boolean nullable, Object[] data, BitSet nulls, int size) {
+    public ObjectColumnVector(String name, Class<?> type, boolean nullable, Object[] data, BitSet nulls, int size) {
         super(name, type != null ? type : Object.class, nullable, data.length);
         this.data = data;
         this.nulls.or(nulls);
         this.size = size;
+    }
+
+    public Object[] getRawData() {
+        return data;
     }
 
     private void ensureCapacity(int minCapacity) {

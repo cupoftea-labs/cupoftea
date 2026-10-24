@@ -19,11 +19,15 @@ public class LongColumnVector extends ColumnVector {
         this.data = new long[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
-    private LongColumnVector(String name, boolean nullable, long[] data, BitSet nulls, int size) {
+    public LongColumnVector(String name, boolean nullable, long[] data, BitSet nulls, int size) {
         super(name, Long.class, nullable, data.length);
         this.data = data;
         this.nulls.or(nulls);
         this.size = size;
+    }
+
+    public long[] getRawData() {
+        return data;
     }
 
     private void ensureCapacity(int minCapacity) {

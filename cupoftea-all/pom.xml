@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.cupoftea</groupId>
         <artifactId>cupoftea-parent</artifactId>
-        <version>0.6.0</version>
+        <version>0.7.0</version>
     </parent>
 
     <artifactId>cupoftea-all</artifactId>
@@ -36,6 +36,10 @@
         <dependency>
             <groupId>com.cupoftea</groupId>
             <artifactId>cupoftea-parquet</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cupoftea</groupId>
+            <artifactId>cupoftea-arrow</artifactId>
         </dependency>
         <dependency>
             <groupId>com.cupoftea</groupId>

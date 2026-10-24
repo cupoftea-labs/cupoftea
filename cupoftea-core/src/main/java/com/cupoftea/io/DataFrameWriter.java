@@ -79,6 +79,24 @@ public class DataFrameWriter {
         write("parquet", buildOptions().file(file).build());
     }
 
+    // --- ARROW / FEATHER ---
+
+    public void arrow(String path) {
+        arrow(new File(path));
+    }
+
+    public void arrow(File file) {
+        write("arrow", buildOptions().file(file).build());
+    }
+
+    public void feather(String path) {
+        feather(new File(path));
+    }
+
+    public void feather(File file) {
+        write("feather", buildOptions().file(file).build());
+    }
+
     // --- YAML ---
 
     public void yaml(String path) {

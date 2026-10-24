@@ -19,11 +19,15 @@ public class DoubleColumnVector extends ColumnVector {
         this.data = new double[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
-    private DoubleColumnVector(String name, boolean nullable, double[] data, BitSet nulls, int size) {
+    public DoubleColumnVector(String name, boolean nullable, double[] data, BitSet nulls, int size) {
         super(name, Double.class, nullable, data.length);
         this.data = data;
         this.nulls.or(nulls);
         this.size = size;
+    }
+
+    public double[] getRawData() {
+        return data;
     }
 
     private void ensureCapacity(int minCapacity) {

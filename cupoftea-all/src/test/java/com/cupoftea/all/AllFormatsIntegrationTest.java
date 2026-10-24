@@ -94,6 +94,12 @@ public class AllFormatsIntegrationTest {
         assertThat(FormatRegistry.getReader("parquet")).isPresent();
         assertThat(FormatRegistry.getWriter("parquet")).isPresent();
 
+        assertThat(FormatRegistry.getReader("arrow")).isPresent();
+        assertThat(FormatRegistry.getWriter("arrow")).isPresent();
+
+        assertThat(FormatRegistry.getReader("feather")).isPresent();
+        assertThat(FormatRegistry.getWriter("feather")).isPresent();
+
         assertThat(FormatRegistry.getReader("html")).isPresent();
 
         assertThat(FormatRegistry.getReader("yaml")).isPresent();
@@ -125,6 +131,16 @@ public class AllFormatsIntegrationTest {
         CupOfTea fromJson = CupOfTea.read().json(tempJson.getPath());
         assertThat(fromJson.size()).isEqualTo(filtered.size());
         assertThat(fromJson.getRow(0).get("cidade")).isEqualTo("Santa");
+
+        // 5. Write to Arrow and Feather, read back
+        File tempArrow = File.createTempFile("pipeline_", ".arrow");
+        tempArrow.deleteOnExit();
+        fromJson.write().arrow(tempArrow.getPath());
+        assertThat(tempArrow.length()).isGreaterThan(0);
+
+        CupOfTea fromArrow = CupOfTea.read().arrow(tempArrow.getPath());
+        assertThat(fromArrow.size()).isEqualTo(filtered.size());
+        assertThat(fromArrow.getRow(0).get("cidade")).isEqualTo("Santa");
     }
 
     @Test
@@ -148,6 +164,10 @@ public class AllFormatsIntegrationTest {
             ParquetImporter.class,
             IParquetExporter.class,
             ParquetExporter.class,
+            com.cupoftea.importers.interfaces.IArrowImporter.class,
+            com.cupoftea.importers.ArrowImporter.class,
+            com.cupoftea.exporters.interfaces.IArrowExporter.class,
+            com.cupoftea.exporters.ArrowExporter.class,
             IHTMLImporter.class,
             HTMLImporter.class,
             IYamlImporter.class,
