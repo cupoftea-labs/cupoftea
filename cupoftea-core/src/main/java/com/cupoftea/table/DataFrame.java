@@ -6,14 +6,17 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Random;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -2287,5 +2290,470 @@ public class DataFrame extends IDataFrame {
     public IDataFrame rowNumber(String outputColumn) {
         new com.cupoftea.table.window.Window(this).rowNumber(outputColumn != null ? outputColumn : "row_number");
         return this;
+    }
+
+    // --- Deduplication ---
+
+    @Override
+    public IDataFrame dropDuplicates() {
+        return dropDuplicates(Keep.FIRST, (String[]) null);
+    }
+
+    @Override
+    public IDataFrame dropDuplicates(Keep keep) {
+        return dropDuplicates(keep, (String[]) null);
+    }
+
+    @Override
+    public IDataFrame dropDuplicates(String... subset) {
+        return dropDuplicates(Keep.FIRST, subset);
+    }
+
+    @Override
+    public IDataFrame dropDuplicates(Keep keep, String... subset) {
+        List<String> subList = (subset != null && subset.length > 0) ? Arrays.asList(subset) : Collections.emptyList();
+        return dropDuplicates(subList, keep);
+    }
+
+    @Override
+    public IDataFrame dropDuplicates(List<String> subset) {
+        return dropDuplicates(subset, Keep.FIRST);
+    }
+
+    @Override
+    public IDataFrame dropDuplicates(List<String> subset, Keep keep) {
+        if (keep == null) {
+            keep = Keep.FIRST;
+        }
+        int total = this.size();
+        if (total == 0) {
+            return this;
+        }
+
+        List<ColumnVector> targetVectors = new ArrayList<>();
+        if (subset == null || subset.isEmpty()) {
+            targetVectors.addAll(this.columns);
+        } else {
+            for (String col : subset) {
+                if (col == null) {
+                    throw new IllegalArgumentException("Column name in subset cannot be null");
+                }
+                ColumnVector vec = getVector(col);
+                if (vec == null) {
+                    throw new IllegalArgumentException("Column '" + col + "' does not exist");
+                }
+                targetVectors.add(vec);
+            }
+        }
+
+        BitSet retainMask = new BitSet(total);
+        int retainedCount = 0;
+
+        if (keep == Keep.FIRST) {
+            Set<List<Object>> seen = new HashSet<>();
+            for (int i = 0; i < total; i++) {
+                List<Object> key = extractRowKey(targetVectors, i);
+                if (seen.add(key)) {
+                    retainMask.set(i);
+                    retainedCount++;
+                }
+            }
+        } else if (keep == Keep.LAST) {
+            Set<List<Object>> seen = new HashSet<>();
+            for (int i = total - 1; i >= 0; i--) {
+                List<Object> key = extractRowKey(targetVectors, i);
+                if (seen.add(key)) {
+                    retainMask.set(i);
+                    retainedCount++;
+                }
+            }
+        } else if (keep == Keep.NONE) {
+            Map<List<Object>, Integer> frequencies = new HashMap<>();
+            for (int i = 0; i < total; i++) {
+                List<Object> key = extractRowKey(targetVectors, i);
+                frequencies.merge(key, 1, Integer::sum);
+            }
+            for (int i = 0; i < total; i++) {
+                List<Object> key = extractRowKey(targetVectors, i);
+                if (frequencies.get(key) == 1) {
+                    retainMask.set(i);
+                    retainedCount++;
+                }
+            }
+        }
+
+        for (ColumnVector vec : this.columns) {
+            vec.filterInPlace(retainMask, retainedCount);
+        }
+
+        return this;
+    }
+
+    private List<Object> extractRowKey(List<ColumnVector> vectors, int row) {
+        List<Object> key = new ArrayList<>(vectors.size());
+        for (ColumnVector vec : vectors) {
+            key.add(vec.isNull(row) ? null : vec.getObject(row));
+        }
+        return key;
+    }
+
+    @Override
+    public IDataFrame distinct() {
+        return dropDuplicates();
+    }
+
+    @Override
+    public IDataFrame distinct(Keep keep) {
+        return dropDuplicates(keep);
+    }
+
+    @Override
+    public IDataFrame distinct(String... subset) {
+        return dropDuplicates(subset);
+    }
+
+    @Override
+    public IDataFrame distinct(Keep keep, String... subset) {
+        return dropDuplicates(keep, subset);
+    }
+
+    @Override
+    public IDataFrame distinct(List<String> subset) {
+        return dropDuplicates(subset);
+    }
+
+    @Override
+    public IDataFrame distinct(List<String> subset, Keep keep) {
+        return dropDuplicates(subset, keep);
+    }
+
+    // --- Reshaping: Pivot ---
+
+    @Override
+    public IDataFrame pivot(String indexCol, String columnsCol, String valuesCol) {
+        return pivot(indexCol, columnsCol, valuesCol, (Aggregate) null);
+    }
+
+    @Override
+    public IDataFrame pivot(String indexCol, String columnsCol, String valuesCol, Aggregation agg) {
+        if (agg == null) {
+            return pivot(indexCol, columnsCol, valuesCol, (Aggregate) null);
+        }
+        return pivot(indexCol, columnsCol, valuesCol, agg.toAggregate(valuesCol));
+    }
+
+    @Override
+    public IDataFrame pivot(String indexCol, String columnsCol, String valuesCol, Aggregate agg) {
+        if (indexCol == null || columnsCol == null || valuesCol == null) {
+            throw new IllegalArgumentException("Index, columns, and values column names cannot be null");
+        }
+        ColumnVector idxVec = getVector(indexCol);
+        if (idxVec == null) {
+            throw new IllegalArgumentException("Column '" + indexCol + "' does not exist");
+        }
+        ColumnVector colVec = getVector(columnsCol);
+        if (colVec == null) {
+            throw new IllegalArgumentException("Column '" + columnsCol + "' does not exist");
+        }
+        ColumnVector valVec = getVector(valuesCol);
+        if (valVec == null) {
+            throw new IllegalArgumentException("Column '" + valuesCol + "' does not exist");
+        }
+
+        Aggregate aggregate = agg;
+        if (aggregate == null) {
+            Class<?> valType = valVec.getType();
+            boolean isNumeric = valType != null && (Number.class.isAssignableFrom(valType)
+                    || valType == int.class || valType == long.class || valType == double.class || valType == float.class);
+            aggregate = isNumeric ? Aggregations.mean(valuesCol) : Aggregations.count(valuesCol);
+        }
+
+        DataFrame result = new DataFrame();
+        Class<?> idxType = idxVec.getType() != null ? idxVec.getType() : Object.class;
+        result.addColumn(indexCol, idxType);
+        result.setIndex(indexCol);
+
+        int total = this.size();
+        if (total == 0) {
+            return result;
+        }
+
+        LinkedHashSet<Object> uniqueIndexValues = new LinkedHashSet<>();
+        LinkedHashSet<String> uniquePivotCols = new LinkedHashSet<>();
+        Map<Object, Map<String, List<HashMap<String, Object>>>> partitioned = new LinkedHashMap<>();
+
+        List<Column> srcHeaders = this.getHeaders();
+        for (int i = 0; i < total; i++) {
+            Object idxVal = idxVec.isNull(i) ? null : idxVec.getObject(i);
+            Object cVal = colVec.isNull(i) ? null : colVec.getObject(i);
+            String colName = cVal != null ? String.valueOf(cVal) : "null";
+
+            uniqueIndexValues.add(idxVal);
+            uniquePivotCols.add(colName);
+
+            partitioned
+                .computeIfAbsent(idxVal, k -> new LinkedHashMap<>())
+                .computeIfAbsent(colName, k -> new ArrayList<>())
+                .add(new HashMap<>(getRow(i)));
+        }
+
+        Class<?> pivotColType = aggregate.getResultType(srcHeaders);
+        for (String colName : uniquePivotCols) {
+            result.addColumn(colName, pivotColType);
+        }
+
+        for (Object idxVal : uniqueIndexValues) {
+            HashMap<String, Object> newRow = new HashMap<>();
+            newRow.put(indexCol, idxVal);
+            Map<String, List<HashMap<String, Object>>> colMap = partitioned.get(idxVal);
+            for (String colName : uniquePivotCols) {
+                List<HashMap<String, Object>> cellRows = colMap != null ? colMap.get(colName) : null;
+                Object computedVal = (cellRows != null && !cellRows.isEmpty())
+                        ? aggregate.compute(cellRows, srcHeaders)
+                        : null;
+                newRow.put(colName, computedVal);
+            }
+            result.addRow(newRow);
+        }
+
+        return result;
+    }
+
+    // --- Reshaping: Melt ---
+
+    @Override
+    public IDataFrame melt() {
+        return melt(null, null, "variable", "value");
+    }
+
+    @Override
+    public IDataFrame melt(List<String> idVars) {
+        return melt(idVars, null, "variable", "value");
+    }
+
+    @Override
+    public IDataFrame melt(List<String> idVars, List<String> valueVars) {
+        return melt(idVars, valueVars, "variable", "value");
+    }
+
+    @Override
+    public IDataFrame melt(List<String> idVars, List<String> valueVars, String varName, String valueName) {
+        List<String> resolvedIdVars = (idVars != null) ? idVars : Collections.emptyList();
+        for (String col : resolvedIdVars) {
+            if (col == null || getVector(col) == null) {
+                throw new IllegalArgumentException("Column '" + col + "' does not exist");
+            }
+        }
+
+        List<String> resolvedValueVars = new ArrayList<>();
+        if (valueVars == null || valueVars.isEmpty()) {
+            for (Column col : this.getHeaders()) {
+                if (!resolvedIdVars.contains(col.columnName())) {
+                    resolvedValueVars.add(col.columnName());
+                }
+            }
+        } else {
+            for (String col : valueVars) {
+                if (col == null || getVector(col) == null) {
+                    throw new IllegalArgumentException("Column '" + col + "' does not exist");
+                }
+                resolvedValueVars.add(col);
+            }
+        }
+
+        String actualVarName = (varName != null && !varName.trim().isEmpty()) ? varName : "variable";
+        String actualValueName = (valueName != null && !valueName.trim().isEmpty()) ? valueName : "value";
+
+        int n = this.size();
+        int k = resolvedValueVars.size();
+        int targetCapacity = Math.max(16, n * k);
+
+        // Determine value type
+        Class<?> commonValueType = null;
+        if (!resolvedValueVars.isEmpty()) {
+            Class<?> firstType = getVector(resolvedValueVars.get(0)).getType();
+            boolean allSame = true;
+            for (int i = 1; i < resolvedValueVars.size(); i++) {
+                if (!Objects.equals(firstType, getVector(resolvedValueVars.get(i)).getType())) {
+                    allSame = false;
+                    break;
+                }
+            }
+            commonValueType = allSame ? firstType : Object.class;
+        } else {
+            commonValueType = Object.class;
+        }
+
+        // Columnar vector recreation
+        List<ColumnVector> createdIdVectors = new ArrayList<>();
+        for (String idCol : resolvedIdVars) {
+            ColumnVector src = getVector(idCol);
+            ColumnVector dest = ColumnVector.create(idCol, src.getType(), targetCapacity, true);
+            for (int v = 0; v < k; v++) {
+                for (int r = 0; r < n; r++) {
+                    if (src.isNull(r)) {
+                        dest.appendNull();
+                    } else {
+                        dest.appendObject(src.getObject(r));
+                    }
+                }
+            }
+            createdIdVectors.add(dest);
+        }
+
+        StringColumnVector createdVarVector = new StringColumnVector(actualVarName, targetCapacity, false);
+        for (String valCol : resolvedValueVars) {
+            for (int r = 0; r < n; r++) {
+                createdVarVector.appendString(valCol);
+            }
+        }
+
+        ColumnVector createdValVector = ColumnVector.create(actualValueName, commonValueType, targetCapacity, true);
+        for (String valCol : resolvedValueVars) {
+            ColumnVector src = getVector(valCol);
+            for (int r = 0; r < n; r++) {
+                if (src.isNull(r)) {
+                    createdValVector.appendNull();
+                } else {
+                    createdValVector.appendObject(src.getObject(r));
+                }
+            }
+        }
+
+        DataFrame melted = new DataFrame();
+        for (ColumnVector vec : createdIdVectors) {
+            melted.header.addColumn(new Column(vec.getName(), vec.getType()));
+            melted.columns.add(vec);
+        }
+        melted.header.addColumn(new Column(createdVarVector.getName(), createdVarVector.getType()));
+        melted.columns.add(createdVarVector);
+        melted.header.addColumn(new Column(createdValVector.getName(), createdValVector.getType()));
+        melted.columns.add(createdValVector);
+
+        return melted;
+    }
+
+    // --- Random Sampling ---
+
+    @Override
+    public IDataFrame sample(int n) {
+        return sample(n, false, null);
+    }
+
+    @Override
+    public IDataFrame sample(int n, boolean replace) {
+        return sample(n, replace, null);
+    }
+
+    @Override
+    public IDataFrame sample(int n, long seed) {
+        return sample(n, false, seed);
+    }
+
+    @Override
+    public IDataFrame sample(int n, boolean replace, long seed) {
+        return sample(n, replace, Long.valueOf(seed));
+    }
+
+    @Override
+    public IDataFrame sample(double fraction) {
+        return sample(fraction, false, null);
+    }
+
+    @Override
+    public IDataFrame sample(double fraction, long seed) {
+        return sample(fraction, false, Long.valueOf(seed));
+    }
+
+    @Override
+    public IDataFrame sample(double fraction, boolean replace, long seed) {
+        return sample(fraction, replace, Long.valueOf(seed));
+    }
+
+    private IDataFrame sample(double fraction, boolean replace, Long seed) {
+        if (fraction < 0.0) {
+            throw new IllegalArgumentException("Sample fraction cannot be negative: " + fraction);
+        }
+        if (!replace && fraction > 1.0) {
+            throw new IllegalArgumentException("Sample fraction cannot be greater than 1.0 when replace=false (got: " + fraction + ")");
+        }
+        int total = this.size();
+        int n = (int) Math.round(fraction * total);
+        return sample(n, replace, seed);
+    }
+
+    private IDataFrame sample(int n, boolean replace, Long seed) {
+        if (n < 0) {
+            throw new IllegalArgumentException("Sample count n cannot be negative: " + n);
+        }
+        int total = this.size();
+        if (total == 0) {
+            if (n == 0) {
+                return copy().slice(0, 0);
+            }
+            throw new IllegalArgumentException("Cannot sample " + n + " rows from an empty DataFrame");
+        }
+        if (!replace && n > total) {
+            throw new IllegalArgumentException("Cannot take a larger sample than population when replace=false (sample size: " + n + ", population: " + total + ")");
+        }
+
+        Random rng = (seed != null) ? new Random(seed) : new Random();
+        int[] sampledIndices = new int[n];
+
+        if (replace) {
+            for (int i = 0; i < n; i++) {
+                sampledIndices[i] = rng.nextInt(total);
+            }
+        } else {
+            if (n == total) {
+                for (int i = 0; i < total; i++) sampledIndices[i] = i;
+                for (int i = 0; i < total; i++) {
+                    int r = i + rng.nextInt(total - i);
+                    int tmp = sampledIndices[i];
+                    sampledIndices[i] = sampledIndices[r];
+                    sampledIndices[r] = tmp;
+                }
+            } else if (n <= total / 2) {
+                Set<Integer> chosen = new HashSet<>(n);
+                int count = 0;
+                while (count < n) {
+                    int candidate = rng.nextInt(total);
+                    if (chosen.add(candidate)) {
+                        sampledIndices[count++] = candidate;
+                    }
+                }
+            } else {
+                int[] pool = new int[total];
+                for (int i = 0; i < total; i++) pool[i] = i;
+                for (int i = 0; i < n; i++) {
+                    int r = i + rng.nextInt(total - i);
+                    int tmp = pool[i];
+                    pool[i] = pool[r];
+                    pool[r] = tmp;
+                    sampledIndices[i] = pool[i];
+                }
+            }
+        }
+
+        DataFrame sampled = new DataFrame();
+        sampled.header = this.header.copy();
+        sampled.columnCreators.putAll(this.columnCreators);
+        sampled.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        sampled.index = this.index.copy();
+        sampled.indexColumn = this.indexColumn;
+
+        for (ColumnVector vec : this.columns) {
+            ColumnVector newVec = ColumnVector.create(vec.getName(), vec.getType(), Math.max(16, n), vec.isNullable());
+            for (int idx : sampledIndices) {
+                if (vec.isNull(idx)) {
+                    newVec.appendNull();
+                } else {
+                    newVec.appendObject(vec.getObject(idx));
+                }
+            }
+            sampled.columns.add(newVec);
+        }
+
+        return sampled;
     }
 }

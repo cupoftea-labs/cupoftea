@@ -13,6 +13,8 @@ import java.util.function.Function;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.cupoftea.table.Aggregate;
+import com.cupoftea.table.Aggregation;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.ColumnRef;
 import com.cupoftea.table.ConcatAxis;
@@ -21,6 +23,7 @@ import com.cupoftea.table.Header;
 import com.cupoftea.table.ILoc;
 import com.cupoftea.table.Index;
 import com.cupoftea.table.JoinType;
+import com.cupoftea.table.Keep;
 import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
@@ -234,6 +237,40 @@ public abstract class IDataFrame {
     // Correlation matrix & summary
     public abstract IDataFrame corr();
     public abstract IDataFrame describe();
+
+    // Deduplication
+    public abstract IDataFrame dropDuplicates();
+    public abstract IDataFrame dropDuplicates(Keep keep);
+    public abstract IDataFrame dropDuplicates(String... subset);
+    public abstract IDataFrame dropDuplicates(Keep keep, String... subset);
+    public abstract IDataFrame dropDuplicates(List<String> subset);
+    public abstract IDataFrame dropDuplicates(List<String> subset, Keep keep);
+    public abstract IDataFrame distinct();
+    public abstract IDataFrame distinct(Keep keep);
+    public abstract IDataFrame distinct(String... subset);
+    public abstract IDataFrame distinct(Keep keep, String... subset);
+    public abstract IDataFrame distinct(List<String> subset);
+    public abstract IDataFrame distinct(List<String> subset, Keep keep);
+
+    // Reshaping - Pivot
+    public abstract IDataFrame pivot(String indexCol, String columnsCol, String valuesCol);
+    public abstract IDataFrame pivot(String indexCol, String columnsCol, String valuesCol, Aggregation agg);
+    public abstract IDataFrame pivot(String indexCol, String columnsCol, String valuesCol, Aggregate agg);
+
+    // Reshaping - Melt
+    public abstract IDataFrame melt();
+    public abstract IDataFrame melt(List<String> idVars);
+    public abstract IDataFrame melt(List<String> idVars, List<String> valueVars);
+    public abstract IDataFrame melt(List<String> idVars, List<String> valueVars, String varName, String valueName);
+
+    // Random Sampling
+    public abstract IDataFrame sample(int n);
+    public abstract IDataFrame sample(int n, boolean replace);
+    public abstract IDataFrame sample(int n, long seed);
+    public abstract IDataFrame sample(int n, boolean replace, long seed);
+    public abstract IDataFrame sample(double fraction);
+    public abstract IDataFrame sample(double fraction, long seed);
+    public abstract IDataFrame sample(double fraction, boolean replace, long seed);
 
     public Integer size() {
         return this.rows.size();
