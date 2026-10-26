@@ -68,7 +68,7 @@
         <opencsv.version>5.10</opencsv.version>
         <jackson.version>2.18.11</jackson.version>
         <poi.version>5.5.1</poi.version>
-        <xmlbeans.version>5.3.0</xmlbeans.version>
+        <xmlbeans.version>5.4.1</xmlbeans.version>
         <parquet.version>1.15.2</parquet.version>
         <hadoop.version>3.4.1</hadoop.version>
         <jsoup.version>1.23.2</jsoup.version>
