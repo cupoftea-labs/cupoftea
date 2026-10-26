@@ -63,7 +63,7 @@
         <cupoftea.version>0.7.0</cupoftea.version>
         <lombok.version>1.18.38</lombok.version>
         <annotations.version>26.0.2</annotations.version>
-        <junit.jupiter.version>5.11.4</junit.jupiter.version>
+        <junit.jupiter.version>6.1.3</junit.jupiter.version>
         <assertj.version>3.27.7</assertj.version>
         <opencsv.version>5.10</opencsv.version>
         <jackson.version>2.18.11</jackson.version>
