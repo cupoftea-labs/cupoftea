@@ -53,15 +53,26 @@ public class ParquetExporter implements IParquetExporter {
                 Class<?> columnType = column.columnType();
                 String type;
 
-                if(columnType == String.class){
+                if (columnType == String.class) {
                     type = "string";
-                } else if (columnType == Integer.class) {
+                } else if (columnType == Integer.class || columnType == int.class) {
                     type = "int";
+                } else if (columnType == Double.class || columnType == double.class) {
+                    type = "double";
+                } else if (columnType == Long.class || columnType == long.class) {
+                    type = "long";
+                } else if (columnType == Float.class || columnType == float.class) {
+                    type = "float";
+                } else if (columnType == Boolean.class || columnType == boolean.class) {
+                    type = "boolean";
                 } else {
-                    type = "union";
+                    type = "string";
                 }
 
-                fields.put(new JSONObject().put("name", column.columnName()).put("type", type));
+                fields.put(new JSONObject()
+                    .put("name", column.columnName())
+                    .put("type", new JSONArray().put("null").put(type))
+                    .put("default", JSONObject.NULL));
             }
             
             JSONObject schemaJson = new JSONObject();

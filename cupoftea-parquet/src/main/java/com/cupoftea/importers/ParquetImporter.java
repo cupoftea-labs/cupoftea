@@ -53,6 +53,14 @@ public class ParquetImporter implements IParquetImporter {
                     for (Schema.Field field : schema.getFields()) {
                         Schema fieldSchema = field.schema();
                         Schema.Type fieldType = fieldSchema.getType();
+                        if (fieldType == Schema.Type.UNION) {
+                            for (Schema s : fieldSchema.getTypes()) {
+                                if (s.getType() != Schema.Type.NULL) {
+                                    fieldType = s.getType();
+                                    break;
+                                }
+                            }
+                        }
 
                         if(setHeaders){
                             Class<?> columnType;
@@ -78,12 +86,20 @@ public class ParquetImporter implements IParquetImporter {
                             headers.add(new Column(field.name(), columnType));
                         }
 
+                        Object rawVal = record.get(field.name());
                         Object value;
-
-                        switch(fieldType){
-                            case INT -> value = record.get(field.name());
-                            case STRING -> value = record.get(field.name()) != null ? record.get(field.name()).toString() : null;
-                            default -> value = record.get(field.name()) != null ? record.get(field.name()).toString() : null;
+                        if (rawVal == null) {
+                            value = null;
+                        } else {
+                            switch(fieldType){
+                                case INT -> value = rawVal instanceof Integer ? rawVal : Integer.parseInt(rawVal.toString());
+                                case LONG -> value = rawVal instanceof Long ? rawVal : Long.parseLong(rawVal.toString());
+                                case FLOAT -> value = rawVal instanceof Float ? rawVal : Float.parseFloat(rawVal.toString());
+                                case DOUBLE -> value = rawVal instanceof Double ? rawVal : Double.parseDouble(rawVal.toString());
+                                case BOOLEAN -> value = rawVal instanceof Boolean ? rawVal : Boolean.parseBoolean(rawVal.toString());
+                                case STRING -> value = rawVal.toString();
+                                default -> value = rawVal.toString();
+                            }
                         }
 
                         row.put(field.name(), value);

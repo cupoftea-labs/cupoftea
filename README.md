@@ -282,6 +282,7 @@ CupOfTea seqDf = parDf.asSequential();
 - [ ] Time series resampling and frequency conversion.
 
 ## Documentation
+- [Performance & JMH Benchmarks](docs/benchmarks.md)
 - [Missing-Value (NA) Model, Schema, and Null Policy](docs/null_policy.md)
 - [Semantic Versioning & Release Best Practices](docs/versioning.md)
 
