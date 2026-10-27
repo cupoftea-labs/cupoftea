@@ -1,7 +1,6 @@
 package com.cupoftea;
 
 import java.io.File;
-import java.math.BigDecimal;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,7 +9,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.function.DoubleUnaryOperator;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongUnaryOperator;
 import java.util.stream.Collectors;
 
 import org.jetbrains.annotations.NotNull;
@@ -75,6 +78,10 @@ public class CupOfTea {
         return new CupOfTea(schema);
     }
 
+    public static CupOfTea fromVectors(List<ColumnVector> vectors) {
+        return new CupOfTea(DataFrame.fromVectors(vectors));
+    }
+
     public CupOfTea(IDataFrame dataFrame) {
         this(dataFrame, MutationMode.IN_PLACE);
     }
@@ -93,6 +100,10 @@ public class CupOfTea {
         return this;
     }
 
+    public CupOfTea withMutationMode(MutationMode mutationMode) {
+        return new CupOfTea(this.dataFrame.copy(), mutationMode != null ? mutationMode : MutationMode.IN_PLACE);
+    }
+
     public CupOfTea asInPlace() {
         this.mutationMode = MutationMode.IN_PLACE;
         return this;
@@ -101,6 +112,101 @@ public class CupOfTea {
     public CupOfTea asCopyOnWrite() {
         this.mutationMode = MutationMode.COPY_ON_WRITE;
         return this;
+    }
+
+    // --- Parallel Execution Mode ---
+
+    /**
+     * Enables multithreaded parallel evaluation mode (defaulting to {@code ForkJoinPool.commonPool()}).
+     */
+    public CupOfTea parallel() {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.parallel();
+        return target;
+    }
+
+    /**
+     * Enables multithreaded parallel evaluation mode with a custom {@link ExecutorService}.
+     */
+    public CupOfTea parallel(@NotNull ExecutorService executor) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.parallel(executor);
+        return target;
+    }
+
+    /**
+     * Returns a copy of this DataFrame with multithreaded parallel evaluation mode enabled.
+     */
+    public CupOfTea asParallel() {
+        CupOfTea copy = new CupOfTea(this.dataFrame.copy(), this.mutationMode);
+        copy.dataFrame.parallel();
+        return copy;
+    }
+
+    /**
+     * Returns a copy of this DataFrame with multithreaded parallel evaluation mode enabled using the given executor.
+     */
+    public CupOfTea asParallel(@NotNull ExecutorService executor) {
+        CupOfTea copy = new CupOfTea(this.dataFrame.copy(), this.mutationMode);
+        copy.dataFrame.parallel(executor);
+        return copy;
+    }
+
+    /**
+     * Switches evaluation mode back to single-threaded sequential execution.
+     */
+    public CupOfTea sequential() {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.sequential();
+        return target;
+    }
+
+    /**
+     * Returns a copy of this DataFrame with single-threaded sequential evaluation mode enabled.
+     */
+    public CupOfTea asSequential() {
+        CupOfTea copy = new CupOfTea(this.dataFrame.copy(), this.mutationMode);
+        copy.dataFrame.sequential();
+        return copy;
+    }
+
+    /**
+     * Returns {@code true} if multithreaded parallel execution mode is enabled.
+     */
+    public boolean isParallel() {
+        return this.dataFrame.isParallel();
+    }
+
+    /**
+     * Returns the active {@link ExecutorService} for parallel execution.
+     */
+    public ExecutorService getExecutor() {
+        return this.dataFrame.getExecutor();
+    }
+
+    /**
+     * Returns the minimum row count threshold below which execution stays sequential.
+     */
+    public int getParallelThreshold() {
+        return this.dataFrame.getParallelThreshold();
+    }
+
+    /**
+     * Sets the minimum row count threshold below which execution stays sequential.
+     */
+    public CupOfTea setParallelThreshold(int threshold) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.setParallelThreshold(threshold);
+        return target;
+    }
+
+    /**
+     * Fluent alias for {@link #setParallelThreshold(int)}.
+     */
+    public CupOfTea withParallelThreshold(int threshold) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.withParallelThreshold(threshold);
+        return target;
     }
 
     public CupOfTea copy() {
@@ -157,12 +263,17 @@ public class CupOfTea {
         return this.dataFrame.getHeaders();
     }
 
-    public Column getColumnHeader(String columnName) {
-        return this.dataFrame.getColumnHeader(columnName);
+    public List<String> getColumnNames() {
+        List<Column> headers = this.dataFrame.getHeaders();
+        List<String> names = new ArrayList<>(headers.size());
+        for (Column col : headers) {
+            names.add(col.columnName());
+        }
+        return Collections.unmodifiableList(names);
     }
 
-    public ColumnRef col(String columnName) {
-        return this.dataFrame.col(columnName);
+    public List<ColumnVector> getColumnVectors() {
+        return this.dataFrame.getColumnVectors();
     }
 
     public ColumnVector getColumnVector(String columnName) {
@@ -173,8 +284,12 @@ public class CupOfTea {
         return this.dataFrame.getColumnVector(index);
     }
 
-    public List<ColumnVector> getColumnVectors() {
-        return this.dataFrame.getColumnVectors();
+    public Column getColumnHeader(String columnName) {
+        return this.dataFrame.getColumnHeader(columnName);
+    }
+
+    public ColumnRef col(String columnName) {
+        return this.dataFrame.col(columnName);
     }
 
     public Integer size() {
@@ -252,6 +367,15 @@ public class CupOfTea {
     public CupOfTea addColumn(int index, String columnName, @Nullable ArrayList<Object> data) {
         CupOfTea target = targetForMutation();
         target.dataFrame.addColumn(index, columnName, data);
+        return target;
+    }
+
+    public CupOfTea addColumn(Column column, IColumnCreator columnCreator) {
+        if (column == null) {
+            throw new SchemaMismatchException("Column cannot be null");
+        }
+        CupOfTea target = targetForMutation();
+        target.dataFrame.addColumn(column.columnName(), column.columnType(), columnCreator);
         return target;
     }
 
@@ -371,6 +495,85 @@ public class CupOfTea {
 
     public CupOfTea filter(IFilter filter) {
         return new CupOfTea(this.dataFrame.filter(filter), this.mutationMode);
+    }
+
+    // --- Vectorized Map / Transformations ---
+
+    public CupOfTea map(String columnName, IColumnCreator columnCreator) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.map(columnName, columnCreator);
+        return target;
+    }
+
+    public CupOfTea map(String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.map(columnName, columnType, columnCreator);
+        return target;
+    }
+
+    public CupOfTea mapColumn(String columnName, Function<Object, ?> valueMapper) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.mapColumn(columnName, valueMapper);
+        return target;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> CupOfTea mapColumn(String columnName, @Nullable Class<T> targetType, Function<T, ?> valueMapper) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.mapColumn(columnName, targetType, (Function<Object, ?>) valueMapper);
+        return target;
+    }
+
+    public CupOfTea mapInt(String columnName, IntUnaryOperator mapper) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.mapInt(columnName, mapper);
+        return target;
+    }
+
+    public CupOfTea mapLong(String columnName, LongUnaryOperator mapper) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.mapLong(columnName, mapper);
+        return target;
+    }
+
+    public CupOfTea mapDouble(String columnName, DoubleUnaryOperator mapper) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.mapDouble(columnName, mapper);
+        return target;
+    }
+
+    public CupOfTea map(Function<Row, ? extends Map<String, Object>> rowMapper) {
+        return new CupOfTea(this.dataFrame.map(rowMapper), this.mutationMode);
+    }
+
+    // --- Vectorized Aggregations ---
+
+    public CupOfTea agg(Aggregate... aggregates) {
+        return new CupOfTea(this.dataFrame.agg(aggregates), this.mutationMode);
+    }
+
+    public Object sumOf(String column) {
+        return this.dataFrame.sumOf(column);
+    }
+
+    public Double meanOf(String column) {
+        return this.dataFrame.meanOf(column);
+    }
+
+    public Double averageOf(String column) {
+        return this.dataFrame.averageOf(column);
+    }
+
+    public Object minOf(String column) {
+        return this.dataFrame.minOf(column);
+    }
+
+    public Object maxOf(String column) {
+        return this.dataFrame.maxOf(column);
+    }
+
+    public int countOf(String column) {
+        return this.dataFrame.countOf(column);
     }
 
     public CupOfTea update(Map<String, Object> updateColumns) {

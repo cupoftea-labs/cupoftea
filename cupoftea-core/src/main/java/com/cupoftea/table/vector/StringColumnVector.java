@@ -2,8 +2,10 @@ package com.cupoftea.table.vector;
 
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 
 import com.cupoftea.table.NA;
 
@@ -21,10 +23,16 @@ public class StringColumnVector extends ColumnVector {
         this.data = new String[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
+    public StringColumnVector(String name, String[] data, BitSet nulls, int size) {
+        this(name, true, data, nulls, size);
+    }
+
     public StringColumnVector(String name, boolean nullable, String[] data, BitSet nulls, int size) {
         super(name, String.class, nullable, data.length);
         this.data = data;
-        this.nulls.or(nulls);
+        if (nulls != null) {
+            this.nulls.or(nulls);
+        }
         this.size = size;
     }
 
@@ -37,6 +45,12 @@ public class StringColumnVector extends ColumnVector {
             int newCap = Math.max(data.length * 2, minCapacity);
             data = Arrays.copyOf(data, newCap);
         }
+    }
+
+    @Override
+    public void setSizeUnchecked(int newSize) {
+        ensureCapacity(newSize);
+        this.size = newSize;
     }
 
     @Override
@@ -85,6 +99,13 @@ public class StringColumnVector extends ColumnVector {
         } else {
             data[row] = value.toString();
             nulls.clear(row);
+        }
+    }
+
+    @Override
+    protected void setObjectValueOnly(int row, Object value) {
+        if (value != null && !NA.isNA(value)) {
+            data[row] = value.toString();
         }
     }
 
@@ -138,9 +159,11 @@ public class StringColumnVector extends ColumnVector {
         String[] sliceData = new String[len];
         System.arraycopy(data, from, sliceData, 0, len);
         BitSet sliceNulls = new BitSet(len);
-        for (int i = 0; i < len; i++) {
-            if (nulls.get(from + i)) {
-                sliceNulls.set(i);
+        if (hasNulls()) {
+            for (int i = 0; i < len; i++) {
+                if (nulls.get(from + i)) {
+                    sliceNulls.set(i);
+                }
             }
         }
         return new StringColumnVector(name, nullable, sliceData, sliceNulls, len);
@@ -162,10 +185,11 @@ public class StringColumnVector extends ColumnVector {
     public void permute(int[] order) {
         String[] newData = new String[size];
         BitSet newNulls = new BitSet(size);
+        boolean anyNulls = hasNulls();
         for (int i = 0; i < size; i++) {
             int src = order[i];
             newData[i] = data[src];
-            if (nulls.get(src)) {
+            if (anyNulls && nulls.get(src)) {
                 newNulls.set(i);
             }
         }
@@ -175,23 +199,123 @@ public class StringColumnVector extends ColumnVector {
     }
 
     @Override
+    public ColumnVector filter(BitSet retainMask, int retainedCount) {
+        String[] newData = new String[retainedCount];
+        BitSet newNulls = new BitSet(retainedCount);
+        boolean anyNulls = hasNulls();
+        int dst = 0;
+        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
+            newData[dst] = data[i];
+            if (anyNulls && nulls.get(i)) {
+                newNulls.set(dst);
+            }
+            dst++;
+        }
+        return new StringColumnVector(name, nullable, newData, newNulls, retainedCount);
+    }
+
+    @Override
     public void filterInPlace(BitSet retainMask, int retainedCount) {
         String[] newData = new String[retainedCount];
         BitSet newNulls = new BitSet(retainedCount);
+        boolean anyNulls = hasNulls();
         int dst = 0;
-        for (int i = 0; i < size; i++) {
-            if (retainMask.get(i)) {
-                newData[dst] = data[i];
-                if (nulls.get(i)) {
-                    newNulls.set(dst);
-                }
-                dst++;
+        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
+            newData[dst] = data[i];
+            if (anyNulls && nulls.get(i)) {
+                newNulls.set(dst);
             }
+            dst++;
         }
         this.data = newData;
         this.nulls.clear();
         this.nulls.or(newNulls);
         this.size = retainedCount;
+    }
+
+    @Override
+    public void copyIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof StringColumnVector strSrc) {
+            String[] srcData = strSrc.data;
+            String[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                dstData[dstOffset + i] = srcData[srcIndices[i]];
+            }
+        } else {
+            super.copyIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
+    }
+
+    @Override
+    public Object min(int from, int to) {
+        checkSliceBounds(from, to);
+        String best = null;
+        boolean anyNulls = hasNulls();
+        for (int i = from; i < to; i++) {
+            if (!anyNulls || !nulls.get(i)) {
+                String v = data[i];
+                if (v != null && (best == null || v.compareTo(best) < 0)) {
+                    best = v;
+                }
+            }
+        }
+        return best;
+    }
+
+    @Override
+    public Object min(ExecutorService executor, int parallelThreshold) {
+        if (size < parallelThreshold || size <= 1) {
+            return min(0, size);
+        }
+        List<Object> partials = ParallelVectorEngine.executeChunks(
+            size, executor, (chunkIdx, start, end) -> min(start, end)
+        );
+        String best = null;
+        for (Object p : partials) {
+            if (p != null) {
+                String v = (String) p;
+                if (best == null || v.compareTo(best) < 0) {
+                    best = v;
+                }
+            }
+        }
+        return best;
+    }
+
+    @Override
+    public Object max(int from, int to) {
+        checkSliceBounds(from, to);
+        String best = null;
+        boolean anyNulls = hasNulls();
+        for (int i = from; i < to; i++) {
+            if (!anyNulls || !nulls.get(i)) {
+                String v = data[i];
+                if (v != null && (best == null || v.compareTo(best) > 0)) {
+                    best = v;
+                }
+            }
+        }
+        return best;
+    }
+
+    @Override
+    public Object max(ExecutorService executor, int parallelThreshold) {
+        if (size < parallelThreshold || size <= 1) {
+            return max(0, size);
+        }
+        List<Object> partials = ParallelVectorEngine.executeChunks(
+            size, executor, (chunkIdx, start, end) -> max(start, end)
+        );
+        String best = null;
+        for (Object p : partials) {
+            if (p != null) {
+                String v = (String) p;
+                if (best == null || v.compareTo(best) > 0) {
+                    best = v;
+                }
+            }
+        }
+        return best;
     }
 
     @Override

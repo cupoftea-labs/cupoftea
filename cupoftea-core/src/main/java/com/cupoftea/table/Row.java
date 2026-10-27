@@ -15,25 +15,39 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import com.cupoftea.table.vector.BooleanColumnVector;
+import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DoubleColumnVector;
+import com.cupoftea.table.vector.FloatColumnVector;
+import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.StringColumnVector;
+
 /**
  * An immutable representation of a single DataFrame row with typed accessor methods.
  * <p>
  * Implements {@link Map Map&lt;String, Object&gt;} as an unmodifiable map so callers cannot
  * corrupt the internal schema or values directly.
  * <p>
- * Supports both named column accessors (e.g. {@code getInt("age")}) and positional index accessors
- * (e.g. {@code getInt(0)}, {@code getInt(-1)} for the last column).
+ * Supports both map-backed rows and zero-copy columnar vector views for high-throughput
+ * sequential and parallel evaluation.
  */
 public class Row implements Map<String, Object>, Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final Map<String, Object> values;
+    private volatile Map<String, Object> values;
     private final List<String> columnOrder;
+    private final transient ColumnVector[] vectors;
+    private final transient Map<String, Integer> columnIndex;
+    private final int rowIndex;
 
     public Row() {
         this.values = Collections.emptyMap();
         this.columnOrder = Collections.emptyList();
+        this.vectors = null;
+        this.columnIndex = null;
+        this.rowIndex = -1;
     }
 
     public Row(Map<String, ?> data) {
@@ -45,6 +59,39 @@ public class Row implements Map<String, Object>, Serializable {
             this.values = Collections.unmodifiableMap(copy);
             this.columnOrder = Collections.unmodifiableList(new ArrayList<>(copy.keySet()));
         }
+        this.vectors = null;
+        this.columnIndex = null;
+        this.rowIndex = -1;
+    }
+
+    /**
+     * Zero-copy columnar constructor backed directly by {@link ColumnVector} instances at {@code rowIndex}.
+     * Avoids allocating a {@link LinkedHashMap} per row during vectorized filter, map, and column creation.
+     */
+    public Row(ColumnVector[] vectors, Map<String, Integer> columnIndex, List<String> columnOrder, int rowIndex) {
+        this.vectors = vectors;
+        this.columnIndex = columnIndex;
+        this.columnOrder = columnOrder != null ? columnOrder : Collections.emptyList();
+        this.rowIndex = rowIndex;
+        this.values = null;
+    }
+
+    private Map<String, Object> materializeValues() {
+        Map<String, Object> local = this.values;
+        if (local == null) {
+            if (vectors == null || columnOrder.isEmpty()) {
+                local = Collections.emptyMap();
+            } else {
+                Map<String, Object> map = new LinkedHashMap<>(columnOrder.size());
+                for (int i = 0; i < columnOrder.size(); i++) {
+                    ColumnVector vec = vectors[i];
+                    map.put(columnOrder.get(i), vec != null ? vec.getObject(rowIndex) : null);
+                }
+                local = Collections.unmodifiableMap(map);
+            }
+            this.values = local;
+        }
+        return local;
     }
 
     public static Row of(Object... keyValues) {
@@ -74,6 +121,14 @@ public class Row implements Map<String, Object>, Serializable {
         return this.columnOrder.get(resolved);
     }
 
+    private ColumnVector resolveVector(String column) {
+        if (vectors == null || columnIndex == null || column == null) {
+            return null;
+        }
+        Integer idx = columnIndex.get(column);
+        return idx != null ? vectors[idx] : null;
+    }
+
     /**
      * Untyped column accessor by name.
      *
@@ -81,11 +136,21 @@ public class Row implements Map<String, Object>, Serializable {
      * @return raw value or {@code null}
      */
     public Object get(String column) {
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            return vec != null ? vec.getObject(rowIndex) : null;
+        }
         return this.values.get(column);
     }
 
     @Override
     public Object get(Object key) {
+        if (vectors != null) {
+            if (key instanceof String s) {
+                return get(s);
+            }
+            return null;
+        }
         return this.values.get(key);
     }
 
@@ -94,6 +159,15 @@ public class Row implements Map<String, Object>, Serializable {
      * Supports negative indexing (-1 is the last column).
      */
     public Object get(int index) {
+        if (vectors != null) {
+            int total = this.columnOrder.size();
+            int resolved = index < 0 ? total + index : index;
+            if (resolved < 0 || resolved >= total) {
+                throw new IndexOutOfBoundsException("Column index " + index + " out of bounds for row with " + total + " columns");
+            }
+            ColumnVector vec = vectors[resolved];
+            return vec != null ? vec.getObject(rowIndex) : null;
+        }
         return get(getColumnName(index));
     }
 
@@ -101,6 +175,13 @@ public class Row implements Map<String, Object>, Serializable {
      * Checks if the value for the given column is missing / NA (null, NA singleton, or NaN).
      */
     public boolean isNA(String column) {
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec == null || vec.isNull(rowIndex)) {
+                return true;
+            }
+            return NA.isNA(vec.getObject(rowIndex));
+        }
         return NA.isNA(this.values.get(column));
     }
 
@@ -108,6 +189,10 @@ public class Row implements Map<String, Object>, Serializable {
      * Checks if the value for the given column is null.
      */
     public boolean isNull(String column) {
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            return vec == null || vec.isNull(rowIndex);
+        }
         return this.values.get(column) == null;
     }
 
@@ -144,7 +229,16 @@ public class Row implements Map<String, Object>, Serializable {
      * {@link Object#toString()} is called unless null or NA.
      */
     public String getString(String column) {
-        Object val = this.values.get(column);
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec == null || vec.isNull(rowIndex)) {
+                return null;
+            }
+            if (vec instanceof StringColumnVector sv) {
+                return sv.getString(rowIndex);
+            }
+        }
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -179,7 +273,16 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as an Integer.
      */
     public Integer getInteger(String column) {
-        Object val = this.values.get(column);
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec == null || vec.isNull(rowIndex)) {
+                return null;
+            }
+            if (vec instanceof IntColumnVector iv) {
+                return iv.getInt(rowIndex);
+            }
+        }
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -210,7 +313,19 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a Long.
      */
     public Long getLong(String column) {
-        Object val = this.values.get(column);
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec == null || vec.isNull(rowIndex)) {
+                return null;
+            }
+            if (vec instanceof LongColumnVector lv) {
+                return lv.getLong(rowIndex);
+            }
+            if (vec instanceof IntColumnVector iv) {
+                return (long) iv.getInt(rowIndex);
+            }
+        }
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -238,7 +353,25 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a Double.
      */
     public Double getDouble(String column) {
-        Object val = this.values.get(column);
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec == null || vec.isNull(rowIndex)) {
+                return null;
+            }
+            if (vec instanceof DoubleColumnVector dv) {
+                return dv.getDouble(rowIndex);
+            }
+            if (vec instanceof IntColumnVector iv) {
+                return (double) iv.getInt(rowIndex);
+            }
+            if (vec instanceof LongColumnVector lv) {
+                return (double) lv.getLong(rowIndex);
+            }
+            if (vec instanceof FloatColumnVector fv) {
+                return (double) fv.getFloat(rowIndex);
+            }
+        }
+        Object val = get(column);
         if (val == null || val instanceof NA) {
             return null;
         }
@@ -269,7 +402,16 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a Float.
      */
     public Float getFloat(String column) {
-        Object val = this.values.get(column);
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec == null || vec.isNull(rowIndex)) {
+                return null;
+            }
+            if (vec instanceof FloatColumnVector fv) {
+                return fv.getFloat(rowIndex);
+            }
+        }
+        Object val = get(column);
         if (val == null || val instanceof NA) {
             return null;
         }
@@ -300,7 +442,16 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a Boolean.
      */
     public Boolean getBoolean(String column) {
-        Object val = this.values.get(column);
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec == null || vec.isNull(rowIndex)) {
+                return null;
+            }
+            if (vec instanceof BooleanColumnVector bv) {
+                return bv.getBoolean(rowIndex);
+            }
+        }
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -334,7 +485,7 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a Date.
      */
     public Date getDate(String column) {
-        Object val = this.values.get(column);
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -355,7 +506,7 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a LocalDate.
      */
     public LocalDate getLocalDate(String column) {
-        Object val = this.values.get(column);
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -376,7 +527,7 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a LocalDateTime.
      */
     public LocalDateTime getLocalDateTime(String column) {
-        Object val = this.values.get(column);
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -397,7 +548,7 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as an Instant.
      */
     public Instant getInstant(String column) {
-        Object val = this.values.get(column);
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -418,7 +569,7 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the column value as a BigDecimal.
      */
     public BigDecimal getBigDecimal(String column) {
-        Object val = this.values.get(column);
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -447,7 +598,7 @@ public class Row implements Map<String, Object>, Serializable {
      */
     public <T> T getAs(String column, Class<T> type) {
         Objects.requireNonNull(type, "type cannot be null");
-        Object val = this.values.get(column);
+        Object val = get(column);
         if (NA.isNA(val)) {
             return null;
         }
@@ -469,6 +620,9 @@ public class Row implements Map<String, Object>, Serializable {
      * Checks if the column exists in this row.
      */
     public boolean containsKey(String column) {
+        if (vectors != null) {
+            return columnIndex != null && columnIndex.containsKey(column);
+        }
         return this.values.containsKey(column);
     }
 
@@ -476,6 +630,9 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns the set of column names present in this row.
      */
     public Set<String> getColumns() {
+        if (vectors != null) {
+            return columnIndex != null ? Collections.unmodifiableSet(columnIndex.keySet()) : Collections.emptySet();
+        }
         return this.values.keySet();
     }
 
@@ -490,29 +647,32 @@ public class Row implements Map<String, Object>, Serializable {
      * Returns an unmodifiable shallow copy of the row as a {@link Map}.
      */
     public Map<String, Object> toMap() {
-        return new LinkedHashMap<>(this.values);
+        return new LinkedHashMap<>(materializeValues());
     }
 
     // Unmodifiable Map implementation
 
     @Override
     public int size() {
-        return this.values.size();
+        return this.columnOrder.size();
     }
 
     @Override
     public boolean isEmpty() {
-        return this.values.isEmpty();
+        return this.columnOrder.isEmpty();
     }
 
     @Override
     public boolean containsKey(Object key) {
+        if (vectors != null) {
+            return columnIndex != null && columnIndex.containsKey(key);
+        }
         return this.values.containsKey(key);
     }
 
     @Override
     public boolean containsValue(Object value) {
-        return this.values.containsValue(value);
+        return materializeValues().containsValue(value);
     }
 
     @Override
@@ -537,38 +697,38 @@ public class Row implements Map<String, Object>, Serializable {
 
     @Override
     public Set<String> keySet() {
-        return this.values.keySet();
+        return getColumns();
     }
 
     @Override
     public Collection<Object> values() {
-        return this.values.values();
+        return materializeValues().values();
     }
 
     @Override
     public Set<Entry<String, Object>> entrySet() {
-        return this.values.entrySet();
+        return materializeValues().entrySet();
     }
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o instanceof Row other) {
-            return this.values.equals(other.values);
+            return materializeValues().equals(other.materializeValues());
         }
         if (o instanceof Map<?, ?> otherMap) {
-            return this.values.equals(otherMap);
+            return materializeValues().equals(otherMap);
         }
         return false;
     }
 
     @Override
     public int hashCode() {
-        return this.values.hashCode();
+        return materializeValues().hashCode();
     }
 
     @Override
     public String toString() {
-        return this.values.toString();
+        return materializeValues().toString();
     }
 }

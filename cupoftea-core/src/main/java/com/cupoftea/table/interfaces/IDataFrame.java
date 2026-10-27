@@ -5,10 +5,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.function.DoubleUnaryOperator;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongUnaryOperator;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -30,6 +35,7 @@ import com.cupoftea.table.Loc;
 import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.ParallelVectorEngine;
 import com.cupoftea.utils.TableHtmlRenderer;
 import com.cupoftea.utils.configurations.TableHtmlConfiguration;
 import com.cupoftea.utils.interfaces.IColumnCreator;
@@ -43,11 +49,114 @@ public abstract class IDataFrame {
     protected String indexColumn;
     protected Index index;
 
+    protected boolean parallel = false;
+    protected transient ExecutorService executor = null;
+    protected int parallelThreshold = ParallelVectorEngine.DEFAULT_PARALLEL_THRESHOLD;
+
     public IDataFrame() {
         this.rows = new ArrayList<>();
         this.header = new Header();
         this.indexColumn = null;
         this.index = new Index();
+    }
+
+    // --- Parallel Execution Configuration ---
+
+    /**
+     * Enables multithreaded parallel execution mode using {@link ForkJoinPool#commonPool()} (or any previously configured executor).
+     */
+    public IDataFrame parallel() {
+        this.parallel = true;
+        return this;
+    }
+
+    /**
+     * Enables multithreaded parallel execution mode using the provided {@link ExecutorService}.
+     */
+    public IDataFrame parallel(@NotNull ExecutorService executor) {
+        this.executor = Objects.requireNonNull(executor, "ExecutorService cannot be null");
+        this.parallel = true;
+        return this;
+    }
+
+    /**
+     * Alias for {@link #parallel()}.
+     */
+    public IDataFrame asParallel() {
+        return parallel();
+    }
+
+    /**
+     * Alias for {@link #parallel(ExecutorService)}.
+     */
+    public IDataFrame asParallel(@NotNull ExecutorService executor) {
+        return parallel(executor);
+    }
+
+    /**
+     * Switches execution mode back to single-threaded sequential evaluation.
+     */
+    public IDataFrame sequential() {
+        this.parallel = false;
+        return this;
+    }
+
+    /**
+     * Alias for {@link #sequential()}.
+     */
+    public IDataFrame asSequential() {
+        return sequential();
+    }
+
+    /**
+     * Returns {@code true} if parallel execution mode is enabled.
+     */
+    public boolean isParallel() {
+        return this.parallel;
+    }
+
+    /**
+     * Returns the configured {@link ExecutorService}, or {@link ForkJoinPool#commonPool()} if none was explicitly set.
+     */
+    public ExecutorService getExecutor() {
+        return ParallelVectorEngine.resolveExecutor(this.executor);
+    }
+
+    /**
+     * Returns the minimum row count threshold below which execution stays sequential.
+     */
+    public int getParallelThreshold() {
+        return this.parallelThreshold;
+    }
+
+    /**
+     * Sets the minimum row count threshold below which execution automatically stays sequential.
+     */
+    public IDataFrame setParallelThreshold(int threshold) {
+        if (threshold < 0) {
+            throw new IllegalArgumentException("Parallel threshold cannot be negative, got: " + threshold);
+        }
+        this.parallelThreshold = threshold;
+        return this;
+    }
+
+    /**
+     * Fluent alias for {@link #setParallelThreshold(int)}.
+     */
+    public IDataFrame withParallelThreshold(int threshold) {
+        return setParallelThreshold(threshold);
+    }
+
+    protected boolean shouldExecuteParallel(int rowCount) {
+        return this.parallel && rowCount >= this.parallelThreshold && rowCount > 1;
+    }
+
+    protected void copyParallelConfigTo(IDataFrame target) {
+        if (target != null) {
+            target.parallel = this.parallel;
+            target.executor = this.executor;
+            target.parallelThreshold = this.parallelThreshold;
+        }
     }
 
     /**
@@ -163,6 +272,70 @@ public abstract class IDataFrame {
     public abstract IDataFrame filter(IFilter filter);
     public abstract IDataFrame update(Map<String, Object> updateColumns);
     public abstract IDataFrame orderBy(Orderer... orderer);
+
+    // Vectorized Map / Transformations
+
+    public IDataFrame map(String columnName, IColumnCreator columnCreator) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame map(String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame mapColumn(String columnName, Function<Object, ?> valueMapper) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame mapColumn(String columnName, @Nullable Class<?> targetType, Function<Object, ?> valueMapper) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame mapInt(String columnName, IntUnaryOperator mapper) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame mapLong(String columnName, LongUnaryOperator mapper) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame mapDouble(String columnName, DoubleUnaryOperator mapper) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame map(Function<Row, ? extends Map<String, Object>> rowMapper) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    // Vectorized Whole-DataFrame Aggregations
+
+    public IDataFrame agg(Aggregate... aggregates) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public Object sumOf(String column) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public Double meanOf(String column) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public Double averageOf(String column) {
+        return meanOf(column);
+    }
+
+    public Object minOf(String column) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public Object maxOf(String column) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public int countOf(String column) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
 
     // Pandas-like core operations
 

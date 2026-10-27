@@ -25,10 +25,16 @@ public class ObjectColumnVector extends ColumnVector {
         this.data = new Object[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
+    public ObjectColumnVector(String name, Class<?> type, Object[] data, BitSet nulls, int size) {
+        this(name, type, true, data, nulls, size);
+    }
+
     public ObjectColumnVector(String name, Class<?> type, boolean nullable, Object[] data, BitSet nulls, int size) {
         super(name, type != null ? type : Object.class, nullable, data.length);
         this.data = data;
-        this.nulls.or(nulls);
+        if (nulls != null) {
+            this.nulls.or(nulls);
+        }
         this.size = size;
     }
 
@@ -41,6 +47,12 @@ public class ObjectColumnVector extends ColumnVector {
             int newCap = Math.max(data.length * 2, minCapacity);
             data = Arrays.copyOf(data, newCap);
         }
+    }
+
+    @Override
+    public void setSizeUnchecked(int newSize) {
+        ensureCapacity(newSize);
+        this.size = newSize;
     }
 
     @Override
@@ -61,6 +73,15 @@ public class ObjectColumnVector extends ColumnVector {
         } else {
             data[row] = value;
             nulls.clear(row);
+        }
+    }
+
+    @Override
+    protected void setObjectValueOnly(int row, Object value) {
+        if (value instanceof Group group) {
+            data[row] = new Group(group);
+        } else if (!NA.isNA(value)) {
+            data[row] = value;
         }
     }
 
@@ -133,9 +154,11 @@ public class ObjectColumnVector extends ColumnVector {
             }
         }
         BitSet sliceNulls = new BitSet(len);
-        for (int i = 0; i < len; i++) {
-            if (nulls.get(from + i)) {
-                sliceNulls.set(i);
+        if (hasNulls()) {
+            for (int i = 0; i < len; i++) {
+                if (nulls.get(from + i)) {
+                    sliceNulls.set(i);
+                }
             }
         }
         return new ObjectColumnVector(name, type, nullable, sliceData, sliceNulls, len);
@@ -156,10 +179,11 @@ public class ObjectColumnVector extends ColumnVector {
     public void permute(int[] order) {
         Object[] newData = new Object[size];
         BitSet newNulls = new BitSet(size);
+        boolean anyNulls = hasNulls();
         for (int i = 0; i < size; i++) {
             int src = order[i];
             newData[i] = data[src];
-            if (nulls.get(src)) {
+            if (anyNulls && nulls.get(src)) {
                 newNulls.set(i);
             }
         }
@@ -169,23 +193,53 @@ public class ObjectColumnVector extends ColumnVector {
     }
 
     @Override
+    public ColumnVector filter(BitSet retainMask, int retainedCount) {
+        Object[] newData = new Object[retainedCount];
+        BitSet newNulls = new BitSet(retainedCount);
+        boolean anyNulls = hasNulls();
+        int dst = 0;
+        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
+            Object val = data[i];
+            newData[dst] = (val instanceof Group group) ? new Group(group) : val;
+            if (anyNulls && nulls.get(i)) {
+                newNulls.set(dst);
+            }
+            dst++;
+        }
+        return new ObjectColumnVector(name, type, nullable, newData, newNulls, retainedCount);
+    }
+
+    @Override
     public void filterInPlace(BitSet retainMask, int retainedCount) {
         Object[] newData = new Object[retainedCount];
         BitSet newNulls = new BitSet(retainedCount);
+        boolean anyNulls = hasNulls();
         int dst = 0;
-        for (int i = 0; i < size; i++) {
-            if (retainMask.get(i)) {
-                newData[dst] = data[i];
-                if (nulls.get(i)) {
-                    newNulls.set(dst);
-                }
-                dst++;
+        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
+            newData[dst] = data[i];
+            if (anyNulls && nulls.get(i)) {
+                newNulls.set(dst);
             }
+            dst++;
         }
         this.data = newData;
         this.nulls.clear();
         this.nulls.or(newNulls);
         this.size = retainedCount;
+    }
+
+    @Override
+    public void copyIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof ObjectColumnVector objSrc) {
+            Object[] srcData = objSrc.data;
+            Object[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                Object val = srcData[srcIndices[i]];
+                dstData[dstOffset + i] = (val instanceof Group group) ? new Group(group) : val;
+            }
+        } else {
+            super.copyIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
