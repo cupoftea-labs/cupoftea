@@ -243,6 +243,39 @@ df.plot().heatmap("department", "job_level", "headcount").show();
 
 - **Seamless Jupyter / IJava Cell Rendering**:
   `CupOfTea`, `IDataFrame`, and `Chart` objects implement the standard notebook MIME rendering contract (`renderHtml()` and `render()` returning `text/html`). When a DataFrame or chart expression is evaluated in a Jupyter cell (via IJava or Polyglot Notebooks), it renders natively and interactively inside the cell output area.
+
+### Parallel & Multithreaded DataFrame Operations
+
+CupOfTea supports multi-threaded parallel execution across row filtering, column mapping, whole-DataFrame aggregations, and GroupBy operations using vectorized chunking and prefix-sum scans:
+
+```java
+// Switch to parallel execution mode (using ForkJoinPool.commonPool())
+CupOfTea parDf = df.asParallel();
+
+// Custom thread pool and parallel threshold
+ExecutorService customPool = Executors.newFixedThreadPool(8);
+df.parallel(customPool).withParallelThreshold(50_000);
+
+// Parallel filtering with zero-copy vectorized chunking
+CupOfTea filtered = parDf.filter(row -> row.getDouble("salary") > 80_000.0);
+
+// Parallel column transformations
+parDf.mapDouble("salary", s -> s * 1.10);
+
+// Parallel whole-DataFrame aggregations
+Object totalRevenue = parDf.sumOf("revenue");
+Double avgScore = parDf.meanOf("score");
+
+// Parallel chunk-partitioned GroupBy aggregations
+CupOfTea summary = parDf.groupBy("department").agg(
+    Aggregations.sum("salary"),
+    Aggregations.mean("experience"),
+    Aggregations.count("employee_id")
+);
+
+// Switch back to sequential single-threaded execution
+CupOfTea seqDf = parDf.asSequential();
+```
 ## Roadmap
 - [x] Window and rolling functions.
 - [ ] Time series resampling and frequency conversion.
