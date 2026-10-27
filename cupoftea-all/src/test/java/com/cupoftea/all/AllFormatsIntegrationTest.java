@@ -107,6 +107,9 @@ public class AllFormatsIntegrationTest {
 
         assertThat(FormatRegistry.getReader("xml")).isPresent();
 
+        assertThat(FormatRegistry.getReader("sql")).isPresent();
+        assertThat(FormatRegistry.getWriter("sql")).isPresent();
+
         com.cupoftea.plot.PlotRegistry.reload();
         assertThat(com.cupoftea.plot.PlotRegistry.getProvider("vegalite")).isPresent();
     }

@@ -97,6 +97,16 @@ public class DataFrameWriter {
         write("feather", buildOptions().file(file).build());
     }
 
+    // --- SQL / JDBC ---
+
+    public void sql(java.sql.Connection conn, String tableName) {
+        write("sql", buildOptions().option("connection", conn).option("table", tableName).build());
+    }
+
+    public void sql(javax.sql.DataSource dataSource, String tableName) {
+        write("sql", buildOptions().option("dataSource", dataSource).option("table", tableName).build());
+    }
+
     // --- YAML ---
 
     public void yaml(String path) {

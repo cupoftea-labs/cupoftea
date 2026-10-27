@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.cupoftea</groupId>
         <artifactId>cupoftea-parent</artifactId>
-        <version>0.9.0</version>
+        <version>0.10.0</version>
     </parent>
 
     <artifactId>cupoftea-all</artifactId>
@@ -40,6 +40,10 @@
         <dependency>
             <groupId>com.cupoftea</groupId>
             <artifactId>cupoftea-arrow</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.cupoftea</groupId>
+            <artifactId>cupoftea-sql</artifactId>
         </dependency>
         <dependency>
             <groupId>com.cupoftea</groupId>
