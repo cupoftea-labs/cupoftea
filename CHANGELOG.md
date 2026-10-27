@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-10-27
+
+### Added
+
+- Parallel and multithreaded DataFrame operations (`df.parallel()`, `df.asParallel()`, `df.sequential()`, `df.asSequential()`) with customizable thread pools (`ForkJoinPool` or custom `ExecutorService`) and configurable parallel thresholds (`df.withParallelThreshold(n)`) ([#179](https://github.com/filippo-pequini/CupOfTea/issues/179)).
+- Zero-copy columnar slice view (`ColumnVectorSlice`) and parallel chunk partitioning (`vector.partition(n)`) allowing multi-threaded chunk execution without copying underlying primitive arrays or bitsets ([#179](https://github.com/filippo-pequini/CupOfTea/issues/179)).
+- Vectorized parallel row filtering using parallel chunk evaluation and prefix-sum offsets (`ParallelVectorEngine.prefixSumScan`), producing compact, contiguous filtered vectors in parallel without row map allocations ([#179](https://github.com/filippo-pequini/CupOfTea/issues/179)).
+- Parallel column mapping (`df.mapColumn`, `df.mapInt`, `df.mapLong`, `df.mapDouble`) and parallel row mapping (`df.map(row -> ...)`) with deterministic index ordering ([#179](https://github.com/filippo-pequini/CupOfTea/issues/179)).
+- Parallel aggregations across whole DataFrames (`df.agg()`, `df.sumOf()`, `df.meanOf()`, `df.minOf()`, `df.maxOf()`, `df.countOf()`) and parallel chunk-partitioned `df.groupBy(...).agg(...)` ([#179](https://github.com/filippo-pequini/CupOfTea/issues/179)).
+- Zero-copy columnar `Row` accessor backed directly by column vectors, eliminating per-row HashMap instantiations during iterative and parallel operations ([#179](https://github.com/filippo-pequini/CupOfTea/issues/179)).
+
 ## [0.8.0] - 2026-10-27
 
 ### Added

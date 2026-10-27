@@ -18,7 +18,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.function.DoubleUnaryOperator;
 import java.util.function.Function;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongUnaryOperator;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -46,6 +50,7 @@ import com.cupoftea.table.vector.IntColumnVector;
 import com.cupoftea.table.vector.Introselect;
 import com.cupoftea.table.vector.LongColumnVector;
 import com.cupoftea.table.vector.ObjectColumnVector;
+import com.cupoftea.table.vector.ParallelVectorEngine;
 import com.cupoftea.table.vector.StringColumnVector;
 import com.cupoftea.utils.interfaces.IColumnCreator;
 import com.cupoftea.utils.interfaces.IFilter;
@@ -93,6 +98,17 @@ public class DataFrame extends IDataFrame {
     private final HashMap<String, IColumnCreator> columnCreators = new HashMap<>();
     private final HashSet<String> pendingTypeInferenceColumns = new HashSet<>();
 
+    private record ColumnarRowContext(
+            ColumnVector[] vectors,
+            Map<String, Integer> columnIndex,
+            List<String> columnOrder) {
+        Row rowAt(int rowIndex) {
+            return new Row(vectors, columnIndex, columnOrder, rowIndex);
+        }
+    }
+
+    public static final int DEFAULT_PARALLEL_THRESHOLD = ParallelVectorEngine.DEFAULT_PARALLEL_THRESHOLD;
+
     public DataFrame() {
         super();
     }
@@ -114,6 +130,46 @@ public class DataFrame extends IDataFrame {
                 this.header.addColumn(new Column(vec.getName(), vec.getType(), vec.isNullable()));
             }
         }
+    }
+
+    public static DataFrame fromVectors(List<ColumnVector> vectors) {
+        DataFrame df = new DataFrame();
+        if (vectors == null || vectors.isEmpty()) {
+            return df;
+        }
+        int expectedSize = vectors.get(0).size();
+        for (ColumnVector vec : vectors) {
+            Objects.requireNonNull(vec, "ColumnVector cannot be null");
+            if (vec.size() != expectedSize) {
+                throw new SchemaMismatchException(
+                    "ColumnVector '" + vec.getName() + "' has size " + vec.size()
+                        + ", expected " + expectedSize
+                );
+            }
+            df.header.addColumn(new Column(vec.getName(), vec.getType(), vec.isNullable()));
+            df.columns.add(vec);
+        }
+        return df;
+    }
+
+    private ColumnarRowContext buildRowContext() {
+        if (this.header.size() > 0 && this.columns.size() != this.header.size()) {
+            syncColumnsWithHeader();
+        }
+        int colCount = this.header.size();
+        ColumnVector[] vecArray = new ColumnVector[colCount];
+        Map<String, Integer> colIndexMap = new LinkedHashMap<>(colCount * 2);
+        List<String> colOrder = new ArrayList<>(colCount);
+        ArrayList<Column> hdrs = this.header.getHeader();
+        for (int i = 0; i < colCount; i++) {
+            String name = hdrs.get(i).columnName();
+            colOrder.add(name);
+            colIndexMap.put(name, i);
+            vecArray[i] = (i < this.columns.size() && name.equals(this.columns.get(i).getName()))
+                    ? this.columns.get(i)
+                    : getVector(name);
+        }
+        return new ColumnarRowContext(vecArray, colIndexMap, Collections.unmodifiableList(colOrder));
     }
 
     @Override
@@ -394,16 +450,41 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame addColumn(int index, String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
+        ColumnVector vec = computeColumnVector(columnName, columnType, columnCreator);
+        Class<?> resolvedType = vec.getType();
+        this.columnCreators.put(columnName, columnCreator);
+        this.header.addColumn(index, new Column(columnName, resolvedType));
+        this.columns.add(index, vec);
+        return this;
+    }
+
+    private ColumnVector computeColumnVector(String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
         Class<?> resolvedType = columnType;
         int rowCount = this.size();
-        List<Object> values = new ArrayList<>(rowCount);
+        Object[] values = new Object[rowCount];
 
-        for (int i = 0; i < rowCount; i++) {
-            Row row = getRow(i);
-            Object value = columnCreator.createColumn(row);
-            values.add(value);
-            if (resolvedType == null && value != null) {
-                resolvedType = value.getClass();
+        if (rowCount > 0) {
+            ColumnarRowContext ctx = buildRowContext();
+            if (shouldExecuteParallel(rowCount)) {
+                ParallelVectorEngine.executeChunks(rowCount, getExecutor(), (chunkIdx, start, end) -> {
+                    for (int i = start; i < end; i++) {
+                        values[i] = columnCreator.createColumn(ctx.rowAt(i));
+                    }
+                    return null;
+                });
+            } else {
+                for (int i = 0; i < rowCount; i++) {
+                    values[i] = columnCreator.createColumn(ctx.rowAt(i));
+                }
+            }
+
+            if (resolvedType == null) {
+                for (int i = 0; i < rowCount; i++) {
+                    if (values[i] != null && !NA.isNA(values[i])) {
+                        resolvedType = values[i].getClass();
+                        break;
+                    }
+                }
             }
         }
 
@@ -414,13 +495,35 @@ public class DataFrame extends IDataFrame {
             this.pendingTypeInferenceColumns.remove(columnName);
         }
 
-        this.columnCreators.put(columnName, columnCreator);
-        this.header.addColumn(index, new Column(columnName, resolvedType));
         ColumnVector vec = ColumnVector.create(columnName, resolvedType, Math.max(16, rowCount), true);
-        for (Object val : values) {
-            vec.appendObject(val);
+        for (int i = 0; i < rowCount; i++) {
+            vec.appendObject(values[i]);
         }
-        this.columns.add(index, vec);
+        return vec;
+    }
+
+    // --- Vectorized Map & Column Transformations ---
+
+    @Override
+    public IDataFrame map(String columnName, IColumnCreator columnCreator) {
+        return map(columnName, null, columnCreator);
+    }
+
+    @Override
+    public IDataFrame map(String columnName, @Nullable Class<?> columnType, IColumnCreator columnCreator) {
+        Objects.requireNonNull(columnName, "Column name cannot be null");
+        Objects.requireNonNull(columnCreator, "Column creator cannot be null");
+
+        int existingIdx = findVectorIndex(columnName);
+        if (existingIdx == -1) {
+            return addColumn(this.header.columnCount(), columnName, columnType, columnCreator);
+        }
+
+        Class<?> targetType = columnType != null ? columnType : this.header.get(existingIdx).columnType();
+        ColumnVector newVec = computeColumnVector(columnName, targetType, columnCreator);
+        this.columns.set(existingIdx, newVec);
+        this.header.alterColumnType(columnName, newVec.getType());
+        this.columnCreators.put(columnName, columnCreator);
         return this;
     }
 
@@ -522,6 +625,220 @@ public class DataFrame extends IDataFrame {
     }
 
     @Override
+    public IDataFrame mapColumn(String columnName, Function<Object, ?> valueMapper) {
+        return mapColumn(columnName, null, valueMapper);
+    }
+
+    @Override
+    public IDataFrame mapColumn(String columnName, @Nullable Class<?> targetType, Function<Object, ?> valueMapper) {
+        Objects.requireNonNull(columnName, "Column name cannot be null");
+        Objects.requireNonNull(valueMapper, "Mapper function cannot be null");
+        int vecIdx = findVectorIndex(columnName);
+        if (vecIdx == -1) {
+            throw new SchemaMismatchException("Column not found: " + columnName);
+        }
+        ColumnVector oldVec = this.columns.get(vecIdx);
+        Class<?> resolvedType = targetType != null ? targetType : oldVec.getType();
+        ColumnVector newVec = isParallel()
+                ? oldVec.map(valueMapper, resolvedType, getExecutor(), this.parallelThreshold)
+                : oldVec.map(valueMapper, resolvedType);
+        this.columns.set(vecIdx, newVec);
+        this.header.alterColumnType(columnName, resolvedType);
+        return this;
+    }
+
+    @Override
+    public IDataFrame mapInt(String columnName, IntUnaryOperator mapper) {
+        Objects.requireNonNull(columnName, "Column name cannot be null");
+        Objects.requireNonNull(mapper, "Mapper cannot be null");
+        int vecIdx = findVectorIndex(columnName);
+        if (vecIdx == -1) {
+            throw new SchemaMismatchException("Column not found: " + columnName);
+        }
+        ColumnVector vec = this.columns.get(vecIdx);
+        if (vec instanceof IntColumnVector intVec) {
+            IntColumnVector mapped = isParallel()
+                    ? intVec.mapInt(mapper, getExecutor(), this.parallelThreshold)
+                    : intVec.mapInt(mapper);
+            this.columns.set(vecIdx, mapped);
+            return this;
+        }
+        return mapColumn(columnName, Integer.class, v -> v == null ? null : mapper.applyAsInt(((Number) v).intValue()));
+    }
+
+    @Override
+    public IDataFrame mapLong(String columnName, LongUnaryOperator mapper) {
+        Objects.requireNonNull(columnName, "Column name cannot be null");
+        Objects.requireNonNull(mapper, "Mapper cannot be null");
+        int vecIdx = findVectorIndex(columnName);
+        if (vecIdx == -1) {
+            throw new SchemaMismatchException("Column not found: " + columnName);
+        }
+        ColumnVector vec = this.columns.get(vecIdx);
+        if (vec instanceof LongColumnVector longVec) {
+            LongColumnVector mapped = isParallel()
+                    ? longVec.mapLong(mapper, getExecutor(), this.parallelThreshold)
+                    : longVec.mapLong(mapper);
+            this.columns.set(vecIdx, mapped);
+            return this;
+        }
+        return mapColumn(columnName, Long.class, v -> v == null ? null : mapper.applyAsLong(((Number) v).longValue()));
+    }
+
+    @Override
+    public IDataFrame mapDouble(String columnName, DoubleUnaryOperator mapper) {
+        Objects.requireNonNull(columnName, "Column name cannot be null");
+        Objects.requireNonNull(mapper, "Mapper cannot be null");
+        int vecIdx = findVectorIndex(columnName);
+        if (vecIdx == -1) {
+            throw new SchemaMismatchException("Column not found: " + columnName);
+        }
+        ColumnVector vec = this.columns.get(vecIdx);
+        if (vec instanceof DoubleColumnVector doubleVec) {
+            DoubleColumnVector mapped = isParallel()
+                    ? doubleVec.mapDouble(mapper, getExecutor(), this.parallelThreshold)
+                    : doubleVec.mapDouble(mapper);
+            this.columns.set(vecIdx, mapped);
+            return this;
+        }
+        return mapColumn(columnName, Double.class, v -> v == null ? null : mapper.applyAsDouble(((Number) v).doubleValue()));
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public IDataFrame map(Function<Row, ? extends Map<String, Object>> rowMapper) {
+        Objects.requireNonNull(rowMapper, "Row mapper cannot be null");
+        int rowCount = this.size();
+        DataFrame result = new DataFrame();
+        copyParallelConfigTo(result);
+        result.header = this.header.copy();
+        for (Column col : result.header.getHeader()) {
+            result.columns.add(ColumnVector.create(col, Math.max(16, rowCount)));
+        }
+        if (rowCount == 0) {
+            return result;
+        }
+
+        ColumnarRowContext ctx = buildRowContext();
+        Map<String, Object>[] mappedRows = new Map[rowCount];
+        if (shouldExecuteParallel(rowCount)) {
+            ParallelVectorEngine.executeChunks(rowCount, getExecutor(), (chunkIdx, start, end) -> {
+                for (int i = start; i < end; i++) {
+                    mappedRows[i] = rowMapper.apply(ctx.rowAt(i));
+                }
+                return null;
+            });
+        } else {
+            for (int i = 0; i < rowCount; i++) {
+                mappedRows[i] = rowMapper.apply(ctx.rowAt(i));
+            }
+        }
+
+        for (int i = 0; i < rowCount; i++) {
+            Map<String, Object> r = mappedRows[i];
+            if (r != null) {
+                result.addRow(r);
+            }
+        }
+        return result;
+    }
+
+    // --- Vectorized Whole-DataFrame Aggregations ---
+
+    @Override
+    public IDataFrame agg(Aggregate... aggregates) {
+        if (aggregates == null || aggregates.length == 0) {
+            throw new IllegalArgumentException("At least one aggregate must be specified");
+        }
+        List<Column> srcHeaders = this.header.getHeader();
+        for (Aggregate agg : aggregates) {
+            if (agg.getColumn() != null && this.header.get(agg.getColumn()) == null) {
+                throw new SchemaMismatchException("Column '" + agg.getColumn() + "' not found in DataFrame");
+            }
+        }
+
+        DataFrame resultDf = new DataFrame();
+        copyParallelConfigTo(resultDf);
+        ArrayList<Column> newHeaders = new ArrayList<>(aggregates.length);
+        for (Aggregate agg : aggregates) {
+            newHeaders.add(new Column(agg.getOutputColumnName(), agg.getResultType(srcHeaders)));
+        }
+        resultDf.setHeaders(newHeaders);
+
+        int totalRows = this.size();
+        boolean runParallel = shouldExecuteParallel(totalRows);
+        ExecutorService pool = getExecutor();
+        HashMap<String, Object> summaryRow = new HashMap<>(aggregates.length);
+        ArrayList<HashMap<String, Object>> lazyRows = null;
+
+        for (Aggregate agg : aggregates) {
+            Object val;
+            if (agg.supportsVectorizedExecution()) {
+                ColumnVector vec = agg.getColumn() != null ? getVector(agg.getColumn()) : null;
+                val = agg.computeVector(vec, totalRows, srcHeaders, runParallel, pool, this.parallelThreshold);
+            } else {
+                if (lazyRows == null) {
+                    lazyRows = getInternalRows();
+                }
+                val = agg.compute(lazyRows, srcHeaders);
+            }
+            summaryRow.put(agg.getOutputColumnName(), val);
+        }
+
+        resultDf.addRow(summaryRow);
+        return resultDf;
+    }
+
+    private ColumnVector requireColumnVector(String column) {
+        if (column == null || this.header.get(column) == null) {
+            throw new SchemaMismatchException("Column '" + column + "' not found in DataFrame");
+        }
+        return getVector(column);
+    }
+
+    private ColumnVector requireNumericColumnVector(String column) {
+        ColumnVector vec = requireColumnVector(column);
+        Class<?> t = vec.getType();
+        if (t != null && t != Object.class
+                && !Number.class.isAssignableFrom(t)
+                && t != int.class && t != long.class && t != double.class && t != float.class && t != short.class && t != byte.class) {
+            throw new SchemaMismatchException("Column '" + column + "' of type " + t.getSimpleName() + " is not numeric");
+        }
+        return vec;
+    }
+
+    @Override
+    public Object sumOf(String column) {
+        ColumnVector vec = requireNumericColumnVector(column);
+        return isParallel() ? vec.sum(getExecutor(), this.parallelThreshold) : vec.sum(0, vec.size());
+    }
+
+    @Override
+    public Double meanOf(String column) {
+        ColumnVector vec = requireNumericColumnVector(column);
+        Object res = isParallel() ? vec.mean(getExecutor(), this.parallelThreshold) : vec.mean(0, vec.size());
+        return res instanceof Number n ? n.doubleValue() : null;
+    }
+
+    @Override
+    public Object minOf(String column) {
+        ColumnVector vec = requireColumnVector(column);
+        return isParallel() ? vec.min(getExecutor(), this.parallelThreshold) : vec.min(0, vec.size());
+    }
+
+    @Override
+    public Object maxOf(String column) {
+        ColumnVector vec = requireColumnVector(column);
+        return isParallel() ? vec.max(getExecutor(), this.parallelThreshold) : vec.max(0, vec.size());
+    }
+
+    @Override
+    public int countOf(String column) {
+        ColumnVector vec = requireColumnVector(column);
+        return isParallel() ? vec.countNonNull(getExecutor(), this.parallelThreshold) : vec.countNonNull();
+    }
+
+    @Override
     public IDataFrame removeColumn(String columnName) {
         this.header.removeColumn(columnName);
         this.columnCreators.remove(columnName);
@@ -562,20 +879,43 @@ public class DataFrame extends IDataFrame {
             int rowCount = oldVec.size();
             ColumnVector newVec = ColumnVector.create(columnName, newColumnType, Math.max(16, rowCount), oldVec.isNullable());
 
-            for (int i = 0; i < rowCount; i++) {
-                if (oldVec.isNull(i)) {
-                    newVec.appendNull();
-                } else {
-                    Object val = oldVec.getObject(i);
-                    Class<?> actualOldType = oldColumnType;
-                    if (actualOldType == null && val != null) {
-                        actualOldType = val.getClass();
+            if (shouldExecuteParallel(rowCount)) {
+                Object[] convertedValues = new Object[rowCount];
+                ParallelVectorEngine.executeChunks(rowCount, getExecutor(), (chunkIdx, start, end) -> {
+                    for (int i = start; i < end; i++) {
+                        if (!oldVec.isNull(i)) {
+                            Object val = oldVec.getObject(i);
+                            if (val != null) {
+                                Class<?> actualOldType = oldColumnType != null ? oldColumnType : val.getClass();
+                                convertedValues[i] = converter.convert(val, actualOldType);
+                            }
+                        }
                     }
-                    if (actualOldType == null) {
-                        actualOldType = String.class;
+                    return null;
+                });
+                for (int i = 0; i < rowCount; i++) {
+                    if (oldVec.isNull(i)) {
+                        newVec.appendNull();
+                    } else {
+                        newVec.appendObject(convertedValues[i]);
                     }
-                    Object converted = (val != null) ? converter.convert(val, actualOldType) : null;
-                    newVec.appendObject(converted);
+                }
+            } else {
+                for (int i = 0; i < rowCount; i++) {
+                    if (oldVec.isNull(i)) {
+                        newVec.appendNull();
+                    } else {
+                        Object val = oldVec.getObject(i);
+                        Class<?> actualOldType = oldColumnType;
+                        if (actualOldType == null && val != null) {
+                            actualOldType = val.getClass();
+                        }
+                        if (actualOldType == null) {
+                            actualOldType = String.class;
+                        }
+                        Object converted = (val != null) ? converter.convert(val, actualOldType) : null;
+                        newVec.appendObject(converted);
+                    }
                 }
             }
             this.columns.set(vecIdx, newVec);
@@ -710,8 +1050,11 @@ public class DataFrame extends IDataFrame {
         }
 
         Map<String, Object> orderedMap = new LinkedHashMap<>(this.header.size());
-        for (Column col : this.header.getHeader()) {
-            ColumnVector vec = getVector(col.columnName());
+        for (int i = 0; i < this.header.size(); i++) {
+            Column col = this.header.get(i);
+            ColumnVector vec = (i < this.columns.size() && col.columnName().equals(this.columns.get(i).getName()))
+                    ? this.columns.get(i)
+                    : getVector(col.columnName());
             orderedMap.put(col.columnName(), vec != null ? vec.getObject(index) : null);
         }
         return new Row(orderedMap);
@@ -732,11 +1075,20 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame removeRows(IFilter filter) {
         int total = this.size();
-        java.util.BitSet retainMask = new java.util.BitSet(total);
+        if (total == 0) {
+            return this;
+        }
+        ColumnarRowContext ctx = buildRowContext();
+
+        if (shouldExecuteParallel(total)) {
+            this.columns = executeParallelFilterVectors(ctx, row -> !Boolean.TRUE.equals(filter.filter(row)), total);
+            return this;
+        }
+
+        BitSet retainMask = new BitSet(total);
         int retainedCount = 0;
         for (int i = 0; i < total; i++) {
-            Row row = getRow(i);
-            if (!Boolean.TRUE.equals(filter.filter(row))) {
+            if (!Boolean.TRUE.equals(filter.filter(ctx.rowAt(i)))) {
                 retainMask.set(i);
                 retainedCount++;
             }
@@ -750,6 +1102,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame filter(IFilter filter) {
         DataFrame filteredDF = new DataFrame();
+        copyParallelConfigTo(filteredDF);
         filteredDF.header = this.header.copy();
         filteredDF.columnCreators.putAll(this.columnCreators);
         filteredDF.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
@@ -757,23 +1110,99 @@ public class DataFrame extends IDataFrame {
         filteredDF.indexColumn = this.indexColumn;
 
         int total = this.size();
-        java.util.BitSet matchMask = new java.util.BitSet(total);
+        if (total == 0) {
+            for (ColumnVector vec : this.columns) {
+                filteredDF.columns.add(vec.copy());
+            }
+            return filteredDF;
+        }
+
+        ColumnarRowContext ctx = buildRowContext();
+        if (shouldExecuteParallel(total)) {
+            filteredDF.columns = executeParallelFilterVectors(ctx, filter, total);
+            return filteredDF;
+        }
+
+        BitSet matchMask = new BitSet(total);
         int matchCount = 0;
         for (int i = 0; i < total; i++) {
-            Row row = getRow(i);
-            if (Boolean.TRUE.equals(filter.filter(row))) {
+            if (Boolean.TRUE.equals(filter.filter(ctx.rowAt(i)))) {
                 matchMask.set(i);
                 matchCount++;
             }
         }
 
         for (ColumnVector vec : this.columns) {
-            ColumnVector copy = vec.copy();
-            copy.filterInPlace(matchMask, matchCount);
-            filteredDF.columns.add(copy);
+            filteredDF.columns.add(vec.filter(matchMask, matchCount));
         }
 
         return filteredDF;
+    }
+
+    /**
+     * Evaluates a filter predicate across contiguous vector chunks in parallel, computes prefix sums (parallel scan),
+     * and consolidates matching elements into new contiguous {@link ColumnVector} instances.
+     */
+    private List<ColumnVector> executeParallelFilterVectors(ColumnarRowContext ctx, IFilter predicate, int total) {
+        ExecutorService pool = getExecutor();
+        int numChunks = ParallelVectorEngine.computeChunkCount(total, pool);
+        int[][] ranges = ParallelVectorEngine.partitionRanges(total, numChunks);
+        int[] chunkCounts = new int[ranges.length];
+
+        // Phase 1: Parallel predicate evaluation per chunk
+        List<int[]> chunkIndices = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            int[] localMatches = new int[end - start];
+            int count = 0;
+            for (int r = start; r < end; r++) {
+                if (Boolean.TRUE.equals(predicate.filter(ctx.rowAt(r)))) {
+                    localMatches[count++] = r;
+                }
+            }
+            chunkCounts[chunkIdx] = count;
+            return localMatches;
+        });
+
+        // Phase 2: Prefix-sum (parallel scan) offset calculation
+        int[] offsets = new int[ranges.length];
+        int totalMatched = ParallelVectorEngine.computePrefixSums(chunkCounts, offsets);
+
+        // Phase 3: Parallel vector compaction across chunks
+        int colCount = this.columns.size();
+        List<ColumnVector> targetVectors = new ArrayList<>(colCount);
+        for (ColumnVector srcVec : this.columns) {
+            ColumnVector dstVec = ColumnVector.create(srcVec.getName(), srcVec.getType(), Math.max(16, totalMatched), srcVec.isNullable());
+            dstVec.setSizeUnchecked(totalMatched);
+            targetVectors.add(dstVec);
+        }
+
+        if (totalMatched > 0) {
+            ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+                int count = chunkCounts[chunkIdx];
+                if (count > 0) {
+                    int[] indices = chunkIndices.get(chunkIdx);
+                    int dstOffset = offsets[chunkIdx];
+                    for (int colIdx = 0; colIdx < colCount; colIdx++) {
+                        targetVectors.get(colIdx).copyIndexedValuesOnly(this.columns.get(colIdx), indices, count, dstOffset);
+                    }
+                }
+                return null;
+            });
+
+            for (int colIdx = 0; colIdx < colCount; colIdx++) {
+                ColumnVector srcVec = this.columns.get(colIdx);
+                if (srcVec.hasNulls()) {
+                    ColumnVector dstVec = targetVectors.get(colIdx);
+                    for (int c = 0; c < ranges.length; c++) {
+                        int count = chunkCounts[c];
+                        if (count > 0) {
+                            dstVec.applyNullsFromIndexed(srcVec, chunkIndices.get(c), count, offsets[c]);
+                        }
+                    }
+                }
+            }
+        }
+
+        return targetVectors;
     }
 
     @Override
@@ -900,6 +1329,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public IDataFrame slice(int fromRow, int toRow) {
         DataFrame result = new DataFrame();
+        copyParallelConfigTo(result);
         result.header = this.header.copy();
         result.columnCreators.putAll(this.columnCreators);
         result.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
@@ -1116,7 +1546,7 @@ public class DataFrame extends IDataFrame {
         }
 
         int total = this.size();
-        java.util.BitSet dropMask = new java.util.BitSet(total);
+        BitSet dropMask = new BitSet(total);
 
         if (matchAll) {
             dropMask.set(0, total);
@@ -1135,7 +1565,7 @@ public class DataFrame extends IDataFrame {
             }
         }
 
-        java.util.BitSet retainMask = new java.util.BitSet(total);
+        BitSet retainMask = new BitSet(total);
         retainMask.set(0, total);
         retainMask.andNot(dropMask);
         int retainedCount = retainMask.cardinality();
@@ -1935,6 +2365,7 @@ public class DataFrame extends IDataFrame {
     @Override
     public DataFrame copy() {
         DataFrame copy = new DataFrame();
+        copyParallelConfigTo(copy);
         copy.header = this.header.copy();
         copy.columnCreators.putAll(this.columnCreators);
         copy.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);

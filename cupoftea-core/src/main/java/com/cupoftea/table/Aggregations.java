@@ -7,15 +7,60 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
+import com.cupoftea.table.vector.ColumnVector;
 import com.cupoftea.table.vector.Introselect;
+import com.cupoftea.table.vector.ParallelVectorEngine;
 
 public class Aggregations {
 
     public static Aggregate sum(String column) {
         return new BaseAggregate(column, column + "Sum") {
+            @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                Object raw = parallel
+                        ? vector.sum(executor, parallelThreshold)
+                        : vector.sum(0, vector.size());
+                if (raw == null) {
+                    return null;
+                }
+                Class<?> colType = findColumnType(column, sourceHeaders);
+                return coerceSumType(raw, colType);
+            }
+
+            @Override
+            public Object computeIndexedVector(
+                    ColumnVector vector,
+                    int[] rowIndices,
+                    int count,
+                    List<Column> sourceHeaders) {
+                if (vector == null || count <= 0) {
+                    return null;
+                }
+                Object raw = vector.sumIndexed(rowIndices, count);
+                if (raw == null) {
+                    return null;
+                }
+                Class<?> colType = findColumnType(column, sourceHeaders);
+                return coerceSumType(raw, colType);
+            }
+
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 Class<?> colType = findColumnType(column, sourceHeaders);
@@ -63,6 +108,39 @@ public class Aggregations {
     private static Aggregate createMeanAggregate(String column, String defaultOutputName) {
         return new BaseAggregate(column, defaultOutputName) {
             @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                return parallel
+                        ? vector.mean(executor, parallelThreshold)
+                        : vector.mean(0, vector.size());
+            }
+
+            @Override
+            public Object computeIndexedVector(
+                    ColumnVector vector,
+                    int[] rowIndices,
+                    int count,
+                    List<Column> sourceHeaders) {
+                if (vector == null || count <= 0) {
+                    return null;
+                }
+                return vector.meanIndexed(rowIndices, count);
+            }
+
+            @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 BigDecimal sum = BigDecimal.ZERO;
                 long count = 0;
@@ -99,6 +177,39 @@ public class Aggregations {
     public static Aggregate count(String column) {
         return new BaseAggregate(column, column + "Count") {
             @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null) {
+                    return 0;
+                }
+                return parallel
+                        ? vector.countNonNull(executor, parallelThreshold)
+                        : vector.countNonNull();
+            }
+
+            @Override
+            public Object computeIndexedVector(
+                    ColumnVector vector,
+                    int[] rowIndices,
+                    int count,
+                    List<Column> sourceHeaders) {
+                if (vector == null || count <= 0) {
+                    return 0;
+                }
+                return vector.countNonNullIndexed(rowIndices, count);
+            }
+
+            @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 int count = 0;
                 for (HashMap<String, Object> row : rows) {
@@ -119,6 +230,31 @@ public class Aggregations {
 
     public static Aggregate count() {
         return new BaseAggregate(null, "count") {
+            @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                return totalRows;
+            }
+
+            @Override
+            public Object computeIndexedVector(
+                    ColumnVector vector,
+                    int[] rowIndices,
+                    int count,
+                    List<Column> sourceHeaders) {
+                return count;
+            }
+
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 return rows.size();
@@ -141,6 +277,39 @@ public class Aggregations {
 
     private static Aggregate createMinAggregate(String column, String defaultOutputName) {
         return new BaseAggregate(column, defaultOutputName) {
+            @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                return parallel
+                        ? vector.min(executor, parallelThreshold)
+                        : vector.min(0, vector.size());
+            }
+
+            @Override
+            public Object computeIndexedVector(
+                    ColumnVector vector,
+                    int[] rowIndices,
+                    int count,
+                    List<Column> sourceHeaders) {
+                if (vector == null || count <= 0) {
+                    return null;
+                }
+                return vector.minIndexed(rowIndices, count);
+            }
+
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 List<Object> values = new ArrayList<>();
@@ -173,6 +342,39 @@ public class Aggregations {
     private static Aggregate createMaxAggregate(String column, String defaultOutputName) {
         return new BaseAggregate(column, defaultOutputName) {
             @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                return parallel
+                        ? vector.max(executor, parallelThreshold)
+                        : vector.max(0, vector.size());
+            }
+
+            @Override
+            public Object computeIndexedVector(
+                    ColumnVector vector,
+                    int[] rowIndices,
+                    int count,
+                    List<Column> sourceHeaders) {
+                if (vector == null || count <= 0) {
+                    return null;
+                }
+                return vector.maxIndexed(rowIndices, count);
+            }
+
+            @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 List<Object> values = new ArrayList<>();
                 for (HashMap<String, Object> row : rows) {
@@ -203,6 +405,91 @@ public class Aggregations {
 
     private static Aggregate createListAgg(String column, String defaultOutputName, String separator) {
         return new BaseAggregate(column, defaultOutputName) {
+            @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return "";
+                }
+                if (!parallel || vector.size() < parallelThreshold || vector.size() <= 1) {
+                    StringBuilder sb = new StringBuilder();
+                    boolean first = true;
+                    for (int i = 0; i < vector.size(); i++) {
+                        if (!vector.isNull(i)) {
+                            Object val = vector.getObject(i);
+                            if (val != null && !NA.isNA(val)) {
+                                if (!first) sb.append(separator);
+                                sb.append(val);
+                                first = false;
+                            }
+                        }
+                    }
+                    return sb.toString();
+                }
+
+                List<String> chunkStrings = ParallelVectorEngine.executeChunks(vector.size(), executor, (chunkIdx, start, end) -> {
+                    StringBuilder sb = new StringBuilder();
+                    boolean first = true;
+                    for (int i = start; i < end; i++) {
+                        if (!vector.isNull(i)) {
+                            Object val = vector.getObject(i);
+                            if (val != null && !NA.isNA(val)) {
+                                if (!first) sb.append(separator);
+                                sb.append(val);
+                                first = false;
+                            }
+                        }
+                    }
+                    return first ? null : sb.toString();
+                });
+
+                StringBuilder result = new StringBuilder();
+                boolean first = true;
+                for (String cs : chunkStrings) {
+                    if (cs != null) {
+                        if (!first) result.append(separator);
+                        result.append(cs);
+                        first = false;
+                    }
+                }
+                return result.toString();
+            }
+
+            @Override
+            public Object computeIndexedVector(
+                    ColumnVector vector,
+                    int[] rowIndices,
+                    int count,
+                    List<Column> sourceHeaders) {
+                if (vector == null || count <= 0) {
+                    return "";
+                }
+                StringBuilder sb = new StringBuilder();
+                boolean first = true;
+                for (int i = 0; i < count; i++) {
+                    int row = rowIndices[i];
+                    if (!vector.isNull(row)) {
+                        Object val = vector.getObject(row);
+                        if (val != null && !NA.isNA(val)) {
+                            if (!first) sb.append(separator);
+                            sb.append(val);
+                            first = false;
+                        }
+                    }
+                }
+                return sb.toString();
+            }
+
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 return rows.stream()
@@ -532,6 +819,19 @@ public class Aggregations {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private static Object coerceSumType(Object raw, Class<?> targetType) {
+        if (raw == null || targetType == null) return raw;
+        if (targetType.isInstance(raw)) return raw;
+        if (raw instanceof Number n) {
+            if (targetType == Integer.class || targetType == int.class) return n.intValue();
+            if (targetType == Long.class || targetType == long.class) return n.longValue();
+            if (targetType == Float.class || targetType == float.class) return n.floatValue();
+            if (targetType == Double.class || targetType == double.class) return n.doubleValue();
+            if (targetType == BigDecimal.class) return toBigDecimal(n);
+        }
+        return raw;
     }
 
     private static Object convertFromBigDecimal(BigDecimal val, Class<?> targetType) {

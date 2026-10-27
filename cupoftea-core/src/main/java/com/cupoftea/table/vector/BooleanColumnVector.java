@@ -19,10 +19,16 @@ public class BooleanColumnVector extends ColumnVector {
         this.data = new boolean[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
     }
 
+    public BooleanColumnVector(String name, boolean[] data, BitSet nulls, int size) {
+        this(name, true, data, nulls, size);
+    }
+
     public BooleanColumnVector(String name, boolean nullable, boolean[] data, BitSet nulls, int size) {
         super(name, Boolean.class, nullable, data.length);
         this.data = data;
-        this.nulls.or(nulls);
+        if (nulls != null) {
+            this.nulls.or(nulls);
+        }
         this.size = size;
     }
 
@@ -35,6 +41,12 @@ public class BooleanColumnVector extends ColumnVector {
             int newCap = Math.max(data.length * 2, minCapacity);
             data = Arrays.copyOf(data, newCap);
         }
+    }
+
+    @Override
+    public void setSizeUnchecked(int newSize) {
+        ensureCapacity(newSize);
+        this.size = newSize;
     }
 
     @Override
@@ -77,6 +89,15 @@ public class BooleanColumnVector extends ColumnVector {
             setBoolean(row, b);
         } else {
             setBoolean(row, Boolean.parseBoolean(value.toString().trim()));
+        }
+    }
+
+    @Override
+    protected void setObjectValueOnly(int row, Object value) {
+        if (value instanceof Boolean b) {
+            data[row] = b;
+        } else if (value != null && !NA.isNA(value)) {
+            data[row] = Boolean.parseBoolean(value.toString().trim());
         }
     }
 
@@ -132,9 +153,11 @@ public class BooleanColumnVector extends ColumnVector {
         boolean[] sliceData = new boolean[len];
         System.arraycopy(data, from, sliceData, 0, len);
         BitSet sliceNulls = new BitSet(len);
-        for (int i = 0; i < len; i++) {
-            if (nulls.get(from + i)) {
-                sliceNulls.set(i);
+        if (hasNulls()) {
+            for (int i = 0; i < len; i++) {
+                if (nulls.get(from + i)) {
+                    sliceNulls.set(i);
+                }
             }
         }
         return new BooleanColumnVector(name, nullable, sliceData, sliceNulls, len);
@@ -156,10 +179,11 @@ public class BooleanColumnVector extends ColumnVector {
     public void permute(int[] order) {
         boolean[] newData = new boolean[size];
         BitSet newNulls = new BitSet(size);
+        boolean anyNulls = hasNulls();
         for (int i = 0; i < size; i++) {
             int src = order[i];
             newData[i] = data[src];
-            if (nulls.get(src)) {
+            if (anyNulls && nulls.get(src)) {
                 newNulls.set(i);
             }
         }
@@ -169,23 +193,51 @@ public class BooleanColumnVector extends ColumnVector {
     }
 
     @Override
+    public ColumnVector filter(BitSet retainMask, int retainedCount) {
+        boolean[] newData = new boolean[retainedCount];
+        BitSet newNulls = new BitSet(retainedCount);
+        boolean anyNulls = hasNulls();
+        int dst = 0;
+        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
+            newData[dst] = data[i];
+            if (anyNulls && nulls.get(i)) {
+                newNulls.set(dst);
+            }
+            dst++;
+        }
+        return new BooleanColumnVector(name, nullable, newData, newNulls, retainedCount);
+    }
+
+    @Override
     public void filterInPlace(BitSet retainMask, int retainedCount) {
         boolean[] newData = new boolean[retainedCount];
         BitSet newNulls = new BitSet(retainedCount);
+        boolean anyNulls = hasNulls();
         int dst = 0;
-        for (int i = 0; i < size; i++) {
-            if (retainMask.get(i)) {
-                newData[dst] = data[i];
-                if (nulls.get(i)) {
-                    newNulls.set(dst);
-                }
-                dst++;
+        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
+            newData[dst] = data[i];
+            if (anyNulls && nulls.get(i)) {
+                newNulls.set(dst);
             }
+            dst++;
         }
         this.data = newData;
         this.nulls.clear();
         this.nulls.or(newNulls);
         this.size = retainedCount;
+    }
+
+    @Override
+    public void copyIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof BooleanColumnVector boolSrc) {
+            boolean[] srcData = boolSrc.data;
+            boolean[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                dstData[dstOffset + i] = srcData[srcIndices[i]];
+            }
+        } else {
+            super.copyIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
     }
 
     @Override
