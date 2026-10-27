@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Support for importing and exporting DTOs (JavaBeans / POJOs) and Java Records ([#42](https://github.com/filippo-pequini/CupOfTea/issues/42), [#43](https://github.com/filippo-pequini/CupOfTea/issues/43), [#78](https://github.com/filippo-pequini/CupOfTea/issues/78), [#81](https://github.com/filippo-pequini/CupOfTea/issues/81)):
+  - Importers: `DtoImporter` / `IDtoImporter` and `RecordImporter` / `IRecordImporter` with `CupOfTea.importFromDtos(...)` and `CupOfTea.importFromRecords(...)`.
+  - Exporters: `DtoExporter` / `IDtoExporter` and `RecordExporter` / `IRecordExporter` with `CupOfTea.exportToDtos(Class)` and `CupOfTea.exportToRecords(Class)`.
+  - Fluent IO integration via `CupOfTea.read().records(...)` / `CupOfTea.read().dtos(...)` and `df.write().records(...)` / `df.write().dtos(...)`.
+  - Full support for `MutationMode` (`COPY_ON_WRITE` and `IN_PLACE`) and automated type conversion during mapping.
 - New database integration module `cupoftea-sql` providing JDBC read and write support with batching and transaction control ([#28](https://github.com/filippo-pequini/CupOfTea/issues/28), [#55](https://github.com/filippo-pequini/CupOfTea/issues/55)).
 - Fluent SQL reading and writing API: `CupOfTea.read().sql(rs)`, `CupOfTea.read().sql(conn, query)`, `CupOfTea.read().sqlTable(conn, table)`, `CupOfTea.read().sql(dataSource, query)`, and `df.write().sql(conn, table)` ([#28](https://github.com/filippo-pequini/CupOfTea/issues/28), [#55](https://github.com/filippo-pequini/CupOfTea/issues/55)).
 - Convenience DataFrame methods: `df.importFromSql(...)` and `df.exportToSql(...)` ([#28](https://github.com/filippo-pequini/CupOfTea/issues/28), [#55](https://github.com/filippo-pequini/CupOfTea/issues/55)).

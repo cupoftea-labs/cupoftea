@@ -1289,6 +1289,28 @@ public class CupOfTea {
         return this;
     }
 
+    // --- DTO & Record Importers / Exporters ---
+
+    public <T> CupOfTea importFromDtos(java.util.Collection<T> dtos) {
+        CupOfTea target = targetForMutation();
+        new com.cupoftea.importers.DtoImporter(target).importFromDtos(dtos);
+        return target;
+    }
+
+    public <T extends Record> CupOfTea importFromRecords(java.util.Collection<T> records) {
+        CupOfTea target = targetForMutation();
+        new com.cupoftea.importers.RecordImporter(target).importFromRecords(records);
+        return target;
+    }
+
+    public <T> java.util.List<T> exportToDtos(Class<T> dtoClass) {
+        return new com.cupoftea.exporters.DtoExporter(this).exportToDtos(dtoClass);
+    }
+
+    public <T extends Record> java.util.List<T> exportToRecords(Class<T> recordClass) {
+        return new com.cupoftea.exporters.RecordExporter(this).exportToRecords(recordClass);
+    }
+
     @SuppressWarnings("unchecked")
     public CupOfTea setHeaders(ArrayList<?> arrayList) {
         if (arrayList == null || arrayList.isEmpty()) {
