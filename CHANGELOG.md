@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.10.0] - 2026-10-27
+## [0.11.0] - 2026-10-27
 
 ### Added
 
@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Exporters: `DtoExporter` / `IDtoExporter` and `RecordExporter` / `IRecordExporter` with `CupOfTea.exportToDtos(Class)` and `CupOfTea.exportToRecords(Class)`.
   - Fluent IO integration via `CupOfTea.read().records(...)` / `CupOfTea.read().dtos(...)` and `df.write().records(...)` / `df.write().dtos(...)`.
   - Full support for `MutationMode` (`COPY_ON_WRITE` and `IN_PLACE`) and automated type conversion during mapping.
+
+## [0.10.0] - 2026-10-27
+
+### Added
+
 - New database integration module `cupoftea-sql` providing JDBC read and write support with batching and transaction control ([#28](https://github.com/filippo-pequini/CupOfTea/issues/28), [#55](https://github.com/filippo-pequini/CupOfTea/issues/55)).
 - Fluent SQL reading and writing API: `CupOfTea.read().sql(rs)`, `CupOfTea.read().sql(conn, query)`, `CupOfTea.read().sqlTable(conn, table)`, `CupOfTea.read().sql(dataSource, query)`, and `df.write().sql(conn, table)` ([#28](https://github.com/filippo-pequini/CupOfTea/issues/28), [#55](https://github.com/filippo-pequini/CupOfTea/issues/55)).
 - Convenience DataFrame methods: `df.importFromSql(...)` and `df.exportToSql(...)` ([#28](https://github.com/filippo-pequini/CupOfTea/issues/28), [#55](https://github.com/filippo-pequini/CupOfTea/issues/55)).
