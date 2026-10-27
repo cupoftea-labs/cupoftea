@@ -113,6 +113,7 @@ def check_submodules(root_version, repo_root="."):
         "cupoftea-parquet",
         "cupoftea-arrow",
         "cupoftea-plot",
+        "cupoftea-sql",
         "cupoftea-html",
         "cupoftea-yaml",
         "cupoftea-xml",

@@ -1048,6 +1048,63 @@ public class CupOfTea {
         return this;
     }
 
+    // --- SQL / JDBC Importers / Exporters ---
+
+    public CupOfTea importFromSql(java.sql.ResultSet resultSet) {
+        if (resultSet == null) {
+            throw new ImportException("ResultSet cannot be null");
+        }
+        CupOfTea loaded = read().target(this.dataFrame).sql(resultSet);
+        this.dataFrame = loaded.dataFrame;
+        return this;
+    }
+
+    public CupOfTea importFromSql(java.sql.Connection conn, String query) {
+        if (conn == null) {
+            throw new ImportException("Connection cannot be null");
+        }
+        if (query == null) {
+            throw new ImportException("Query cannot be null");
+        }
+        CupOfTea loaded = read().target(this.dataFrame).sql(conn, query);
+        this.dataFrame = loaded.dataFrame;
+        return this;
+    }
+
+    public CupOfTea importFromSql(javax.sql.DataSource dataSource, String query) {
+        if (dataSource == null) {
+            throw new ImportException("DataSource cannot be null");
+        }
+        if (query == null) {
+            throw new ImportException("Query cannot be null");
+        }
+        CupOfTea loaded = read().target(this.dataFrame).sql(dataSource, query);
+        this.dataFrame = loaded.dataFrame;
+        return this;
+    }
+
+    public CupOfTea exportToSql(java.sql.Connection conn, String tableName) {
+        if (conn == null) {
+            throw new ExportException("Connection cannot be null");
+        }
+        if (tableName == null) {
+            throw new ExportException("Table name cannot be null");
+        }
+        write().sql(conn, tableName);
+        return this;
+    }
+
+    public CupOfTea exportToSql(javax.sql.DataSource dataSource, String tableName) {
+        if (dataSource == null) {
+            throw new ExportException("DataSource cannot be null");
+        }
+        if (tableName == null) {
+            throw new ExportException("Table name cannot be null");
+        }
+        write().sql(dataSource, tableName);
+        return this;
+    }
+
     // --- JSON Importers / Exporters ---
 
     public CupOfTea importFromJson(String json) {

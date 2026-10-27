@@ -184,6 +184,28 @@ public class DataFrameReader {
         return read("feather", buildOptions().file(file).build());
     }
 
+    // --- SQL / JDBC ---
+
+    public CupOfTea sql(java.sql.ResultSet rs) {
+        return read("sql", buildOptions().option("resultSet", rs).build());
+    }
+
+    public CupOfTea sql(java.sql.Connection conn, String query) {
+        return read("sql", buildOptions().option("connection", conn).option("query", query).build());
+    }
+
+    public CupOfTea sql(javax.sql.DataSource dataSource, String query) {
+        return read("sql", buildOptions().option("dataSource", dataSource).option("query", query).build());
+    }
+
+    public CupOfTea sqlTable(java.sql.Connection conn, String tableName) {
+        return read("sql", buildOptions().option("connection", conn).option("table", tableName).build());
+    }
+
+    public CupOfTea sqlTable(javax.sql.DataSource dataSource, String tableName) {
+        return read("sql", buildOptions().option("dataSource", dataSource).option("table", tableName).build());
+    }
+
     // --- HTML ---
 
     public CupOfTea html(String pathOrHtml) {

@@ -105,6 +105,7 @@ implementation("com.cupoftea:cupoftea-json:0.5.0")
 | `cupoftea-excel` | Excel format reader (.xlsx / .xls) | Apache POI 5.5.1 |
 | `cupoftea-parquet` | Parquet format reader and writer | Apache Parquet / Hadoop |
 | `cupoftea-arrow` | Apache Arrow IPC and Feather zero-copy format reader and writer | Apache Arrow Vector & Netty |
+| `cupoftea-sql` | SQL database reader and writer via JDBC with batching and transaction support | JDBC (`java.sql`, `javax.sql`) |
 | `cupoftea-html` | HTML table reader | Jsoup |
 | `cupoftea-yaml` | YAML format reader and writer | SnakeYAML |
 | `cupoftea-xml` | XML format reader | Standard Java XML DOM |
