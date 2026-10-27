@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-10-27
+
+### Added
+
+- Data visualization module `cupoftea-plot` providing declarative plotting API (`df.plot()`, `Plots.of(df)`) backed by Vega-Lite v5 specifications ([#183](https://github.com/filippo-pequini/CupOfTea/issues/183)).
+- Supported chart types: line (`line(x, y)`), bar (`bar(x, y)`), scatter (`scatter(x, y)`, `scatter(x, y, colorCol, sizeCol)`), histogram (`hist(column, bins)`), box plot (`box(categoryCol, valueCol)`), area chart (`area(x, y)`), and heatmap matrix (`heatmap(x, y, values)`) ([#183](https://github.com/filippo-pequini/CupOfTea/issues/183)).
+- Standalone interactive HTML chart generation (`saveHtml(file)`) and desktop browser preview (`show()`) with headless/CI safe fallbacks ([#183](https://github.com/filippo-pequini/CupOfTea/issues/183)).
+- Tabular HTML renderer (`df.toHtml()`) on `IDataFrame` and `CupOfTea` with sticky column headers, column data type indicators, client-side pagination, and customizable configurations via `TableHtmlConfiguration` ([#183](https://github.com/filippo-pequini/CupOfTea/issues/183)).
+- Jupyter / IJava / Kotlin notebook rich MIME rendering support (`renderHtml()`, `render()` returning `text/html`) on `IDataFrame`, `DataFrame`, `CupOfTea`, and `Chart`, allowing tables and charts to render interactively directly in notebook cells ([#183](https://github.com/filippo-pequini/CupOfTea/issues/183)).
+- ServiceLoader SPI `PlotProvider` and `PlotRegistry` for runtime discovery of plotting engines while keeping `cupoftea-core` lightweight ([#183](https://github.com/filippo-pequini/CupOfTea/issues/183)).
+
 ## [0.7.0] - 2026-10-24
 
 ### Added

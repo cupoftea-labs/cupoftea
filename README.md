@@ -108,7 +108,8 @@ implementation("com.cupoftea:cupoftea-json:0.5.0")
 | `cupoftea-html` | HTML table reader | Jsoup |
 | `cupoftea-yaml` | YAML format reader and writer | SnakeYAML |
 | `cupoftea-xml` | XML format reader | Standard Java XML DOM |
-| `cupoftea-all` | Meta-module aggregating all format modules | All above formats |
+| `cupoftea-plot` | Declarative plotting engine (Vega-Lite), HTML export, desktop preview | Jackson Databind |
+| `cupoftea-all` | Meta-module aggregating all format and plot modules | All above formats & plotting |
 
 ## Usage Example
 
@@ -204,6 +205,44 @@ df.withColumn("days_since", df.col("hire_date").dt.daysBetween(LocalDate.now()))
 df.transformColumn("hire_date", df.col("hire_date").dt.plusMonths(6));
 ```
 
+### Data Visualization & Interactive Notebook Integration
+
+CupOfTea provides a declarative plotting API (`df.plot()`) backed by Vega-Lite specifications, producing standalone responsive HTML charts with zero heavy external GUI or native dependencies:
+
+```java
+CupOfTea df = CupOfTea.read().csv("data.csv");
+
+// Scatter plot with title, custom labels and desktop preview
+df.plot().scatter("experience", "salary")
+        .title("Salary vs Experience")
+        .show();
+
+// Histogram with custom binning
+df.plot().hist("age", 20).show();
+
+// Grouped bar chart saved to standalone interactive HTML file
+df.plot().bar("department", "headcount").saveHtml("chart.html");
+
+// Box plot comparing salary distributions across departments
+df.plot().box("department", "salary").show();
+
+// Line chart, area chart, and 2D heatmap matrix
+df.plot().line("year", "revenue").show();
+df.plot().area("date", "active_users").show();
+df.plot().heatmap("department", "job_level", "headcount").show();
+```
+
+#### Rich Interactive Notebook Output (Jupyter / IJava / Kotlin Notebook)
+
+- **Interactive HTML Table (`df.toHtml()`)**:
+  Renders responsive HTML with sticky column headers, data type indicators, and client-side pagination:
+  ```java
+  String html = df.toHtml(); // Default pagination with 25 rows per page
+  String fullDoc = df.toHtml(TableHtmlConfiguration.builder().pageSize(50).fullDocument(true).build());
+  ```
+
+- **Seamless Jupyter / IJava Cell Rendering**:
+  `CupOfTea`, `IDataFrame`, and `Chart` objects implement the standard notebook MIME rendering contract (`renderHtml()` and `render()` returning `text/html`). When a DataFrame or chart expression is evaluated in a Jupyter cell (via IJava or Polyglot Notebooks), it renders natively and interactively inside the cell output area.
 ## Roadmap
 - [x] Window and rolling functions.
 - [ ] Time series resampling and frequency conversion.

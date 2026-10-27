@@ -102,5 +102,14 @@ public class ReadmeExampleIntegrationTest {
         CupOfTea stacked = df.concat(moreData);
         assertThat(stacked.size()).isEqualTo(5);
         assertThat(stacked.getRow(4).getString("name")).isEqualTo("Edward");
+
+        // Visualization and Jupyter notebook integration
+        File outChart = new File(tempDir, "salary_vs_age.html");
+        df.plot().scatter("age", "salary").title("Salary vs Age").saveHtml(outChart);
+        assertThat(outChart.exists()).isTrue();
+
+        String htmlTable = df.toHtml();
+        assertThat(htmlTable).contains("class=\"cot-container\"");
+        assertThat(df.renderHtml()).contains("class=\"cot-container\"");
     }
 }
