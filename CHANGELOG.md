@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-10-27
+
+### Added
+
+- Support for importing and exporting DTOs (JavaBeans / POJOs) and Java Records ([#42](https://github.com/filippo-pequini/CupOfTea/issues/42), [#43](https://github.com/filippo-pequini/CupOfTea/issues/43), [#78](https://github.com/filippo-pequini/CupOfTea/issues/78), [#81](https://github.com/filippo-pequini/CupOfTea/issues/81)):
+  - Importers: `DtoImporter` / `IDtoImporter` and `RecordImporter` / `IRecordImporter` with `CupOfTea.importFromDtos(...)` and `CupOfTea.importFromRecords(...)`.
+  - Exporters: `DtoExporter` / `IDtoExporter` and `RecordExporter` / `IRecordExporter` with `CupOfTea.exportToDtos(Class)` and `CupOfTea.exportToRecords(Class)`.
+  - Fluent IO integration via `CupOfTea.read().records(...)` / `CupOfTea.read().dtos(...)` and `df.write().records(...)` / `df.write().dtos(...)`.
+  - Full support for `MutationMode` (`COPY_ON_WRITE` and `IN_PLACE`) and automated type conversion during mapping.
+
 ## [0.10.0] - 2026-10-27
 
 ### Added
