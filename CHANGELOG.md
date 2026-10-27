@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-10-27
+
+### Added
+
+- Comprehensive JMH micro- and macro-benchmarking module `cupoftea-benchmark` with high-volume throughput and comparative baseline suites ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- High-performance synthetic dataset generator (`SyntheticDataGenerator`) with support for numeric primitives, nullable values, high-cardinality strings, and multi-format files (CSV, JSON, Parquet, Excel, XML) ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Primitive columnar scan micro-benchmarks (`ColumnarVectorScanBenchmark`) for sequential and vectorized scans across `IntColumnVector`, `DoubleColumnVector`, `LongColumnVector`, `FloatColumnVector`, `BooleanColumnVector`, and `StringColumnVector` ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Parallel filter predicates benchmark (`ParallelScanAndFilterBenchmark`) validating single-threaded vs. parallel throughput across 1%, 10%, 50%, and 90% selectivity thresholds ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Map-reduce aggregations benchmark (`MapReduceAggregationBenchmark`) evaluating vectorized reductions (`sum`, `mean`, `min`, `max`, `median`, `std`, `count`) ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Zero-copy slicing benchmark (`ZeroCopySlicingBenchmark`) demonstrating >40,000x latency reduction and zero GC allocations for `sliceView` and chunk partitioning ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- End-to-end format IO ingestion and egress benchmarks (`EndToEndIoBenchmark`) across CSV, JSON, Parquet, Excel, and XML ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- End-to-end data pipeline macro-benchmark (`EndToEndPipelineBenchmark`) measuring multi-stage ingest, imputation, filtering, derivation, aggregation, and export ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Multi-core CPU scaling benchmark (`MultiCoreScalingBenchmark`) measuring Amdahl speedup across 1, 2, 4, 8, and 16 worker threads ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Dataset scale benchmark (`DatasetScaleBenchmark`) characterizing throughput scaling from 10k to 10M rows ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Competitive baseline benchmark (`CompetitiveBaselineBenchmark`) against Tablesaw 0.43.1 demonstrating significant speedups across scans, filters, and aggregations ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+- Automated continuous performance benchmarking GitHub Actions workflow (`.github/workflows/benchmarks.yml`) and reproducible documentation guide (`docs/benchmarks.md`) ([#195](https://github.com/filippo-pequini/CupOfTea/issues/195)).
+
 ## [0.10.0] - 2026-10-27
 
 ### Added

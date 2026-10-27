@@ -16,6 +16,23 @@ import sys
 import xml.etree.ElementTree as ET
 
 
+SUBMODULES = [
+    "cupoftea-core",
+    "cupoftea-csv",
+    "cupoftea-json",
+    "cupoftea-excel",
+    "cupoftea-parquet",
+    "cupoftea-arrow",
+    "cupoftea-plot",
+    "cupoftea-sql",
+    "cupoftea-benchmark",
+    "cupoftea-html",
+    "cupoftea-yaml",
+    "cupoftea-xml",
+    "cupoftea-all",
+]
+
+
 def parse_semver(v):
     clean = v.strip().lstrip("vV")
     is_snapshot = clean.upper().endswith("-SNAPSHOT")
@@ -105,22 +122,8 @@ def get_base_pom_version(base_ref):
 
 
 def check_submodules(root_version, repo_root="."):
-    modules = [
-        "cupoftea-core",
-        "cupoftea-csv",
-        "cupoftea-json",
-        "cupoftea-excel",
-        "cupoftea-parquet",
-        "cupoftea-arrow",
-        "cupoftea-plot",
-        "cupoftea-sql",
-        "cupoftea-html",
-        "cupoftea-yaml",
-        "cupoftea-xml",
-        "cupoftea-all",
-    ]
     errors = []
-    for mod in modules:
+    for mod in SUBMODULES:
         pom_path = os.path.join(repo_root, mod, "pom.xml")
         if os.path.isfile(pom_path):
             try:
@@ -286,9 +289,9 @@ def main():
         print("\n❌ SUBMODULE VERSION MISMATCH:")
         for err in submodule_errors:
             print(f"  - {err}")
-        print("All 9 submodules must have versions matching root pom.xml.")
+        print("All reactor submodules must have versions matching root pom.xml.")
         sys.exit(1)
-    print("✅ All 9 reactor submodules match the root POM version.")
+    print(f"✅ All {len(SUBMODULES)} reactor submodules match the root POM version.")
 
     # 6. Check CHANGELOG.md entry
     changelog_ok, changelog_msg = check_changelog(pr_raw_version, args.changelog)
@@ -305,7 +308,7 @@ def main():
         f"| **Base Version (`{args.base_ref}`)** | `{base_raw_version}` |\n"
         f"| **PR Version** | `{pr_raw_version}` |\n"
         f"| **Strict Increase** | `true` ({base_raw_version} < {pr_raw_version}) |\n"
-        f"| **Reactor Submodules (9)** | All match `{pr_raw_version}` |\n"
+        f"| **Reactor Submodules** | All match `{pr_raw_version}` |\n"
         f"| **CHANGELOG Entry** | Verified `{pr_raw_version}` |\n"
     )
     print("\n🎉 ALL SEMVER CHECKS PASSED SUCCESSFULLY!")
