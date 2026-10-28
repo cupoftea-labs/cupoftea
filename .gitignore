@@ -39,3 +39,7 @@ build/
 ### Mac OS ###
 .DS_Store
 .aider*
+
+### Documentation Site Build ###
+site/
+
