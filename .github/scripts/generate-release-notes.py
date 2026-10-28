@@ -229,7 +229,7 @@ def main():
 
     new_tag = args.new_tag
     prev_tag = args.prev_tag or get_previous_tag(new_tag)
-    repo_url = args.repo_url or os.environ.get("GITHUB_SERVER_URL", "https://github.com") + "/" + os.environ.get("GITHUB_REPOSITORY", "filippo-pequini/CupOfTea")
+    repo_url = args.repo_url or os.environ.get("GITHUB_SERVER_URL", "https://github.com") + "/" + os.environ.get("GITHUB_REPOSITORY", "cupoftea-labs/cupoftea")
 
     print(f"Generating release notes: {prev_tag or 'START'} -> {new_tag}")
 

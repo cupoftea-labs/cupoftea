@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-10-28
+
+### Added
+
+- Comprehensive documentation website using **MkDocs Material** with responsive light/dark theme, full-text search, and Mermaid diagram support ([#201](https://github.com/cupoftea-labs/cupoftea/issues/201)).
+- Automated multi-module aggregate Javadoc publishing pipeline deployed alongside user guides under `/apidocs/` ([#201](https://github.com/cupoftea-labs/cupoftea/issues/201)).
+- Complete documentation guides for all modules, columnar memory layout, typing & schema inference, immutability & mutation modes, `loc`/`iloc` indexing, and IO format SPI implementations ([#201](https://github.com/cupoftea-labs/cupoftea/issues/201)).
+- GitHub Pages continuous deployment workflow (`.github/workflows/deploy-docs.yml`) triggered automatically on pushes to `develop` and `master` ([#201](https://github.com/cupoftea-labs/cupoftea/issues/201)).
+- Repository & Organization migration documentation ([#201](https://github.com/cupoftea-labs/cupoftea/issues/201)).
+
 ## [0.12.0] - 2026-10-27
 
 ### Added
