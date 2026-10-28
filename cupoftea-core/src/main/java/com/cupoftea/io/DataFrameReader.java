@@ -269,6 +269,18 @@ public class DataFrameReader {
 
     // --- GENERIC FORMAT ---
 
+    // --- DTO & RECORD ---
+
+    public <T> CupOfTea dtos(java.util.Collection<T> dtos) {
+        CupOfTea df = targetDataFrame != null ? new CupOfTea(targetDataFrame) : new CupOfTea();
+        return df.importFromDtos(dtos);
+    }
+
+    public <T extends Record> CupOfTea records(java.util.Collection<T> records) {
+        CupOfTea df = targetDataFrame != null ? new CupOfTea(targetDataFrame) : new CupOfTea();
+        return df.importFromRecords(records);
+    }
+
     public FormatReaderSpec format(String format) {
         return new FormatReaderSpec(this, format);
     }

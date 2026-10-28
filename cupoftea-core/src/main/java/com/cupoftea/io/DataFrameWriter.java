@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.cupoftea.CupOfTea;
 import com.cupoftea.spi.FormatWriter;
 import com.cupoftea.spi.WriteOptions;
 import com.cupoftea.table.interfaces.IDataFrame;
@@ -140,6 +141,16 @@ public class DataFrameWriter {
         } catch (java.io.IOException e) {
             throw new com.cupoftea.exceptions.ExportException("Failed to write HTML file: " + file.getPath(), e);
         }
+    }
+
+    // --- DTO & RECORD ---
+
+    public <T> java.util.List<T> dtos(Class<T> dtoClass) {
+        return new com.cupoftea.exporters.DtoExporter(new CupOfTea(this.dataFrame)).exportToDtos(dtoClass);
+    }
+
+    public <T extends Record> java.util.List<T> records(Class<T> recordClass) {
+        return new com.cupoftea.exporters.RecordExporter(new CupOfTea(this.dataFrame)).exportToRecords(recordClass);
     }
 
     // --- GENERIC FORMAT ---
