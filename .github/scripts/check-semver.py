@@ -88,6 +88,7 @@ def get_pom_version_from_file(pom_path):
 
 
 def get_base_pom_version(base_ref):
+    base_ref = (base_ref or "").strip() or "develop"
     # Try git show origin/<base_ref>:pom.xml
     targets = [f"origin/{base_ref}:pom.xml", f"{base_ref}:pom.xml"]
     for target in targets:
@@ -213,10 +214,11 @@ def main():
     print(f"PR Version:        {pr_raw_version} -> {pr_semver['tuple']}")
 
     # 2. Read Base version
+    base_ref_name = (args.base_ref or "").strip() or os.environ.get("GITHUB_BASE_REF", "").strip() or "develop"
     if args.base_version:
         base_raw_version = args.base_version
     else:
-        base_raw_version = get_base_pom_version(args.base_ref)
+        base_raw_version = get_base_pom_version(base_ref_name)
 
     # Handle legacy placeholder 1.0-SNAPSHOT prior to SemVer adoption
     if base_raw_version.strip() == "1.0-SNAPSHOT":
@@ -232,14 +234,14 @@ def main():
         print(f"❌ Error parsing base version '{base_raw_version}': {e}")
         sys.exit(1)
 
-    print(f"Base Version ({args.base_ref}): {base_raw_version} -> {base_semver['tuple']}")
+    print(f"Base Version ({base_ref_name}): {base_raw_version} -> {base_semver['tuple']}")
 
     # 3. Check that version was updated
     if pr_semver["tuple"] == base_semver["tuple"]:
         msg = (
             f"### ❌ SemVer PR Verification Failed\n\n"
             f"**The version in `pom.xml` was NOT updated!**\n\n"
-            f"- **Base branch (`{args.base_ref}`) version**: `{base_raw_version}`\n"
+            f"- **Base branch (`{base_ref_name}`) version**: `{base_raw_version}`\n"
             f"- **PR version**: `{pr_raw_version}`\n\n"
             f"Every PR must increment the version according to [Semantic Versioning 2.0.0](https://semver.org/):\n"
             f"- **PATCH** (`0.2.0` -> `0.2.1`): Bug fixes, internal refactorings, optimizations.\n"
@@ -248,7 +250,7 @@ def main():
         )
         print("\n❌ SEMVER CHECK FAILED:")
         print(
-            f"The version in pom.xml was NOT updated! Both base ({args.base_ref}) and PR "
+            f"The version in pom.xml was NOT updated! Both base ({base_ref_name}) and PR "
             f"are at version '{pr_raw_version}'."
         )
         print(
@@ -265,7 +267,7 @@ def main():
         msg = (
             f"### ❌ SemVer PR Verification Failed\n\n"
             f"**New version is not strictly greater than base branch version!**\n\n"
-            f"- **Base branch (`{args.base_ref}`) version**: `{base_raw_version}`\n"
+            f"- **Base branch (`{base_ref_name}`) version**: `{base_raw_version}`\n"
             f"- **PR version**: `{pr_raw_version}`\n\n"
             f"All PR versions must be strictly greater than the base branch version (`new_version > base_version`).\n"
         )
