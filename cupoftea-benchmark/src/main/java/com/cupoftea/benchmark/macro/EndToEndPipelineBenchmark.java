@@ -51,6 +51,7 @@ public class EndToEndPipelineBenchmark {
 
         if (SyntheticDataGenerator.isHadoopSupported()) {
             outParquet = File.createTempFile("pipeline_out_", ".parquet");
+            if (outParquet.exists()) outParquet.delete();
             outParquet.deleteOnExit();
         }
     }
@@ -74,6 +75,7 @@ public class EndToEndPipelineBenchmark {
 
         lowCardAgg.write().json(outJson);
         if (outParquet != null) {
+            if (outParquet.exists()) outParquet.delete();
             lowCardAgg.write().parquet(outParquet);
         }
 
@@ -94,6 +96,7 @@ public class EndToEndPipelineBenchmark {
 
         lowCardAgg.write().json(outJson);
         if (outParquet != null) {
+            if (outParquet.exists()) outParquet.delete();
             lowCardAgg.write().parquet(outParquet);
         }
 

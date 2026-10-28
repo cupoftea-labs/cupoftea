@@ -213,6 +213,7 @@ public final class SyntheticDataGenerator {
             return null;
         }
         File file = File.createTempFile("bench_", ".parquet");
+        file.delete();
         file.deleteOnExit();
         CupOfTea df = createNumericDataFrame(rows);
         df.write().parquet(file.getPath());

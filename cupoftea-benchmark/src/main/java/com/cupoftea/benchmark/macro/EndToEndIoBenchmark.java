@@ -64,6 +64,7 @@ public class EndToEndIoBenchmark {
 
         if (SyntheticDataGenerator.isHadoopSupported()) {
             outParquetFile = File.createTempFile("out_", ".parquet");
+            safeDelete(outParquetFile);
             outParquetFile.deleteOnExit();
         }
 
@@ -139,6 +140,7 @@ public class EndToEndIoBenchmark {
     @Benchmark
     public void egressParquet(Blackhole bh) {
         if (outParquetFile != null) {
+            safeDelete(outParquetFile);
             df.write().parquet(outParquetFile);
             bh.consume(outParquetFile.length());
         }
