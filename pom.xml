@@ -6,7 +6,7 @@
 
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-parent</artifactId>
-    <version>0.11.0</version>
+    <version>0.12.0</version>
     <packaging>pom</packaging>
 
     <name>CupOfTea Parent</name>
@@ -54,6 +54,7 @@
         <module>cupoftea-plot</module>
         <module>cupoftea-sql</module>
         <module>cupoftea-all</module>
+        <module>cupoftea-benchmark</module>
     </modules>
 
     <properties>
@@ -62,7 +63,7 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <cupoftea.version>0.11.0</cupoftea.version>
+        <cupoftea.version>0.12.0</cupoftea.version>
         <lombok.version>1.18.38</lombok.version>
         <annotations.version>26.0.2</annotations.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
@@ -79,6 +80,8 @@
         <commons-compress.version>1.27.1</commons-compress.version>
         <org.json.version>20250107</org.json.version>
         <arrow.version>18.2.0</arrow.version>
+        <jmh.version>1.37</jmh.version>
+        <tablesaw.version>0.43.1</tablesaw.version>
     </properties>
 
     <dependencyManagement>
@@ -138,6 +141,36 @@
                 <groupId>com.cupoftea</groupId>
                 <artifactId>cupoftea-sql</artifactId>
                 <version>${cupoftea.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.cupoftea</groupId>
+                <artifactId>cupoftea-all</artifactId>
+                <version>${cupoftea.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.cupoftea</groupId>
+                <artifactId>cupoftea-benchmark</artifactId>
+                <version>${cupoftea.version}</version>
+            </dependency>
+
+            <!-- JMH Benchmarking -->
+            <dependency>
+                <groupId>org.openjdk.jmh</groupId>
+                <artifactId>jmh-core</artifactId>
+                <version>${jmh.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.openjdk.jmh</groupId>
+                <artifactId>jmh-generator-annprocess</artifactId>
+                <version>${jmh.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <!-- Comparative Benchmarks -->
+            <dependency>
+                <groupId>tech.tablesaw</groupId>
+                <artifactId>tablesaw-core</artifactId>
+                <version>${tablesaw.version}</version>
             </dependency>
 
             <!-- Annotations & Lombok -->
