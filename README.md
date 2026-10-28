@@ -1,5 +1,10 @@
 # CupOfTea
 
+[![Java CI with Maven](https://github.com/cupoftea-labs/cupoftea/actions/workflows/maven.yaml/badge.svg)](https://github.com/cupoftea-labs/cupoftea/actions/workflows/maven.yaml)
+[![Maven Central](https://img.shields.io/maven-central/v/com.cupoftea/cupoftea-parent.svg?label=Maven%20Central)](https://central.sonatype.com/namespace/com.cupoftea)
+[![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-SNAPSHOT-blue)](https://github.com/cupoftea-labs/cupoftea/packages)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 CupOfTea is a lightweight library for data manipulation in Java. It provides a simple and efficient API to work with large structured datasets, enabling operations such as filtering, aggregation, joining, and data analysis.
 
 ## Features
@@ -37,23 +42,23 @@ Add the core dependency to your `pom.xml`:
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-core</artifactId>
-    <version>0.6.0</version>
+    <version>0.14.0</version>
 </dependency>
 ```
 
-Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XML):
+Add optional format modules as needed (CSV, JSON, Excel, Parquet, Arrow, Plot, SQL, HTML, YAML, XML):
 
 ```xml
 <!-- Example: Add CSV and JSON format support -->
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-csv</artifactId>
-    <version>0.6.0</version>
+    <version>0.14.0</version>
 </dependency>
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-json</artifactId>
-    <version>0.6.0</version>
+    <version>0.14.0</version>
 </dependency>
 
 <!-- Or import all formats with the aggregator module: -->
@@ -61,10 +66,12 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, HTML, YAML, XM
 <dependency>
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-all</artifactId>
-    <version>0.6.0</version>
+    <version>0.14.0</version>
 </dependency>
 -->
 ```
+
+For more details on releases and publishing, see [docs/releasing.md](docs/releasing.md).
 
 ### Gradle
 

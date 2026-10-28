@@ -1,18 +1,26 @@
-name: Release & Tag
+name: Release & Publish to Maven Central
 
 on:
   push:
     branches:
       - master
       - main
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag to release (leave empty to infer from pom.xml)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   release:
-    name: Create Tag and GitHub Release
+    name: Build, Sign, Deploy & Release
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
 
@@ -29,6 +37,11 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: maven
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -40,39 +53,43 @@ jobs:
         run: |
           VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
-          echo "TAG_NAME=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "Detected version: ${VERSION}"
-
-      - name: Check if tag already exists
-        id: check_tag
-        run: |
-          TAG="${{ steps.get_version.outputs.TAG_NAME }}"
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists, skipping release creation."
+          INPUT_TAG="${{ github.event.inputs.tag_name }}"
+          if [ -n "$INPUT_TAG" ]; then
+            TAG_NAME="$INPUT_TAG"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag $TAG does not exist. Proceeding with release."
+            TAG_NAME="v${VERSION}"
           fi
+          echo "TAG_NAME=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "Detected version: ${VERSION}, tag: ${TAG_NAME}"
 
-      - name: Generate release notes between current and new tag
+      - name: Verify build and test suite
+        run: mvn -B verify
+
+      - name: Generate release notes
         id: extract_notes
-        if: steps.check_tag.outputs.exists == 'false'
         run: |
           TAG="${{ steps.get_version.outputs.TAG_NAME }}"
-          echo "Generating comprehensive release notes for $TAG comparing to previous tag..."
+          echo "Generating comprehensive release notes for $TAG..."
           python3 .github/scripts/generate-release-notes.py \
             --new-tag "$TAG" \
             --changelog CHANGELOG.md \
             --output RELEASE_NOTES.md
           cat RELEASE_NOTES.md
 
-      - name: Build and package JARs
-        if: steps.check_tag.outputs.exists == 'false'
-        run: mvn -B package -DskipTests
+      - name: Publish to Maven Central Portal
+        if: env.MAVEN_CENTRAL_TOKEN != '' || env.MAVEN_CENTRAL_USERNAME != ''
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME || secrets.OSSRH_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD || secrets.OSSRH_TOKEN }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: |
+          echo "Publishing release artifacts to Maven Central Portal..."
+          mvn -B clean deploy -P release -DskipTests \
+            -Dgpg.passphrase="${MAVEN_GPG_PASSPHRASE}"
 
-      - name: Create Git Tag and GitHub Release
-        if: steps.check_tag.outputs.exists == 'false'
+      - name: Create or Update Git Tag and GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -81,19 +98,30 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
+          
+          if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Creating git tag $TAG..."
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+          fi
 
           # Gather release artifacts from target directories
           ASSETS=()
           for jar in cupoftea-*/target/*.jar target/*.jar; do
-            if [ -f "$jar" ] && [[ ! "$jar" == *"original-"* ]] && [[ ! "$jar" == *"-javadoc.jar"* ]] && [[ ! "$jar" == *"-sources.jar"* ]]; then
+            if [ -f "$jar" ] && [[ ! "$jar" == *"original-"* ]]; then
               ASSETS+=("$jar")
             fi
           done
 
-          gh release create "$TAG" \
-            "${ASSETS[@]}" \
-            --title "Release $TAG" \
-            --notes-file RELEASE_NOTES.md \
-            --verify-tag
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, updating notes and assets..."
+            gh release edit "$TAG" --title "Release $TAG" --notes-file RELEASE_NOTES.md
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            echo "Creating new GitHub release for $TAG..."
+            gh release create "$TAG" \
+              "${ASSETS[@]}" \
+              --title "Release $TAG" \
+              --notes-file RELEASE_NOTES.md \
+              --verify-tag
+          fi
