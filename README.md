@@ -71,7 +71,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, Arrow, Plot, S
 -->
 ```
 
-For more details on releases and publishing, see [docs/releasing.md](docs/releasing.md).
+For more details on releases and publishing, see [docs/community/releasing.md](docs/community/releasing.md).
 
 ### Gradle
 

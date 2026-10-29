@@ -86,6 +86,7 @@ nav:
       - Contributing Guide: community/contributing.md
       - Performance & Benchmarks: community/benchmarks.md
       - Versioning & Releases: community/versioning.md
+      - Release Guide & Procedures: community/releasing.md
       - Changelog: community/changelog.md
       - Repository Migration: community/organization-migration.md
   - API Reference (Javadoc): javadoc.md
