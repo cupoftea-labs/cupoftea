@@ -63,7 +63,7 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <cupoftea.version>0.14.0</cupoftea.version>
+        <cupoftea.version>${project.version}</cupoftea.version>
         <lombok.version>1.18.38</lombok.version>
         <annotations.version>26.0.2</annotations.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
