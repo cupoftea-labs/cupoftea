@@ -1,0 +1,501 @@
+nome,idade,cidade
+Pedro Lucas,11,Santa
+João Guilherme,35,Nipoã
+Iago,29,Caiabu
+Igor,103,Igaraçu
+Luiz Gustavo,39,Areiópolis
+Antonio,86,Coroados
+Lucas Gabriel,88,Óleo
+Gustavo,58,Caraguatatuba
+Erick,67,Vargem
+Rafael,50,Salto
+Lucas,2,Meridiano
+Pietro,93,Laranjal
+Cauê,1,Álvares
+João Miguel,27,Itirapuã
+Gustavo,44,Lins
+João,41,Tabatinga
+Marcos Vinicius,39,Pontes
+Vitor,22,Parapuã
+Diego,28,Guaíra
+Rafael,23,Avanhandava
+Raul,59,Mogi
+Renan,105,Cardoso
+Tomás,82,Águas
+Emanuel,111,Quintana
+Iago,71,São
+João Vitor,96,Santo
+Diego,49,Bauru
+Enzo Gabriel,116,São
+Igor,49,Rifaina
+Levi,61,Guarantã
+Luiz Fernando,113,Manduri
+Juan,103,Santa
+Miguel,97,Valparaíso
+Kaique,93,Altinópolis
+Benício,77,Itapuí
+João Paulo,87,Ariranha
+Enrico,68,Tarumã
+Luiz Gustavo,63,Clementina
+Ricardo,51,Novais
+Tomás,61,Platina
+Bryan,83,Rubiácea
+Marcelo,50,Bariri
+Hugo,106,Ocauçu
+Gustavo,24,Ribeirão
+Alexandre,114,Cândido
+Benício,87,Macatuba
+João Guilherme,25,Marília
+Theo,31,Paulínia
+Ian,87,Indiana
+Juan,43,Florínea
+Marcelo,118,Taiaçu
+Marcos Vinicius,93,Cravinhos
+Luan,8,Vargem
+Iago,98,Itu
+Ricardo,66,Cerqueira
+Giovanni,23,Sud
+João Miguel,45,Cajati
+André,70,Pedranópolis
+Yuri,91,Vargem
+Matheus Henrique,75,Poloni
+Danilo,107,Capela
+Bernardo,52,Turiúba
+João Vitor,27,Mesópolis
+Pietro,57,Serra
+Levi,70,Espírito
+Diogo,104,Américo
+João Paulo,72,Brotas
+Kaique,94,Ubatuba
+Luiz Henrique,36,Ouro
+Fernando,80,Santos
+Miguel,80,Euclides
+Luiz Fernando,14,Palmital
+Bryan,21,Piracicaba
+Vitor,117,Boituva
+Samuel,65,Parapuã
+João Lucas,118,Icém
+Anthony,67,Pereiras
+Daniel,48,Cafelândia
+João Miguel,82,União
+Thiago,97,Americana
+Igor,38,Pedrinhas
+Gabriel,96,Vera
+Gabriel,89,Macaubal
+Luiz Gustavo,11,Morro
+Cauê,28,Joanópolis
+Benjamin,116,Bilac
+Benjamin,8,João
+Erick,11,Taguaí
+Pedro Henrique,26,Boa
+Francisco,27,Boa
+João Vitor,94,Miguelópolis
+Calebe,64,João
+Henry,98,Itapura
+Pietro,117,Birigui
+Rafael,55,Santa
+Lucas,11,Ourinhos
+Augusto,66,Tatuí
+Luiz Felipe,78,Álvares
+Kevin,39,Santa
+Lucca,7,Turiúba
+Marcelo,76,Igarapava
+Eduardo,27,Espírito
+Leonardo,31,Guareí
+Francisco,62,Piraju
+Carlos Eduardo,47,Itapeva
+Lorenzo,22,Santa
+Pietro,110,Quadra
+Emanuel,72,Limeira
+Luiz Henrique,11,Jaguariúna
+Cauê,20,Taquarituba
+Diogo,42,Avanhandava
+João Gabriel,77,Cosmópolis
+Theo,80,Ferraz
+Julio César,16,Ituverava
+Matheus,5,Campina
+Calebe,26,Marapoama
+Hugo,16,Mongaguá
+João Gabriel,30,Várzea
+Ryan,5,Santa
+Thiago,60,Pacaembu
+Lucas,45,Franco
+Gabriel,32,Cândido
+Samuel,87,Pereira
+Kevin,43,Maracaí
+Samuel,67,Alfredo
+Luiz Miguel,8,Sertãozinho
+Kaique,55,Buri
+Bernardo,65,Pompeia
+Vinicius,6,Santo
+Davi,101,Batatais
+João Miguel,29,Óleo
+Benjamin,99,Américo
+Pedro Lucas,74,Ribeirão
+Nathan,39,Ribeirão
+Matheus,38,Porangaba
+Danilo,52,Sandovalina
+Giovanni,28,Francisco
+Vitor,63,Caçapava
+Eduardo,93,Mirante
+Benjamin,38,Reginópolis
+Davi,103,Barra
+Thiago,107,São
+Otávio,87,Novo
+Nicolas,88,Bento
+Anthony,5,Itaju
+Rafael,87,Anhembi
+Leonardo,9,Lupércio
+Pedro Lucas,42,São
+Henrique,51,Águas
+Raul,51,Nipoã
+Pietro,58,Populina
+Samuel,84,Dobrada
+Luiz Henrique,107,Cruzália
+Heitor,89,Ocauçu
+Arthur,50,Pedra
+João Miguel,115,Campo
+João Vitor,115,Mesópolis
+Guilherme,53,Ipiguá
+Luiz Gustavo,16,Santa
+Eduardo,50,Areias
+Isaac,18,Assis
+João Pedro,120,Pongaí
+Bryan,55,São
+Luiz Gustavo,53,Indaiatuba
+Juan,119,Itatinga
+Lorenzo,102,Nova
+Diego,69,Sales
+Matheus,113,Analândia
+Bruno,19,Araras
+Ryan,23,Dobrada
+Hugo,97,São
+Marcelo,13,São
+Lucas Gabriel,67,Nova
+Gabriel,19,Turiúba
+Bernardo,9,Adolfo
+Ian,34,Rio
+Lorenzo,116,Guatapará
+Breno,113,Porto
+Leonardo,37,Caiuá
+Benício,94,Barrinha
+Alexandre,23,Nova
+Kevin,116,Cerquilho
+Antonio,115,Anhembi
+Luiz Guilherme,41,Lavínia
+Calebe,82,Glicério
+Luan,69,Dourado
+Nicolas,57,São
+João Vitor,55,Mogi
+Lucas Gabriel,81,Herculândia
+Carlos Eduardo,64,Canas
+Davi,45,Bady
+Rafael,8,Itapirapuã
+Emanuel,36,Águas
+Isaac,116,Itaporanga
+Miguel,63,Barrinha
+Anthony,52,Rancharia
+Igor,23,Vista
+Lorenzo,46,Cerqueira
+Vinicius,101,Populina
+Lorenzo,68,Rancharia
+João Pedro,49,Rosana
+João Paulo,61,São
+Joaquim,109,Pedranópolis
+Henry,96,Olímpia
+Diego,91,Franco
+Luan,33,Serra
+Renan,58,Trabiju
+Murilo,108,Cubatão
+Caio,8,Ribeira
+Vitor,88,Rio
+Gustavo,40,União
+João Pedro,11,Pirassununga
+Julio César,3,Batatais
+Bernardo,16,Fernando
+Isaac,28,Santa
+André,82,Pindorama
+Enzo,114,São
+Theo,23,Pirassununga
+Henrique,83,Santa
+Davi,55,Mombuca
+Matheus,109,Silveiras
+João Miguel,75,Embu
+Thales,37,Pereiras
+Luiz Henrique,115,Arealva
+Ian,39,Itaquaquecetuba
+Bernardo,60,Bilac
+Cauê,41,Uru
+Nicolas,94,Boraceia
+Diogo,69,Igarapava
+Emanuel,51,Óleo
+Vitor Hugo,96,Águas
+Lucas,82,Três
+Hugo,65,Campos
+Caio,84,Araçatuba
+Gustavo,82,Anhembi
+Thiago,49,São
+Luiz Miguel,89,Guarulhos
+Thiago,69,Trabiju
+Yuri,25,Taiúva
+Theo,119,Itatiba
+Lucca,18,Socorro
+Antonio,51,Cunha
+Marcelo,114,Angatuba
+Giovanni,67,Aparecida
+Alexandre,48,São
+Francisco,37,Salesópolis
+Carlos Eduardo,17,São
+Theo,8,Laranjal
+Heitor,99,Paulo
+Breno,47,Taquarituba
+Luan,84,Itanhaém
+Henrique,69,Espírito
+Iago,35,Biritiba
+Luiz Fernando,28,Araraquara
+Cauê,81,Mirante
+Kaique,15,Bananal
+Henry,73,Taquaral
+Luiz Miguel,30,Guarulhos
+Luiz Henrique,53,Piacatu
+João Vitor,63,Ocauçu
+Samuel,106,Bom
+Erick,107,Torre
+Enrico,116,Lucianópolis
+Iago,4,Auriflama
+Davi,27,Batatais
+Benício,111,Araras
+Vinicius,31,Santo
+Diego,99,Guarantã
+Benício,66,Araras
+Bryan,114,Engenheiro
+Felipe,19,Caieiras
+Rafael,56,Igaraçu
+Ryan,64,Cunha
+Matheus Henrique,96,Gabriel
+Hugo,60,Dourado
+Breno,110,Jacareí
+João Lucas,33,Dirce
+João Lucas,69,Bady
+Bryan,84,Potim
+Enzo Gabriel,78,Maracaí
+Luiz Guilherme,30,Guaraci
+Kevin,55,Matão
+Antonio,104,Jundiaí
+Luiz Fernando,21,Mira
+Lucas,10,Zacarias
+Benício,93,Ribeira
+Tomás,66,Aguaí
+Eduardo,6,Ouro
+Antonio,64,Ribeirão
+Joaquim,111,São
+André,48,Jandira
+Julio César,67,Itariri
+Cauê,1,Ibaté
+Henry,92,Mineiros
+Tomás,117,Guararapes
+Samuel,79,Ribeirão
+Luiz Otávio,27,Herculândia
+Anthony,54,Miracatu
+Ian,36,Barueri
+Gabriel,79,São
+Matheus Henrique,32,São
+Rodrigo,70,Divinolândia
+Iago,98,São
+João Paulo,74,Piquete
+Gabriel,75,Cerqueira
+Eduardo,41,Amparo
+Emanuel,61,Valparaíso
+Davi,31,Cubatão
+Luan,115,Laranjal
+André,70,São
+Kaique,63,Alambari
+Cauã,43,Luiziânia
+Cauê,14,Lourdes
+Calebe,65,Sales
+Kaique,56,Monte
+Daniel,49,Pedregulho
+Luiz Guilherme,69,Oscar
+Ian,58,Sarapuí
+Augusto,35,Altair
+Rafael,77,Jaguariúna
+Francisco,26,Ouro
+João Vitor,87,Monte
+Luiz Guilherme,72,Mirante
+Vitor Gabriel,86,Joanópolis
+Lucas Gabriel,115,Marília
+Iago,12,Santa
+Pietro,5,Jales
+Thiago,116,Araras
+Murilo,82,Monte
+Luiz Felipe,22,Sorocaba
+Enzo,35,Bocaina
+Francisco,49,Salto
+Giovanni,66,Flora
+João Gabriel,120,Espírito
+Matheus Henrique,23,Nuporanga
+Levi,35,Gavião
+Guilherme,88,Guarujá
+Heitor,103,Itobi
+João Miguel,55,Araras
+Nicolas,30,Jardinópolis
+Rafael,26,Santa
+Fernando,71,Maracaí
+Luiz Gustavo,47,Severínia
+Lorenzo,19,Júlio
+Matheus Henrique,83,Pradópolis
+Antonio,31,Joanópolis
+Thales,11,Tarumã
+João Lucas,54,Neves
+João Lucas,93,Castilho
+Lorenzo,60,Cássia
+Thiago,82,Pongaí
+Henry,66,São
+Pedro,55,Tanabi
+Yuri,1,Monte
+Nicolas,23,Campina
+Vinicius,11,Riolândia
+Juan,11,Ribeirão
+Bruno,28,Socorro
+Vitor,90,Bragança
+Kaique,9,São
+Guilherme,74,Novo
+Enzo,51,Bauru
+Cauê,8,Lucélia
+Marcelo,95,Rio
+Luiz Fernando,59,Cachoeira
+Raul,42,Piracicaba
+Enzo,25,Adolfo
+João Guilherme,38,Jeriquara
+Francisco,20,Monte
+Lorenzo,32,Natividade
+Pedro Henrique,113,União
+Anthony,66,Jaboticabal
+Diego,77,Taquaral
+João Miguel,103,Marabá
+Levi,20,Roseira
+João Paulo,58,Guaraçaí
+Enzo Gabriel,26,Alambari
+Guilherme,68,Ipeúna
+Benício,33,Socorro
+Bruno,120,Borborema
+Anthony,39,Pariquera-Açu
+Diogo,42,Penápolis
+Otávio,50,Campos
+Renan,83,Santa
+Henrique,110,Embu-Guaçu
+Vitor Gabriel,29,Motuca
+Luiz Guilherme,35,Tremembé
+Arthur,74,Mombuca
+Arthur,75,Indiana
+Lucca,25,Cajobi
+Lucas Gabriel,4,Tapiraí
+João Miguel,52,Osvaldo
+Yuri,85,Vinhedo
+Guilherme,100,Júlio
+Marcos Vinicius,74,Mogi
+Calebe,54,Itararé
+Theo,70,Embu
+Lucas,110,Taubaté
+Luiz Felipe,32,Populina
+Guilherme,20,Santa
+Lucas Gabriel,69,Ribeirão
+Giovanni,75,Cajuru
+Tomás,119,Guatapará
+Breno,66,Taquaritinga
+Renato,30,Itapetininga
+Luiz Fernando,21,Gabriel
+Renato,112,Guararapes
+Juan,2,Paulicéia
+Miguel,97,Ipeúna
+Cauã,107,Parisi
+Bryan,53,Echaporã
+Matheus Henrique,10,Parisi
+Theo,81,Auriflama
+Vitor Gabriel,62,São
+Augusto,93,Ourinhos
+Guilherme,8,Cajati
+Yuri,71,Areiópolis
+Eduardo,19,Laranjal
+Joaquim,57,Jales
+Pedro Lucas,103,Bragança
+Lucas,42,Limeira
+André,64,Bastos
+Enzo Gabriel,52,Poá
+Caio,81,Vitória
+Calebe,37,Porangaba
+Giovanni,83,São
+Calebe,11,Zacarias
+Luiz Guilherme,94,Timburi
+Benjamin,10,Biritiba
+Enzo,106,Borborema
+Caio,119,Mairinque
+Guilherme,103,Bariri
+Eduardo,58,Pedrinhas
+Marcos Vinicius,55,Estiva
+Luiz Guilherme,79,Novais
+Alexandre,34,Garça
+Giovanni,41,Paulo
+Theo,89,Dois
+Raul,37,Porangaba
+Gustavo,74,Piquerobi
+Luiz Felipe,74,Queiroz
+Luiz Miguel,58,Santa
+Yuri,6,Bebedouro
+Felipe,1,Planalto
+Pietro,61,São
+Pedro,49,Miguelópolis
+Ricardo,65,Mogi
+Caio,91,Franco
+Lucas Gabriel,62,Monções
+Enrico,27,Cosmópolis
+Kaique,59,Ubatuba
+Antonio,15,Marinópolis
+André,73,Araçoiaba
+Pietro,16,Marinópolis
+Vitor Gabriel,72,Anhembi
+Hugo,85,Ibaté
+Matheus,87,Caieiras
+Rafael,45,Cardoso
+Luiz Henrique,10,São
+Kaique,9,Birigui
+Anthony,63,Torre
+Julio César,47,Panorama
+Luiz Henrique,46,Rubineia
+Fernando,17,Ourinhos
+Bernardo,20,Sagres
+Luiz Felipe,39,Embu-Guaçu
+André,104,Vista
+Bryan,77,Altinópolis
+Guilherme,76,Aguaí
+Henrique,28,Taquaral
+João Paulo,18,Bento
+Enrico,68,Pariquera-Açu
+Ricardo,26,Araçoiaba
+Vitor,6,Mendonça
+Ricardo,116,Sebastianópolis
+Pedro Henrique,79,Cunha
+João,49,Porangaba
+Pedro Henrique,54,Itapura
+Vitor Hugo,27,Itaberá
+Benjamin,32,Altinópolis
+Luiz Felipe,87,Taiúva
+Luiz Guilherme,33,Timburi
+Pedro,27,Rafard
+Luiz Miguel,91,São
+Caio,67,Bragança
+Isaac,62,São
+Marcelo,3,Sertãozinho
+Thiago,9,Taquaral
+Tomás,84,Jundiaí
+Ricardo,14,Analândia
+Gustavo,22,Oriente
+Emanuel,112,Irapuã
+Benício,63,Anhembi
+Vinicius,93,Apiaí
+Carlos Eduardo,9,Cosmorama
+Henrique,106,Itapeva
+Emanuel,85,Sebastianópolis
+Pedro Henrique,70,Bariri
+Theo,62,Salto
+Zezin,21,Santos

@@ -1,4 +1,6 @@
 target/
+dependency-reduced-pom.xml
+jmh-result*.json
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -36,3 +38,8 @@ build/
 
 ### Mac OS ###
 .DS_Store
+.aider*
+
+### Documentation Site Build ###
+site/
+
