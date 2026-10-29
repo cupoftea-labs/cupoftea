@@ -34,6 +34,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          if [[ "$VERSION" != *"-SNAPSHOT" ]]; then
+            SNAPSHOT_VERSION="${VERSION}-SNAPSHOT"
+            echo "Non-snapshot version detected ($VERSION). Setting reactor version to $SNAPSHOT_VERSION for snapshot deployment..."
+            mvn -B versions:set -DnewVersion="$SNAPSHOT_VERSION" -DgenerateBackupPoms=false
+          fi
           mvn -B clean deploy \
             -DskipTests \
             -DaltSnapshotDeploymentRepository=github::default::https://maven.pkg.github.com/cupoftea-labs/cupoftea \
