@@ -6,12 +6,12 @@
 
     <groupId>com.cupoftea</groupId>
     <artifactId>cupoftea-parent</artifactId>
-    <version>0.13.0</version>
+    <version>0.14.0</version>
     <packaging>pom</packaging>
 
     <name>CupOfTea Parent</name>
     <description>Lightweight modular library for data manipulation in Java.</description>
-    <url>https://github.com/filippo-pequini/CupOfTea</url>
+    <url>https://github.com/cupoftea-labs/cupoftea</url>
 
     <licenses>
         <license>
@@ -31,14 +31,14 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/filippo-pequini/CupOfTea.git</connection>
-        <developerConnection>scm:git:ssh://github.com:filippo-pequini/CupOfTea.git</developerConnection>
-        <url>https://github.com/filippo-pequini/CupOfTea</url>
+        <connection>scm:git:git://github.com/cupoftea-labs/cupoftea.git</connection>
+        <developerConnection>scm:git:ssh://github.com:cupoftea-labs/cupoftea.git</developerConnection>
+        <url>https://github.com/cupoftea-labs/cupoftea</url>
     </scm>
 
     <issueManagement>
         <system>GitHub Issues</system>
-        <url>https://github.com/filippo-pequini/CupOfTea/issues</url>
+        <url>https://github.com/cupoftea-labs/cupoftea/issues</url>
     </issueManagement>
 
     <modules>
@@ -63,7 +63,7 @@
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <cupoftea.version>0.13.0</cupoftea.version>
+        <cupoftea.version>0.14.0</cupoftea.version>
         <lombok.version>1.18.38</lombok.version>
         <annotations.version>26.0.2</annotations.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
@@ -330,12 +330,58 @@
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>3.3.1</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar-no-fork</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
                     <version>3.11.2</version>
                     <configuration>
                         <source>${maven.compiler.source}</source>
                         <release>${maven.compiler.release}</release>
                         <doclint>none</doclint>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-gpg-plugin</artifactId>
+                    <version>3.2.7</version>
+                    <executions>
+                        <execution>
+                            <id>sign-artifacts</id>
+                            <phase>verify</phase>
+                            <goals>
+                                <goal>sign</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.sonatype.central</groupId>
+                    <artifactId>central-publishing-maven-plugin</artifactId>
+                    <version>0.7.0</version>
+                    <extensions>true</extensions>
+                    <configuration>
+                        <publishingServerId>central</publishingServerId>
+                        <autoPublish>true</autoPublish>
+                        <waitUntil>published</waitUntil>
                     </configuration>
                 </plugin>
             </plugins>
@@ -351,8 +397,43 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/cupoftea-labs/cupoftea</url>
+        </snapshotRepository>
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/cupoftea-labs/cupoftea</url>
+        </repository>
+    </distributionManagement>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
