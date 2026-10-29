@@ -44,7 +44,7 @@ jobs:
           gpg-passphrase: GPG_PASSPHRASE
 
       - name: Set up Maven 3.9.x
-        uses: stCarver/setup-maven@v5
+        uses: stCarolas/setup-maven@v5
         with:
           maven-version: '3.9.9'
 
