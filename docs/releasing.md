@@ -44,12 +44,12 @@ CupOfTea uses GitHub Actions to automate artifact compilation, signing, release 
 2. **Changelog verification**:
    - Verify `CHANGELOG.md` has an entry for the new version under `## [X.Y.Z] - YYYY-MM-DD`.
 
-3. **GPG Signing Secrets configured**:
+3. **GPG & Sonatype Secrets configured**:
    - In GitHub Repository Secrets:
-     - `MAVEN_GPG_PRIVATE_KEY`: ASCII-armored private GPG key.
-     - `MAVEN_GPG_PASSPHRASE`: Passphrase for the GPG private key.
-     - `MAVEN_CENTRAL_USERNAME`: Sonatype Central Portal User Token username.
-     - `MAVEN_CENTRAL_PASSWORD`: Sonatype Central Portal User Token password.
+     - `GPG_SIGNING_KEY`: ASCII-armored private GPG key.
+     - `GPG_PASSPHRASE`: Passphrase for the GPG private key.
+     - `CENTRAL_USERNAME`: Sonatype Central Portal User Token username.
+     - `CENTRAL_PASSWORD`: Sonatype Central Portal User Token password.
 
 4. **Triggering the Release**:
    - Create and push a tag:
