@@ -8,7 +8,7 @@ The `cupoftea-html` module allows extracting structured tabular data directly fr
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-html</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>

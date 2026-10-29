@@ -4,9 +4,9 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-parent</artifactId>
-    <version>0.14.0</version>
+    <version>0.15.0</version>
     <packaging>pom</packaging>
 
     <name>CupOfTea Parent</name>
@@ -88,67 +88,67 @@
         <dependencies>
             <!-- Internal Modules -->
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-core</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-csv</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-json</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-excel</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-parquet</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-arrow</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-html</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-yaml</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-xml</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-plot</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-sql</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-all</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>
-                <groupId>com.cupoftea</groupId>
+                <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-benchmark</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>

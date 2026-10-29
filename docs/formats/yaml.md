@@ -8,7 +8,7 @@ The `cupoftea-yaml` module provides parsing and dumping capabilities for YAML ta
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-yaml</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>

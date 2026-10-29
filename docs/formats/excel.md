@@ -8,7 +8,7 @@ The `cupoftea-excel` module provides ingestion for Microsoft Excel spreadsheets 
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-excel</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>

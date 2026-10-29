@@ -1,7 +1,7 @@
 # CupOfTea
 
 [![Java CI with Maven](https://github.com/cupoftea-labs/cupoftea/actions/workflows/maven.yaml/badge.svg)](https://github.com/cupoftea-labs/cupoftea/actions/workflows/maven.yaml)
-[![Maven Central](https://img.shields.io/maven-central/v/com.cupoftea/cupoftea-parent.svg?label=Maven%20Central)](https://central.sonatype.com/namespace/com.cupoftea)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.cupoftea-labs/cupoftea-parent.svg?label=Maven%20Central)](https://central.sonatype.com/namespace/io.github.cupoftea-labs)
 [![GitHub Packages](https://img.shields.io/badge/GitHub%20Packages-SNAPSHOT-blue)](https://github.com/cupoftea-labs/cupoftea/packages)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
@@ -40,7 +40,7 @@ Add the core dependency to your `pom.xml`:
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-core</artifactId>
     <version>0.14.0</version>
 </dependency>
@@ -51,12 +51,12 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, Arrow, Plot, S
 ```xml
 <!-- Example: Add CSV and JSON format support -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-csv</artifactId>
     <version>0.14.0</version>
 </dependency>
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-json</artifactId>
     <version>0.14.0</version>
 </dependency>
@@ -64,7 +64,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, Arrow, Plot, S
 <!-- Or import all formats with the aggregator module: -->
 <!--
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-all</artifactId>
     <version>0.14.0</version>
 </dependency>
@@ -79,28 +79,28 @@ For more details on releases and publishing, see [docs/community/releasing.md](d
 
 ```groovy
 // Core library
-implementation 'com.cupoftea:cupoftea-core:0.5.0'
+implementation 'io.github.cupoftea-labs:cupoftea-core:0.5.0'
 
 // Optional format modules
-implementation 'com.cupoftea:cupoftea-csv:0.5.0'
-implementation 'com.cupoftea:cupoftea-json:0.5.0'
+implementation 'io.github.cupoftea-labs:cupoftea-csv:0.5.0'
+implementation 'io.github.cupoftea-labs:cupoftea-json:0.5.0'
 
 // Or all formats at once:
-// implementation 'com.cupoftea:cupoftea-all:0.5.0'
+// implementation 'io.github.cupoftea-labs:cupoftea-all:0.5.0'
 ```
 
 **Kotlin DSL (`build.gradle.kts`):**
 
 ```kotlin
 // Core library
-implementation("com.cupoftea:cupoftea-core:0.5.0")
+implementation("io.github.cupoftea-labs:cupoftea-core:0.5.0")
 
 // Optional format modules
-implementation("com.cupoftea:cupoftea-csv:0.5.0")
-implementation("com.cupoftea:cupoftea-json:0.5.0")
+implementation("io.github.cupoftea-labs:cupoftea-csv:0.5.0")
+implementation("io.github.cupoftea-labs:cupoftea-json:0.5.0")
 
 // Or all formats at once:
-// implementation("com.cupoftea:cupoftea-all:0.5.0")
+// implementation("io.github.cupoftea-labs:cupoftea-all:0.5.0")
 ```
 
 ## Available Modules

@@ -8,7 +8,7 @@ The `cupoftea-csv` module handles delimited text data using [OpenCSV](https://op
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-csv</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
