@@ -67,7 +67,7 @@ CupOfTea uses GitHub Actions to automate artifact compilation, signing, release 
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-core</artifactId>
     <version>0.12.0</version>
 </dependency>

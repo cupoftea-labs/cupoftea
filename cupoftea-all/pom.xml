@@ -5,9 +5,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.cupoftea</groupId>
+        <groupId>io.github.cupoftea-labs</groupId>
         <artifactId>cupoftea-parent</artifactId>
-        <version>0.14.0</version>
+        <version>0.15.0</version>
     </parent>
 
     <artifactId>cupoftea-all</artifactId>
@@ -18,47 +18,47 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-csv</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-json</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-excel</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-parquet</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-arrow</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-sql</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-html</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-yaml</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-xml</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.cupoftea</groupId>
+            <groupId>io.github.cupoftea-labs</groupId>
             <artifactId>cupoftea-plot</artifactId>
         </dependency>
 

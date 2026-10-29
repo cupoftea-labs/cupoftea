@@ -17,7 +17,7 @@ To use CupOfTea's in-memory columnar DataFrame engine without external IO depend
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-core</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
@@ -30,49 +30,49 @@ Add format modules as needed. The core engine dynamically discovers format reade
 ```xml
 <!-- CSV Support (OpenCSV) -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-csv</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 
 <!-- JSON Support (Jackson) -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-json</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 
 <!-- Excel Support (.xlsx / .xls via Apache POI) -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-excel</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 
 <!-- Parquet Support (Apache Parquet / Hadoop) -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-parquet</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 
 <!-- HTML Table Ingestion (Jsoup) -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-html</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 
 <!-- YAML Support (SnakeYAML) -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-yaml</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
 
 <!-- XML Support (Standard Java DOM) -->
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-xml</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
@@ -84,7 +84,7 @@ To include all format adapters in one go:
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-all</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
@@ -99,14 +99,14 @@ To include all format adapters in one go:
 ```groovy
 dependencies {
     // Core Engine
-    implementation 'com.cupoftea:cupoftea-core:1.0-SNAPSHOT'
+    implementation 'io.github.cupoftea-labs:cupoftea-core:1.0-SNAPSHOT'
 
     // Add format modules as needed:
-    implementation 'com.cupoftea:cupoftea-csv:1.0-SNAPSHOT'
-    implementation 'com.cupoftea:cupoftea-json:1.0-SNAPSHOT'
+    implementation 'io.github.cupoftea-labs:cupoftea-csv:1.0-SNAPSHOT'
+    implementation 'io.github.cupoftea-labs:cupoftea-json:1.0-SNAPSHOT'
 
     // Or import all modules:
-    // implementation 'com.cupoftea:cupoftea-all:1.0-SNAPSHOT'
+    // implementation 'io.github.cupoftea-labs:cupoftea-all:1.0-SNAPSHOT'
 }
 ```
 
@@ -115,13 +115,13 @@ dependencies {
 ```kotlin
 dependencies {
     // Core Engine
-    implementation("com.cupoftea:cupoftea-core:1.0-SNAPSHOT")
+    implementation("io.github.cupoftea-labs:cupoftea-core:1.0-SNAPSHOT")
 
     // Add format modules as needed:
-    implementation("com.cupoftea:cupoftea-csv:1.0-SNAPSHOT")
-    implementation("com.cupoftea:cupoftea-json:1.0-SNAPSHOT")
+    implementation("io.github.cupoftea-labs:cupoftea-csv:1.0-SNAPSHOT")
+    implementation("io.github.cupoftea-labs:cupoftea-json:1.0-SNAPSHOT")
 
     // Or import all modules:
-    // implementation("com.cupoftea:cupoftea-all:1.0-SNAPSHOT")
+    // implementation("io.github.cupoftea-labs:cupoftea-all:1.0-SNAPSHOT")
 }
 ```

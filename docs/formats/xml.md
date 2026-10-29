@@ -8,7 +8,7 @@ The `cupoftea-xml` module parses hierarchical XML data structures into flat 2D D
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-xml</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>

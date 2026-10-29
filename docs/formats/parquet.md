@@ -8,7 +8,7 @@ The `cupoftea-parquet` module integrates [Apache Parquet](https://parquet.apache
 
 ```xml
 <dependency>
-    <groupId>com.cupoftea</groupId>
+    <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-parquet</artifactId>
     <version>1.0-SNAPSHOT</version>
 </dependency>
