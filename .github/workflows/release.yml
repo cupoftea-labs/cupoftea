@@ -43,6 +43,11 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_SIGNING_KEY }}
           gpg-passphrase: GPG_PASSPHRASE
 
+      - name: Set up Maven 3.9.x
+        uses: stCarver/setup-maven@v5
+        with:
+          maven-version: '3.9.9'
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

@@ -17,6 +17,10 @@
     <name>CupOfTea Benchmark</name>
     <description>JMH micro- and macro-benchmarking suite for CupOfTea columnar engine and formats.</description>
 
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.cupoftea</groupId>
