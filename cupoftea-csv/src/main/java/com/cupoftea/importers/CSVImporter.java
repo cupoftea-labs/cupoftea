@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.cupoftea.CupOfTea;
+import com.cupoftea.csv.fast.FastCsvReader;
 import com.cupoftea.exceptions.CsvParseException;
 import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.importers.configurations.CSVImporterConfiguration;
@@ -64,6 +65,22 @@ public class CSVImporter implements ICSVImporter {
     public void importFromCsv(File file) {
         if (file == null) {
             throw new ImportException("File cannot be null");
+        }
+
+        if (FastCsvReader.isEligible(file, this.configuration)) {
+            try {
+                FastCsvReader fastReader = new FastCsvReader(this.configuration);
+                fastReader.readInto(file, this.dataFrame);
+                return;
+            } catch (Exception e) {
+                if (e instanceof CsvParseException) {
+                    throw (CsvParseException) e;
+                }
+                if (e instanceof ImportException) {
+                    throw (ImportException) e;
+                }
+                // Fall back to standard OpenCSV reader if FastCsvReader encounters an unhandled edge case
+            }
         }
 
         this.dataFrame.clear();

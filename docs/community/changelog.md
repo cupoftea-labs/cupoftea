@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-10-29
+
+### Added
+
+- Native chunk-based parallel CSV reader (`FastCsvReader`) supporting direct byte decoding, NIO memory-mapping, zero/low object allocation, and multi-core parallel ingestion ([#208](https://github.com/cupoftea-labs/cupoftea/issues/208)).
+- Added `fastEngine` toggle to `CSVImporterConfiguration` (enabled by default) for high-throughput columnar ingestion.
+
+## [0.15.1] - 2026-10-28
+
+### Fixed
+
+- Upgraded `central-publishing-maven-plugin` to `0.12.0` to handle Sonatype Central Portal API response schema update (support for new `warnings` field).
+
+## [0.15.0] - 2026-10-28
+
+### Changed
+
+- Updated Maven `groupId` across parent and all 13 reactor modules from `com.cupoftea` to `io.github.cupoftea-labs` to align with the verified Sonatype Central Portal namespace.
+- Updated documentation and README coordinates and badges to `io.github.cupoftea-labs`.
+
+## [0.14.0] - 2026-10-28
+
+### Added
+
+- Automated SNAPSHOT release workflow to GitHub Packages (`.github/workflows/publish-snapshot.yml`) on pushes to `develop` and `master` ([#181](https://github.com/cupoftea-labs/cupoftea/issues/181), [#83](https://github.com/cupoftea-labs/cupoftea/issues/83)).
+- Automated Maven Central Portal release workflow (`.github/workflows/release.yml`) with GPG artifact signing, source and Javadoc attachment, and automated GitHub Releases ([#181](https://github.com/cupoftea-labs/cupoftea/issues/181), [#82](https://github.com/cupoftea-labs/cupoftea/issues/82)).
+- Comprehensive release procedures and maintainer guide in `docs/releasing.md` ([#181](https://github.com/cupoftea-labs/cupoftea/issues/181)).
+- Central publishing Maven plugin (`central-publishing-maven-plugin`), GPG plugin, and distribution management in `pom.xml`.
+- Release status and registry badges in `README.md`.
+
 ## [0.13.0] - 2026-10-28
 
 ### Added
