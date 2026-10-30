@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.19.0] - 2026-10-30
+## [0.20.0] - 2026-10-30
 
 ### Added
 
@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Automatic line-aligned chunk partitioning with hardware-accelerated SIMD structural scanning and direct zero-copy columnar vector assembly (`FastCsvReader.assembleChunk`).
   - Compact running GroupBy engine (`CompactRunningGroupBy`) maintaining cache-resident running statistics (`min`, `mean`, `max`, `sum`, `count`, `first`, `last`, `std`, `var`) with zero heap allocation during hot scanning loops and parallel partition state reduction.
   - Lazy execution graph supporting stream filtering (`filter`), early projection (`select`, `drop`), early limit termination (`limit`, `head`), global aggregations (`agg`), out-of-core counting (`count`), and plan explanation (`explain`), finalized via `.collect()`.
+
+## [0.19.0] - 2026-10-30
+
+### Added
+
+- Direct zero-copy ingestion of Categorical / Dictionary encoded columns in `FastCsvReader` and `SimdCsvScanner` ([#221](https://github.com/cupoftea-labs/cupoftea/issues/221)):
+  - Added native `DictionaryChunkBuffer` mapping parsed UTF-8 byte slices directly to dictionary integer codes via local open-addressing byte slice hash tables during chunk parsing.
+  - Eliminated intermediate `StringChunkBuffer` allocations and post-load `toDictionary()` conversions when columns are specified as `Schema.CATEGORICAL` or `Categorical.class`.
+  - Parallel chunk dictionary merging in `assembleVectors`, building a unified global dictionary and remapping chunk codes across worker threads into `DictionaryColumnVector` and `CategoricalColumnVector`.
 
 ## [0.18.0] - 2026-10-30
 

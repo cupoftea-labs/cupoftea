@@ -40,6 +40,10 @@ public class CsvFormatReader implements FormatReader {
             Object schemaOpt = options.getOption("schema");
             if (schemaOpt instanceof com.cupoftea.table.Schema) {
                 config.setSchema((com.cupoftea.table.Schema) schemaOpt);
+            } else if (options.getSchema() != null && !options.getSchema().isEmpty()) {
+                com.cupoftea.table.Schema.Builder sb = com.cupoftea.table.Schema.builder();
+                options.getSchema().forEach(sb::add);
+                config.setSchema(sb.build());
             }
         }
 
