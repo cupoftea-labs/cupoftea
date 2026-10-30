@@ -4,6 +4,7 @@ import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -495,6 +496,70 @@ public class CupOfTea {
 
     public CupOfTea filter(IFilter filter) {
         return new CupOfTea(this.dataFrame.filter(filter), this.mutationMode);
+    }
+
+    // --- Dictionary / Categorical Encoding & Code-Accelerated Filtering ---
+
+    public CupOfTea encodeDictionary(String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.encodeDictionary(columnNames);
+        return target;
+    }
+
+    public CupOfTea encodeDictionary(boolean useShortCodes, String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.encodeDictionary(useShortCodes, columnNames);
+        return target;
+    }
+
+    public CupOfTea encodeDictionary() {
+        return encodeDictionary(false);
+    }
+
+    public CupOfTea encodeDictionary(boolean useShortCodes) {
+        return encodeDictionary(useShortCodes, (String[]) null);
+    }
+
+    public CupOfTea decodeDictionary(String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.decodeDictionary(columnNames);
+        return target;
+    }
+
+    public CupOfTea decodeDictionary() {
+        return decodeDictionary((String[]) null);
+    }
+
+    public CupOfTea categorize(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public CupOfTea toCategorical(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public boolean isDictionaryEncoded(String columnName) {
+        return this.dataFrame.isDictionaryEncoded(columnName);
+    }
+
+    public boolean isCategorical(String columnName) {
+        return this.dataFrame.isCategorical(columnName);
+    }
+
+    public CupOfTea filterEquals(String columnName, Object value) {
+        return new CupOfTea(this.dataFrame.filterEquals(columnName, value), this.mutationMode);
+    }
+
+    public CupOfTea filterNotEquals(String columnName, Object value) {
+        return new CupOfTea(this.dataFrame.filterNotEquals(columnName, value), this.mutationMode);
+    }
+
+    public CupOfTea filterIn(String columnName, Collection<?> values) {
+        return new CupOfTea(this.dataFrame.filterIn(columnName, values), this.mutationMode);
+    }
+
+    public CupOfTea filterIn(String columnName, Object... values) {
+        return new CupOfTea(this.dataFrame.filterIn(columnName, values), this.mutationMode);
     }
 
     // --- Vectorized Map / Transformations ---

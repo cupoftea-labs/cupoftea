@@ -3,6 +3,7 @@ package com.cupoftea.table.interfaces;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -272,6 +273,65 @@ public abstract class IDataFrame {
     public abstract IDataFrame filter(IFilter filter);
     public abstract IDataFrame update(Map<String, Object> updateColumns);
     public abstract IDataFrame orderBy(Orderer... orderer);
+
+    // Dictionary / Categorical Encoding & Code-Accelerated Filtering
+
+    public IDataFrame encodeDictionary(String... columnNames) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame encodeDictionary(boolean useShortCodes, String... columnNames) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame encodeDictionary() {
+        return encodeDictionary(false);
+    }
+
+    public IDataFrame encodeDictionary(boolean useShortCodes) {
+        return encodeDictionary(useShortCodes, (String[]) null);
+    }
+
+    public IDataFrame decodeDictionary(String... columnNames) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame decodeDictionary() {
+        return decodeDictionary((String[]) null);
+    }
+
+    public IDataFrame categorize(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public IDataFrame toCategorical(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public boolean isDictionaryEncoded(String columnName) {
+        ColumnVector vec = getColumnVector(columnName);
+        return vec != null && vec.isDictionaryEncoded();
+    }
+
+    public boolean isCategorical(String columnName) {
+        return isDictionaryEncoded(columnName);
+    }
+
+    public IDataFrame filterEquals(String columnName, Object value) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame filterNotEquals(String columnName, Object value) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame filterIn(String columnName, Collection<?> values) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame filterIn(String columnName, Object... values) {
+        return filterIn(columnName, values != null ? Arrays.asList(values) : Collections.emptyList());
+    }
 
     // Vectorized Map / Transformations
 

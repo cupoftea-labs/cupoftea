@@ -112,7 +112,7 @@ public final class ArrowSchemaConverter {
         if (clazz == byte.class || clazz == Byte.class) {
             return new ArrowType.Int(8, true);
         }
-        if (clazz == String.class) {
+        if (clazz == String.class || clazz == com.cupoftea.table.Categorical.class) {
             return new ArrowType.Utf8();
         }
         if (clazz == LocalDate.class) {

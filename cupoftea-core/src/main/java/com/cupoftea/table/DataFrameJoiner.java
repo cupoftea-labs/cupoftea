@@ -12,6 +12,8 @@ import java.util.Set;
 
 import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.table.interfaces.IDataFrame;
+import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 
 public final class DataFrameJoiner {
 
@@ -218,102 +220,120 @@ public final class DataFrameJoiner {
                     result.addRow(merged);
                 }
             }
-        } else if (joinType == JoinType.INNER) {
-            Map<JoinKey, List<Row>> rightIndex = new HashMap<>(right.size());
-            for (Row rightRow : right.getRows()) {
-                JoinKey key = extractKey(rightRow, rightOn);
-                if (!key.hasNA()) {
-                    rightIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(rightRow);
-                }
-            }
+        } else {
+            JoinKeyExtractor keyExtractor = new JoinKeyExtractor(left, right, leftOn, rightOn);
 
-            for (Row leftRow : left.getRows()) {
-                JoinKey key = extractKey(leftRow, leftOn);
-                if (key.hasNA()) {
-                    continue;
-                }
-                List<Row> matches = rightIndex.get(key);
-                if (matches != null) {
-                    for (Row match : matches) {
-                        result.addRow(mergeRows(
-                            leftRow, match, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+            if (joinType == JoinType.INNER) {
+                Map<JoinKey, List<Row>> rightIndex = new HashMap<>(right.size());
+                List<Row> rightRows = right.getRows();
+                for (int r = 0; r < rightRows.size(); r++) {
+                    Row rightRow = rightRows.get(r);
+                    JoinKey key = keyExtractor.extractRightKey(rightRow, r);
+                    if (!key.hasNA()) {
+                        rightIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(rightRow);
                     }
                 }
-            }
-        } else if (joinType == JoinType.LEFT) {
-            Map<JoinKey, List<Row>> rightIndex = new HashMap<>(right.size());
-            for (Row rightRow : right.getRows()) {
-                JoinKey key = extractKey(rightRow, rightOn);
-                if (!key.hasNA()) {
-                    rightIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(rightRow);
-                }
-            }
 
-            for (Row leftRow : left.getRows()) {
-                JoinKey key = extractKey(leftRow, leftOn);
-                List<Row> matches = !key.hasNA() ? rightIndex.get(key) : null;
-                if (matches != null && !matches.isEmpty()) {
-                    for (Row match : matches) {
-                        result.addRow(mergeRows(
-                            leftRow, match, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                List<Row> leftRows = left.getRows();
+                for (int l = 0; l < leftRows.size(); l++) {
+                    Row leftRow = leftRows.get(l);
+                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
+                    if (key.hasNA()) {
+                        continue;
                     }
-                } else {
-                    result.addRow(mergeLeftWithNullRight(
-                        leftRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
-                }
-            }
-        } else if (joinType == JoinType.RIGHT) {
-            Map<JoinKey, List<Row>> leftIndex = new HashMap<>(left.size());
-            for (Row leftRow : left.getRows()) {
-                JoinKey key = extractKey(leftRow, leftOn);
-                if (!key.hasNA()) {
-                    leftIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(leftRow);
-                }
-            }
-
-            for (Row rightRow : right.getRows()) {
-                JoinKey key = extractKey(rightRow, rightOn);
-                List<Row> matches = !key.hasNA() ? leftIndex.get(key) : null;
-                if (matches != null && !matches.isEmpty()) {
-                    for (Row match : matches) {
-                        result.addRow(mergeRows(
-                            match, rightRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                    List<Row> matches = rightIndex.get(key);
+                    if (matches != null) {
+                        for (Row match : matches) {
+                            result.addRow(mergeRows(
+                                leftRow, match, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                        }
                     }
-                } else {
-                    result.addRow(mergeNullLeftWithRight(
-                        rightRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, leftOn, rightOn, outputSize));
                 }
-            }
-        } else if (joinType == JoinType.OUTER) {
-            Set<Integer> matchedRightRowIndices = new HashSet<>();
-            Map<JoinKey, List<IndexedRow>> rightIndexedMap = new HashMap<>(right.size());
-            for (int i = 0; i < right.size(); i++) {
-                Row rightRow = right.getRow(i);
-                JoinKey key = extractKey(rightRow, rightOn);
-                if (!key.hasNA()) {
-                    rightIndexedMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new IndexedRow(i, rightRow));
-                }
-            }
-
-            for (Row leftRow : left.getRows()) {
-                JoinKey key = extractKey(leftRow, leftOn);
-                List<IndexedRow> matches = !key.hasNA() ? rightIndexedMap.get(key) : null;
-                if (matches != null && !matches.isEmpty()) {
-                    for (IndexedRow match : matches) {
-                        matchedRightRowIndices.add(match.index);
-                        result.addRow(mergeRows(
-                            leftRow, match.row, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+            } else if (joinType == JoinType.LEFT) {
+                Map<JoinKey, List<Row>> rightIndex = new HashMap<>(right.size());
+                List<Row> rightRows = right.getRows();
+                for (int r = 0; r < rightRows.size(); r++) {
+                    Row rightRow = rightRows.get(r);
+                    JoinKey key = keyExtractor.extractRightKey(rightRow, r);
+                    if (!key.hasNA()) {
+                        rightIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(rightRow);
                     }
-                } else {
-                    result.addRow(mergeLeftWithNullRight(
-                        leftRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
                 }
-            }
 
-            for (int i = 0; i < right.size(); i++) {
-                if (!matchedRightRowIndices.contains(i)) {
-                    result.addRow(mergeNullLeftWithRight(
-                        right.getRow(i), leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, leftOn, rightOn, outputSize));
+                List<Row> leftRows = left.getRows();
+                for (int l = 0; l < leftRows.size(); l++) {
+                    Row leftRow = leftRows.get(l);
+                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
+                    List<Row> matches = !key.hasNA() ? rightIndex.get(key) : null;
+                    if (matches != null && !matches.isEmpty()) {
+                        for (Row match : matches) {
+                            result.addRow(mergeRows(
+                                leftRow, match, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                        }
+                    } else {
+                        result.addRow(mergeLeftWithNullRight(
+                            leftRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                    }
+                }
+            } else if (joinType == JoinType.RIGHT) {
+                Map<JoinKey, List<Row>> leftIndex = new HashMap<>(left.size());
+                List<Row> leftRows = left.getRows();
+                for (int l = 0; l < leftRows.size(); l++) {
+                    Row leftRow = leftRows.get(l);
+                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
+                    if (!key.hasNA()) {
+                        leftIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(leftRow);
+                    }
+                }
+
+                List<Row> rightRows = right.getRows();
+                for (int r = 0; r < rightRows.size(); r++) {
+                    Row rightRow = rightRows.get(r);
+                    JoinKey key = keyExtractor.extractRightKey(rightRow, r);
+                    List<Row> matches = !key.hasNA() ? leftIndex.get(key) : null;
+                    if (matches != null && !matches.isEmpty()) {
+                        for (Row match : matches) {
+                            result.addRow(mergeRows(
+                                match, rightRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                        }
+                    } else {
+                        result.addRow(mergeNullLeftWithRight(
+                            rightRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, leftOn, rightOn, outputSize));
+                    }
+                }
+            } else if (joinType == JoinType.OUTER) {
+                Set<Integer> matchedRightRowIndices = new HashSet<>();
+                Map<JoinKey, List<IndexedRow>> rightIndexedMap = new HashMap<>(right.size());
+                for (int i = 0; i < right.size(); i++) {
+                    Row rightRow = right.getRow(i);
+                    JoinKey key = keyExtractor.extractRightKey(rightRow, i);
+                    if (!key.hasNA()) {
+                        rightIndexedMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new IndexedRow(i, rightRow));
+                    }
+                }
+
+                List<Row> leftRows = left.getRows();
+                for (int l = 0; l < leftRows.size(); l++) {
+                    Row leftRow = leftRows.get(l);
+                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
+                    List<IndexedRow> matches = !key.hasNA() ? rightIndexedMap.get(key) : null;
+                    if (matches != null && !matches.isEmpty()) {
+                        for (IndexedRow match : matches) {
+                            matchedRightRowIndices.add(match.index);
+                            result.addRow(mergeRows(
+                                leftRow, match.row, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                        }
+                    } else {
+                        result.addRow(mergeLeftWithNullRight(
+                            leftRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
+                    }
+                }
+
+                for (int i = 0; i < right.size(); i++) {
+                    if (!matchedRightRowIndices.contains(i)) {
+                        result.addRow(mergeNullLeftWithRight(
+                            right.getRow(i), leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, leftOn, rightOn, outputSize));
+                    }
                 }
             }
         }
@@ -399,12 +419,74 @@ public final class DataFrameJoiner {
         return merged;
     }
 
-    private static JoinKey extractKey(Row row, List<String> columns) {
-        Object[] values = new Object[columns.size()];
-        for (int i = 0; i < columns.size(); i++) {
-            values[i] = row.get(columns.get(i));
+    /**
+     * Extracts join keys from left and right rows, accelerating dictionary-encoded columns by mapping
+     * right dictionary codes into left dictionary code space so join probes compare primitive integer codes
+     * instead of hashing and comparing strings.
+     */
+    private static final class JoinKeyExtractor {
+        private final List<String> leftOn;
+        private final List<String> rightOn;
+        private final DictionaryColumnVector[] leftDicts;
+        private final DictionaryColumnVector[] rightDicts;
+        private final int[][] rightToUnifiedCode;
+
+        JoinKeyExtractor(IDataFrame left, IDataFrame right, List<String> leftOn, List<String> rightOn) {
+            this.leftOn = leftOn;
+            this.rightOn = rightOn;
+            int n = leftOn.size();
+            this.leftDicts = new DictionaryColumnVector[n];
+            this.rightDicts = new DictionaryColumnVector[n];
+            this.rightToUnifiedCode = new int[n][];
+
+            for (int i = 0; i < n; i++) {
+                ColumnVector lVec = left.getColumnVector(leftOn.get(i));
+                ColumnVector rVec = right.getColumnVector(rightOn.get(i));
+                if (lVec instanceof DictionaryColumnVector lDict && rVec instanceof DictionaryColumnVector rDict) {
+                    this.leftDicts[i] = lDict;
+                    this.rightDicts[i] = rDict;
+                    int lDictSize = lDict.getDictionarySize();
+                    int rDictSize = rDict.getDictionarySize();
+                    int[] codeMap = new int[rDictSize];
+                    for (int rCode = 0; rCode < rDictSize; rCode++) {
+                        String cat = rDict.getCategory(rCode);
+                        int lCode = lDict.indexOfCategory(cat);
+                        codeMap[rCode] = (lCode >= 0) ? lCode : (lDictSize + rCode);
+                    }
+                    this.rightToUnifiedCode[i] = codeMap;
+                }
+            }
         }
-        return new JoinKey(values);
+
+        JoinKey extractLeftKey(Row leftRow, int rowIndex) {
+            int n = leftOn.size();
+            Object[] values = new Object[n];
+            for (int i = 0; i < n; i++) {
+                DictionaryColumnVector lDict = leftDicts[i];
+                if (lDict != null && rowIndex < lDict.size()) {
+                    int code = lDict.getCode(rowIndex);
+                    values[i] = code < 0 ? null : Integer.valueOf(code);
+                } else {
+                    values[i] = leftRow.get(leftOn.get(i));
+                }
+            }
+            return new JoinKey(values);
+        }
+
+        JoinKey extractRightKey(Row rightRow, int rowIndex) {
+            int n = rightOn.size();
+            Object[] values = new Object[n];
+            for (int i = 0; i < n; i++) {
+                DictionaryColumnVector rDict = rightDicts[i];
+                if (rDict != null && rowIndex < rDict.size()) {
+                    int rCode = rDict.getCode(rowIndex);
+                    values[i] = rCode < 0 ? null : Integer.valueOf(rightToUnifiedCode[i][rCode]);
+                } else {
+                    values[i] = rightRow.get(rightOn.get(i));
+                }
+            }
+            return new JoinKey(values);
+        }
     }
 
     private static Object canonicalKey(Object val) {
