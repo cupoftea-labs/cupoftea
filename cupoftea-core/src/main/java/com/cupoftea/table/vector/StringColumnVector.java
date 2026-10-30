@@ -733,6 +733,37 @@ public class StringColumnVector extends ColumnVector implements Serializable {
         return arr;
     }
 
+    /**
+     * Encodes this string vector into a {@link DictionaryColumnVector} backed by {@code int[]} codes.
+     */
+    @Override
+    public DictionaryColumnVector toDictionary() {
+        return DictionaryColumnVector.fromStringVector(this, false);
+    }
+
+    /**
+     * Encodes this string vector into a {@link DictionaryColumnVector}, optionally using {@code short[]} codes.
+     */
+    @Override
+    public DictionaryColumnVector toDictionary(boolean useShortCodes) {
+        return DictionaryColumnVector.fromStringVector(this, useShortCodes);
+    }
+
+    /**
+     * Alias for {@link #toDictionary()}.
+     */
+    @Override
+    public DictionaryColumnVector toCategorical() {
+        return toDictionary(false);
+    }
+
+    /**
+     * Alias for {@link #toDictionary()}.
+     */
+    public DictionaryColumnVector encodeDictionary() {
+        return toDictionary(false);
+    }
+
     // ==========================================
     // Vectorized String Operations
     // ==========================================

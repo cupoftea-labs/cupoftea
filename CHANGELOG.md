@@ -5,51 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.17.3] - 2026-10-30
-
-### Performance
-
-- Stream raw UTF-8 chunk bytes directly into `StringColumnVector` buffers during `FastCsvReader` ingestion ([#218](https://github.com/cupoftea-labs/cupoftea/issues/218)):
-  - Replaced intermediate `String[]` chunk arrays and `FastStringPool` string decoding for `String` columns with contiguous UTF-8 byte buffers (`StringChunkBuffer`: `byte[] values`, `int[] offsets`).
-  - Added parallel chunk byte-buffer concatenation and offset adjustment (`System.arraycopy` across worker threads) in `FastCsvReader.assembleVectors(...)`, eliminating 100M single-threaded `String.getBytes(UTF_8)` re-encoding calls.
-  - Added L2-cache-resident windowed SIMD scanning over `MappedByteBuffer` (`SimdCsvScanner.parseChunkSimdMapped`) to avoid humongous heap allocations on multi-gigabyte CSV files.
-  - Optimized `StringColumnVector.copyIndexedValuesOnly` with an $O(G)$ single-pass bulk copy fast path instead of repeated $O(G^2)$ `replaceRowBytes` offset shifts during `GroupBy` key materialization.
-  - Eliminated unnecessary deep cloning of source column vectors in `GroupBy` construction, avoiding multi-gigabyte heap allocations and GC pauses during large aggregations.
-
-## [0.17.2] - 2026-10-30
-
-### Performance
-
-- Contiguous Arrow-style UTF-8 string vectors backed by contiguous bytes buffer and offset array ([#214](https://github.com/cupoftea-labs/cupoftea/issues/214)):
-  - Replaced pointer-heavy `String[]` array in `StringColumnVector` with contiguous `byte[] values` buffer and `int[] offsets` index array, eliminating 100M heap pointer allocations.
-  - Implemented zero-copy byte slice comparisons (`compareRows`, `rowsEqual`, `rowEqualsBytes`) and hash calculations (`hashRow`) without instantiating `java.lang.String` objects.
-  - Added direct UTF-8 byte ingestion (`appendUtf8Bytes`) and direct byte buffer constructors (`StringColumnVector(name, nullable, values, valuesCount, offsets, nulls, size)`).
-  - Integrated `FastCsvReader` to populate contiguous byte vectors directly during parallel chunk parsing.
-
-## [0.17.1] - 2026-10-30
-
-### Performance
-
-- Optimized GroupBy with primitive open-addressing hash table and single-pass aggregation ([#210](https://github.com/cupoftea-labs/cupoftea/issues/210)):
-  - Replaced `Map<List<Object>, IntList>` with primitive-backed `GroupHashTable` storing representative row indices, eliminating per-row key object allocation and pointer chasing.
-  - Implemented single-pass accumulation across chunk data for `sum`, `mean`, `count`, `min`, `max`, and `listAgg`.
-  - Populated typed output column vectors (`DoubleColumnVector`, `IntColumnVector`, `LongColumnVector`, `FloatColumnVector`, `StringColumnVector`) directly by index, avoiding row-level `HashMap` creation and boxing.
-
-## [0.17.0] - 2026-10-30
+## [0.18.0] - 2026-10-30
 
 ### Added
 
-- Two-Stage SIMD CSV structural scanner (`SimdCsvScanner`) using the Java Vector API (`jdk.incubator.vector.ByteVector` with `SPECIES_PREFERRED` and 4× loop unrolling), branchless parallel prefix-XOR quote parity resolution (`prefixXor`), and `TZCNT`/`BLSR` bit-scanning intrinsics ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
-- Runtime hardware and module capability detector (`SimdDetector`) with automatic fallback to scalar scanning when `--add-modules jdk.incubator.vector` is absent or disabled (`-Dcupoftea.simd.disabled=true`) ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
-- Added `simdEnabled` toggle (`isSimdEnabled()`, `setSimdEnabled(boolean)`) to `CSVImporterConfiguration` (enabled by default) and `FastCsvReader.readInto(byte[], CupOfTea)` ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
-- JMH micro- and end-to-end SIMD CSV benchmark suite (`SimdCsvScannerBenchmark`) covering standard wide CSV, high-density quoted CSV, and mixed varied-length CSV datasets ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
-
-## [0.16.0] - 2026-10-29
-
-### Added
-
-- Native chunk-based parallel CSV reader (`FastCsvReader`) supporting direct byte decoding, NIO memory-mapping, zero/low object allocation, and multi-core parallel ingestion ([#208](https://github.com/cupoftea-labs/cupoftea/issues/208)).
-- Added `fastEngine` toggle to `CSVImporterConfiguration` (enabled by default) for high-throughput columnar ingestion.
+- Dictionary / Categorical encoding for repeated string columns (`DictionaryColumnVector`, `CategoricalColumnVector`, `Categorical`, `DataType.CATEGORICAL`, `Schema.CATEGORICAL`, `Schema.DICTIONARY`, `CategoricalConverter`) ([#212](https://github.com/cupoftea-labs/cupoftea/issues/212)):
+  - Unique string lookup array (`String[]`) paired with primitive integer code arrays (`int[]` or compact `short[]` with automatic promotion when cardinality exceeds `Short.MAX_VALUE`).
+  - DataFrame and column conversion methods: `df.encodeColumn(col)`, `df.encodeColumns(cols...)`, `df.encodeCategoricalColumns(maxCardinalityRatio)`, `df.decodeColumn(col)`, `df.decodeAllDictionaryColumns()`, `StringColumnVector.toDictionaryColumnVector()`, and `ColumnRef.asCategorical()`.
+  - Integer-code-accelerated grouping (`GroupBy` direct bucket array indexing for single and composite dictionary columns), joining (`DataFrameJoiner` unified dictionary code mapping), sorting (`compareRows`, `minIndexed`, `maxIndexed`), deduplication (`distinct`), value counts (`valueCounts`), and filtering (`eq`, `notEq`, `isin`, `filterByCategory`).
+  - Dictionary-level $O(k)$ vectorized string operations (`StringAccessor` and `DictionaryColumnVector`: `toUpperCase`, `toLowerCase`, `trim`, `strip`, `replace`, `replaceRegex`, `substring`, `contains`, `startsWith`, `endsWith`, `matches`, `length`, `split`).
 
 ## [0.15.1] - 2026-10-28
 

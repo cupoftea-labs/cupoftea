@@ -5,6 +5,7 @@ import java.util.Objects;
 
 import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
@@ -40,7 +41,7 @@ public class GroupHashTable {
     private final KeyType singleKeyType;
 
     public enum KeyType {
-        INT, LONG, DOUBLE, FLOAT, BOOLEAN, STRING, OBJECT, MULTI
+        INT, LONG, DOUBLE, FLOAT, BOOLEAN, STRING, DICTIONARY, OBJECT, MULTI
     }
 
     public GroupHashTable(ColumnVector[] keyVectors, int expectedRows) {
@@ -52,7 +53,8 @@ public class GroupHashTable {
         this.singleKey = isSingleKey ? keyVectors[0] : null;
 
         if (isSingleKey) {
-            if (singleKey instanceof IntColumnVector) singleKeyType = KeyType.INT;
+            if (singleKey instanceof DictionaryColumnVector) singleKeyType = KeyType.DICTIONARY;
+            else if (singleKey instanceof IntColumnVector) singleKeyType = KeyType.INT;
             else if (singleKey instanceof LongColumnVector) singleKeyType = KeyType.LONG;
             else if (singleKey instanceof DoubleColumnVector) singleKeyType = KeyType.DOUBLE;
             else if (singleKey instanceof FloatColumnVector) singleKeyType = KeyType.FLOAT;
@@ -191,6 +193,12 @@ public class GroupHashTable {
                 if (v.isNull(row)) return 0;
                 return mix(v.hashRow(row));
             }
+            case DICTIONARY: {
+                DictionaryColumnVector v = (DictionaryColumnVector) singleKey;
+                int code = v.getCode(row);
+                if (code < 0) return 0;
+                return mix(code);
+            }
             case OBJECT: {
                 if (singleKey.isNull(row)) return 0;
                 Object o = singleKey.getObject(row);
@@ -258,6 +266,12 @@ public class GroupHashTable {
                 if (n1 != n2) return false;
                 return n1 || v.rowsEqual(r1, r2);
             }
+            case DICTIONARY: {
+                DictionaryColumnVector v = (DictionaryColumnVector) singleKey;
+                int c1 = v.getCode(r1);
+                int c2 = v.getCode(r2);
+                return c1 == c2;
+            }
             case OBJECT: {
                 boolean n1 = singleKey.isNull(r1);
                 boolean n2 = singleKey.isNull(r2);
@@ -292,6 +306,10 @@ public class GroupHashTable {
         }
         if (kv instanceof BooleanColumnVector bcv) return bcv.getBoolean(r) ? 1231 : 1237;
         if (kv instanceof StringColumnVector scv) return scv.hashRow(r);
+        if (kv instanceof DictionaryColumnVector dcv) {
+            int code = dcv.getCode(r);
+            return code < 0 ? 0 : code;
+        }
         Object o = kv.getObject(r);
         return (o != null && !NA.isNA(o)) ? o.hashCode() : 0;
     }
@@ -315,6 +333,7 @@ public class GroupHashTable {
         }
         if (kv instanceof BooleanColumnVector bcv) return bcv.getBoolean(r1) == bcv.getBoolean(r2);
         if (kv instanceof StringColumnVector scv) return scv.rowsEqual(r1, r2);
+        if (kv instanceof DictionaryColumnVector dcv) return dcv.getCode(r1) == dcv.getCode(r2);
         return Objects.equals(kv.getObject(r1), kv.getObject(r2));
     }
 

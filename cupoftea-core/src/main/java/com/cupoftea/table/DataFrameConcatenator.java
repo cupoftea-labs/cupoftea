@@ -589,6 +589,10 @@ public final class DataFrameConcatenator {
             return String.class;
         }
 
+        if ((b1 == Categorical.class && b2 == String.class) || (b1 == String.class && b2 == Categorical.class)) {
+            return Categorical.class;
+        }
+
         return Object.class;
     }
 

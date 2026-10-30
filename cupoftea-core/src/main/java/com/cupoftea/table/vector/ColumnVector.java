@@ -13,6 +13,7 @@ import java.util.function.Function;
 import java.util.function.IntPredicate;
 
 import com.cupoftea.table.Aggregations;
+import com.cupoftea.table.Categorical;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.NA;
 
@@ -67,6 +68,8 @@ public abstract class ColumnVector implements Serializable {
             return new BooleanColumnVector(name, initialCapacity, nullable);
         } else if (type == String.class) {
             return new StringColumnVector(name, initialCapacity, nullable);
+        } else if (type == Categorical.class || (type != null && DictionaryColumnVector.class.isAssignableFrom(type))) {
+            return new DictionaryColumnVector(name, initialCapacity, nullable);
         } else {
             return new ObjectColumnVector(name, type != null ? type : Object.class, initialCapacity, nullable);
         }
@@ -275,6 +278,43 @@ public abstract class ColumnVector implements Serializable {
     }
 
     /**
+     * Creates an empty {@link ColumnVector} with the same column name, logical type, nullability,
+     * and physical encoding (e.g., preserving dictionary encoding and its lookup dictionary).
+     */
+    public ColumnVector createEmptyWithSameEncoding(int initialCapacity) {
+        return ColumnVector.create(this.name, this.type, initialCapacity, this.nullable);
+    }
+
+    /**
+     * Returns {@code true} if this column vector uses dictionary / categorical encoding.
+     */
+    public boolean isDictionaryEncoded() {
+        return false;
+    }
+
+    /**
+     * Converts this column vector into a {@link DictionaryColumnVector} backed by {@code int[]} codes.
+     */
+    public DictionaryColumnVector toDictionary() {
+        return DictionaryColumnVector.fromVector(this, false);
+    }
+
+    /**
+     * Converts this column vector into a {@link DictionaryColumnVector}, optionally using {@code short[]} codes
+     * when the number of unique values fits within {@link Short#MAX_VALUE}.
+     */
+    public DictionaryColumnVector toDictionary(boolean useShortCodes) {
+        return DictionaryColumnVector.fromVector(this, useShortCodes);
+    }
+
+    /**
+     * Alias for {@link #toDictionary()}.
+     */
+    public DictionaryColumnVector toCategorical() {
+        return toDictionary();
+    }
+
+    /**
      * Consolidates per-chunk matching row indices into a single contiguous {@link ColumnVector} using prefix-sum offsets.
      */
     public ColumnVector filterFromChunks(
@@ -284,7 +324,7 @@ public abstract class ColumnVector implements Serializable {
             int totalMatched,
             int[][] ranges,
             ExecutorService pool) {
-        ColumnVector target = ColumnVector.create(this.name, this.type, Math.max(16, totalMatched), this.nullable);
+        ColumnVector target = createEmptyWithSameEncoding(Math.max(16, totalMatched));
         target.setSizeUnchecked(totalMatched);
 
         if (totalMatched == 0) {

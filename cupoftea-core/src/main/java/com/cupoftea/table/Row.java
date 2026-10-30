@@ -17,6 +17,7 @@ import java.util.Set;
 
 import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
@@ -237,6 +238,9 @@ public class Row implements Map<String, Object>, Serializable {
             if (vec instanceof StringColumnVector sv) {
                 return sv.getString(rowIndex);
             }
+            if (vec instanceof DictionaryColumnVector dv) {
+                return dv.getString(rowIndex);
+            }
         }
         Object val = get(column);
         if (NA.isNA(val)) {
@@ -253,6 +257,26 @@ public class Row implements Map<String, Object>, Serializable {
      */
     public String getString(int index) {
         return getString(getColumnName(index));
+    }
+
+    /**
+     * Returns the dictionary code for a dictionary-encoded column in this row, or {@code -1} if null/NA.
+     */
+    public int getCode(String column) {
+        if (vectors != null) {
+            ColumnVector vec = resolveVector(column);
+            if (vec instanceof DictionaryColumnVector dv) {
+                return dv.getCode(rowIndex);
+            }
+        }
+        throw new UnsupportedOperationException("Column '" + column + "' is not backed by a DictionaryColumnVector");
+    }
+
+    /**
+     * Returns the dictionary code for the dictionary-encoded column at the given index, or {@code -1} if null/NA.
+     */
+    public int getCode(int index) {
+        return getCode(getColumnName(index));
     }
 
     /**
