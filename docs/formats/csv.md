@@ -49,6 +49,44 @@ String species = SimdDetector.getSpeciesDescription(); // e.g. "Species[byte, 16
 CupOfTea df = CupOfTea.read().csv("data/customers.csv");
 ```
 
+---
+
+## 🌊 Out-of-Core Streaming & Lazy Evaluation (`CupOfTea.scan().csv(...)`)
+
+For datasets larger than physical RAM (such as the **One Billion Row Challenge (1BRC)** with 1 billion rows / ~14 GB), in-memory materialization causes excessive heap allocation and GC thrashing.
+
+Starting in **v0.19.0**, CupOfTea supports out-of-core lazy streaming evaluation via `CupOfTea.scan().csv(...)`:
+
+```java
+import com.cupoftea.CupOfTea;
+import com.cupoftea.table.Aggregation;
+import com.cupoftea.table.Schema;
+
+// 1BRC query: 1 billion rows evaluated with compact running aggregates in memory-mapped chunks
+CupOfTea result = CupOfTea.scan()
+    .delimiter(';')
+    .hasHeaders(false)
+    .schema(Schema.builder()
+        .add("station", String.class)
+        .add("temperature", Double.class)
+        .build())
+    .csv("measurements.txt")
+    .groupBy("station")
+    .agg(
+        Aggregation.MIN.of("temperature", "min"),
+        Aggregation.MEAN.of("temperature", "mean"),
+        Aggregation.MAX.of("temperature", "max")
+    )
+    .collect()
+    .orderBy("station");
+```
+
+Key features:
+- **Memory-Mapped Partition Streaming:** Chunks are memory-mapped on demand without materializing the full dataset into heap memory.
+- **Zero-Allocation Group Aggregation:** Evaluates running statistics (`min`, `mean`, `max`, `sum`, `count`, `first`, `last`, `std`, `var`) using compact primitive arrays and cache-friendly open-addressing string hash tables.
+- **Lazy Pipeline Operations:** Supports stream filtering (`filter`), early projection (`select`, `drop`), early limits (`limit`, `head`), and out-of-core counting (`count()`).
+- **Multi-Core Parallel Execution:** Slices are processed in parallel across available CPU cores via `ForkJoinPool` and reduced into the final result DataFrame upon calling `.collect()`.
+
 ### Advanced Options & Configuration
 
 You can configure delimiters, header presence, null string tokens, schema parsing, and toggle the fast parallel engine or SIMD scanner:
