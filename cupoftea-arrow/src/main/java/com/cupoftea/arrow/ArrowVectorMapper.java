@@ -98,21 +98,27 @@ public final class ArrowVectorMapper {
             }
             return new BooleanColumnVector(name, nullable, data, nulls, valueCount);
         } else if (vector instanceof VarCharVector vcv) {
-            String[] data = new String[valueCount];
+            StringColumnVector scv = new StringColumnVector(name, valueCount, nullable);
             for (int i = 0; i < valueCount; i++) {
-                if (!vcv.isNull(i)) {
-                    data[i] = new String(vcv.get(i), StandardCharsets.UTF_8);
+                if (vcv.isNull(i)) {
+                    scv.appendNull();
+                } else {
+                    byte[] bytes = vcv.get(i);
+                    scv.appendUtf8Bytes(bytes, 0, bytes.length);
                 }
             }
-            return new StringColumnVector(name, nullable, data, nulls, valueCount);
+            return scv;
         } else if (vector instanceof LargeVarCharVector lvcv) {
-            String[] data = new String[valueCount];
+            StringColumnVector scv = new StringColumnVector(name, valueCount, nullable);
             for (int i = 0; i < valueCount; i++) {
-                if (!lvcv.isNull(i)) {
-                    data[i] = new String(lvcv.get(i), StandardCharsets.UTF_8);
+                if (lvcv.isNull(i)) {
+                    scv.appendNull();
+                } else {
+                    byte[] bytes = lvcv.get(i);
+                    scv.appendUtf8Bytes(bytes, 0, bytes.length);
                 }
             }
-            return new StringColumnVector(name, nullable, data, nulls, valueCount);
+            return scv;
         } else if (vector instanceof SmallIntVector sv) {
             int[] data = new int[valueCount];
             for (int i = 0; i < valueCount; i++) {
@@ -234,17 +240,19 @@ public final class ArrowVectorMapper {
                     target.appendObject(source.getObject(i));
                 }
             }
-        } else if (target instanceof StringColumnVector) {
+        } else if (target instanceof StringColumnVector scvTarget) {
             for (int i = 0; i < rowCount; i++) {
                 if (source.isNull(i)) {
-                    target.appendNull();
+                    scvTarget.appendNull();
                 } else if (source instanceof VarCharVector vcv) {
-                    target.appendString(new String(vcv.get(i), StandardCharsets.UTF_8));
+                    byte[] bytes = vcv.get(i);
+                    scvTarget.appendUtf8Bytes(bytes, 0, bytes.length);
                 } else if (source instanceof LargeVarCharVector lvcv) {
-                    target.appendString(new String(lvcv.get(i), StandardCharsets.UTF_8));
+                    byte[] bytes = lvcv.get(i);
+                    scvTarget.appendUtf8Bytes(bytes, 0, bytes.length);
                 } else {
                     Object obj = source.getObject(i);
-                    target.appendString(obj != null ? obj.toString() : null);
+                    scvTarget.appendString(obj != null ? obj.toString() : null);
                 }
             }
         } else {
@@ -315,16 +323,30 @@ public final class ArrowVectorMapper {
             bitVector.setValueCount(rowCount);
         } else if (arrowVector instanceof VarCharVector vcv) {
             vcv.allocateNew(rowCount);
-            for (int i = 0; i < rowCount; i++) {
-                if (colVector.isNull(i)) {
-                    vcv.setNull(i);
-                } else {
-                    String str = colVector.getString(i);
-                    if (str == null) {
+            if (colVector instanceof StringColumnVector scv) {
+                byte[] rawValues = scv.getValues();
+                int[] offsets = scv.getOffsets();
+                for (int i = 0; i < rowCount; i++) {
+                    if (scv.isNull(i)) {
                         vcv.setNull(i);
                     } else {
-                        byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
-                        vcv.setSafe(i, bytes, 0, bytes.length);
+                        int start = offsets[i];
+                        int len = offsets[i + 1] - start;
+                        vcv.setSafe(i, rawValues, start, len);
+                    }
+                }
+            } else {
+                for (int i = 0; i < rowCount; i++) {
+                    if (colVector.isNull(i)) {
+                        vcv.setNull(i);
+                    } else {
+                        String str = colVector.getString(i);
+                        if (str == null) {
+                            vcv.setNull(i);
+                        } else {
+                            byte[] bytes = str.getBytes(StandardCharsets.UTF_8);
+                            vcv.setSafe(i, bytes, 0, bytes.length);
+                        }
                     }
                 }
             }

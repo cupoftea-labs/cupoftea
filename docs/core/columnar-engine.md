@@ -52,9 +52,12 @@ classDiagram
     }
 
     class StringColumnVector {
-        -String[] data
+        -byte[] values
+        -int[] offsets
         -BitSet nulls
         +String getString(int row)
+        +int hashRow(int row)
+        +boolean rowsEqual(int rowA, int rowB)
     }
 
     class ObjectColumnVector {

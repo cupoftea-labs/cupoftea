@@ -1,5 +1,7 @@
 package com.cupoftea.table.vector;
 
+import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
@@ -10,46 +12,169 @@ import java.util.concurrent.ExecutorService;
 import com.cupoftea.table.NA;
 
 /**
- * Columnar vector for Strings.
+ * High-performance columnar vector for UTF-8 strings backed by an Arrow-compatible
+ * contiguous byte buffer ({@code byte[] values}), an offset index array ({@code int[] offsets}),
+ * and a {@code BitSet nulls} bitmap.
+ *
+ * This design eliminates the array of 100M heap string pointers ({@code String[] data}),
+ * dramatically cuts GC overhead, minimizes L1/L2 cache misses, and enables zero-copy
+ * byte slice comparisons and hash calculations.
  */
-public class StringColumnVector extends ColumnVector {
+public class StringColumnVector extends ColumnVector implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L;
 
-    private String[] data;
+    private static final int DEFAULT_VALUE_CAPACITY = 128;
 
+    /** Contiguous UTF-8 encoded string bytes back-to-back. */
+    private byte[] values;
+
+    /**
+     * Offset index array tracking string slice boundaries.
+     * {@code offsets[i]} points to the start byte in {@link #values} for row {@code i},
+     * and {@code offsets[i + 1]} points to its end boundary (exclusive).
+     * Array length is at least {@code size + 1}.
+     */
+    private int[] offsets;
+
+    /** Total number of populated bytes in {@link #values}. */
+    private int valuesCount;
+
+    /**
+     * Constructs a new empty {@link StringColumnVector}.
+     *
+     * @param name column name
+     * @param initialCapacity initial row capacity
+     * @param nullable whether column supports nulls
+     */
     public StringColumnVector(String name, int initialCapacity, boolean nullable) {
         super(name, String.class, nullable, initialCapacity);
-        this.data = new String[Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity)];
+        int cap = Math.max(DEFAULT_INITIAL_CAPACITY, initialCapacity);
+        this.offsets = new int[cap + 1];
+        this.offsets[0] = 0;
+        this.values = new byte[Math.max(DEFAULT_VALUE_CAPACITY, cap * 8)];
+        this.valuesCount = 0;
     }
 
+    /**
+     * Constructs a {@link StringColumnVector} from an existing array of Strings.
+     */
     public StringColumnVector(String name, String[] data, BitSet nulls, int size) {
         this(name, true, data, nulls, size);
     }
 
+    /**
+     * Constructs a {@link StringColumnVector} from an existing array of Strings with nullability flag.
+     */
     public StringColumnVector(String name, boolean nullable, String[] data, BitSet nulls, int size) {
-        super(name, String.class, nullable, data.length);
-        this.data = data;
+        super(name, String.class, nullable, Math.max(DEFAULT_INITIAL_CAPACITY, size));
+        int initialCap = Math.max(DEFAULT_INITIAL_CAPACITY, size);
+        this.offsets = new int[initialCap + 1];
+        this.offsets[0] = 0;
+        this.values = new byte[Math.max(DEFAULT_VALUE_CAPACITY, initialCap * 8)];
+        this.valuesCount = 0;
+        this.size = size;
+
+        if (nulls != null) {
+            this.nulls.or(nulls);
+        }
+
+        if (data != null) {
+            for (int i = 0; i < size; i++) {
+                if (this.nulls.get(i)) {
+                    offsets[i + 1] = offsets[i];
+                } else {
+                    String str = data[i];
+                    if (str == null) {
+                        this.nulls.set(i);
+                        offsets[i + 1] = offsets[i];
+                    } else {
+                        byte[] strBytes = str.getBytes(StandardCharsets.UTF_8);
+                        ensureValueCapacity(valuesCount + strBytes.length);
+                        System.arraycopy(strBytes, 0, values, valuesCount, strBytes.length);
+                        valuesCount += strBytes.length;
+                        offsets[i + 1] = valuesCount;
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Constructs a {@link StringColumnVector} directly from contiguous UTF-8 byte buffer and offset array.
+     *
+     * @param name column name
+     * @param nullable whether column supports nulls
+     * @param values contiguous byte buffer containing UTF-8 strings
+     * @param valuesCount number of valid bytes in {@code values}
+     * @param offsets offset array of size at least {@code size + 1}
+     * @param nulls bitset of null rows
+     * @param size total number of rows
+     */
+    public StringColumnVector(String name, boolean nullable, byte[] values, int valuesCount,
+                              int[] offsets, BitSet nulls, int size) {
+        super(name, String.class, nullable, Math.max(DEFAULT_INITIAL_CAPACITY, size));
+        this.values = Objects.requireNonNull(values, "values cannot be null");
+        this.valuesCount = valuesCount;
+        this.offsets = Objects.requireNonNull(offsets, "offsets cannot be null");
         if (nulls != null) {
             this.nulls.or(nulls);
         }
         this.size = size;
     }
 
-    public String[] getRawData() {
-        return data;
+    /**
+     * Returns the contiguous byte buffer storing UTF-8 string bytes back-to-back.
+     */
+    public byte[] getValues() {
+        return values;
     }
 
-    private void ensureCapacity(int minCapacity) {
-        if (minCapacity > data.length) {
-            int newCap = Math.max(data.length * 2, minCapacity);
-            data = Arrays.copyOf(data, newCap);
+    /**
+     * Returns the offset array tracking string slice boundaries.
+     */
+    public int[] getOffsets() {
+        return offsets;
+    }
+
+    /**
+     * Returns the total valid UTF-8 byte count stored in {@link #getValues()}.
+     */
+    public int getValuesCount() {
+        return valuesCount;
+    }
+
+    /**
+     * Returns an instantiated String array for backward compatibility.
+     */
+    public String[] getRawData() {
+        return toStringArray();
+    }
+
+    private void ensureRowCapacity(int minCapacity) {
+        if (minCapacity + 1 > offsets.length) {
+            int newCap = Math.max(offsets.length * 2, minCapacity + 1);
+            offsets = Arrays.copyOf(offsets, newCap);
+        }
+    }
+
+    private void ensureValueCapacity(int minBytes) {
+        if (minBytes > values.length) {
+            int newCap = Math.max(values.length * 2, minBytes);
+            values = Arrays.copyOf(values, newCap);
         }
     }
 
     @Override
     public void setSizeUnchecked(int newSize) {
-        ensureCapacity(newSize);
+        ensureRowCapacity(newSize);
+        if (newSize > this.size) {
+            int lastOffset = offsets[this.size];
+            for (int i = this.size; i < newSize; i++) {
+                nulls.set(i);
+                offsets[i + 1] = lastOffset;
+            }
+        }
         this.size = newSize;
     }
 
@@ -59,28 +184,86 @@ public class StringColumnVector extends ColumnVector {
         if (nulls.get(row)) {
             return null;
         }
-        return data[row];
+        int start = offsets[row];
+        int end = offsets[row + 1];
+        int len = end - start;
+        if (len <= 0) {
+            return "";
+        }
+        return new String(values, start, len, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Returns the byte slice length for the given row.
+     */
+    public int getByteLength(int row) {
+        checkRowBounds(row);
+        if (nulls.get(row)) {
+            return 0;
+        }
+        return offsets[row + 1] - offsets[row];
+    }
+
+    /**
+     * Returns the byte start offset in {@link #getValues()} for the given row.
+     */
+    public int getByteOffset(int row) {
+        checkRowBounds(row);
+        return offsets[row];
     }
 
     @Override
     public void setString(int row, String val) {
         checkRowBounds(row);
-        data[row] = val;
         if (val == null) {
             nulls.set(row);
+            replaceRowBytes(row, null, 0, 0);
         } else {
             nulls.clear(row);
+            byte[] bytes = val.getBytes(StandardCharsets.UTF_8);
+            replaceRowBytes(row, bytes, 0, bytes.length);
         }
+    }
+
+    /**
+     * Appends a UTF-8 byte slice directly without allocating a {@link String} instance.
+     *
+     * @param buf byte buffer containing UTF-8 bytes
+     * @param start start index in {@code buf}
+     * @param length length in bytes
+     */
+    public void appendUtf8Bytes(byte[] buf, int start, int length) {
+        ensureRowCapacity(size + 1);
+        if (buf == null) {
+            nulls.set(size);
+            offsets[size + 1] = valuesCount;
+        } else {
+            nulls.clear(size);
+            if (length > 0) {
+                ensureValueCapacity(valuesCount + length);
+                System.arraycopy(buf, start, values, valuesCount, length);
+                valuesCount += length;
+            }
+            offsets[size + 1] = valuesCount;
+        }
+        size++;
     }
 
     @Override
     public void appendString(String val) {
-        ensureCapacity(size + 1);
-        data[size] = val;
+        ensureRowCapacity(size + 1);
         if (val == null) {
             nulls.set(size);
+            offsets[size + 1] = valuesCount;
         } else {
             nulls.clear(size);
+            byte[] strBytes = val.getBytes(StandardCharsets.UTF_8);
+            if (strBytes.length > 0) {
+                ensureValueCapacity(valuesCount + strBytes.length);
+                System.arraycopy(strBytes, 0, values, valuesCount, strBytes.length);
+                valuesCount += strBytes.length;
+            }
+            offsets[size + 1] = valuesCount;
         }
         size++;
     }
@@ -94,18 +277,17 @@ public class StringColumnVector extends ColumnVector {
     public void setObject(int row, Object value) {
         checkRowBounds(row);
         if (NA.isNA(value)) {
-            data[row] = null;
             nulls.set(row);
+            replaceRowBytes(row, null, 0, 0);
         } else {
-            data[row] = value.toString();
-            nulls.clear(row);
+            setString(row, value.toString());
         }
     }
 
     @Override
     protected void setObjectValueOnly(int row, Object value) {
         if (value != null && !NA.isNA(value)) {
-            data[row] = value.toString();
+            setString(row, value.toString());
         }
     }
 
@@ -120,21 +302,57 @@ public class StringColumnVector extends ColumnVector {
 
     @Override
     public void appendNull() {
-        ensureCapacity(size + 1);
-        data[size] = null;
+        ensureRowCapacity(size + 1);
         nulls.set(size);
+        offsets[size + 1] = valuesCount;
         size++;
+    }
+
+    private void replaceRowBytes(int row, byte[] newBytes, int start, int len) {
+        int oldStart = offsets[row];
+        int oldEnd = offsets[row + 1];
+        int oldLen = oldEnd - oldStart;
+        int delta = len - oldLen;
+
+        if (delta != 0) {
+            ensureValueCapacity(valuesCount + delta);
+            int tailBytes = valuesCount - oldEnd;
+            if (tailBytes > 0) {
+                System.arraycopy(values, oldEnd, values, oldEnd + delta, tailBytes);
+            }
+            valuesCount += delta;
+            for (int i = row + 1; i <= size; i++) {
+                offsets[i] += delta;
+            }
+        }
+
+        if (len > 0) {
+            System.arraycopy(newBytes, start, values, oldStart, len);
+        }
     }
 
     @Override
     public void remove(int row) {
         checkRowBounds(row);
-        int numMoved = size - row - 1;
-        if (numMoved > 0) {
-            System.arraycopy(data, row + 1, data, row, numMoved);
-        }
-        data[size - 1] = null;
+        int rowStart = offsets[row];
+        int rowEnd = offsets[row + 1];
+        int rowLen = rowEnd - rowStart;
 
+        // Shift bytes if row has content
+        if (rowLen > 0) {
+            int tailBytes = valuesCount - rowEnd;
+            if (tailBytes > 0) {
+                System.arraycopy(values, rowEnd, values, rowStart, tailBytes);
+            }
+            valuesCount -= rowLen;
+        }
+
+        // Shift offsets
+        for (int i = row; i < size; i++) {
+            offsets[i] = offsets[i + 1] - rowLen;
+        }
+
+        // Shift nulls bitset
         for (int i = row; i < size - 1; i++) {
             if (nulls.get(i + 1)) {
                 nulls.set(i);
@@ -148,16 +366,35 @@ public class StringColumnVector extends ColumnVector {
 
     @Override
     public ColumnVector copy() {
-        String[] copyData = Arrays.copyOf(data, size);
-        return new StringColumnVector(name, nullable, copyData, nulls, size);
+        byte[] copyValues = Arrays.copyOf(values, valuesCount);
+        int[] copyOffsets = Arrays.copyOf(offsets, size + 1);
+        BitSet copyNulls = new BitSet(size);
+        copyNulls.or(nulls);
+        return new StringColumnVector(name, nullable, copyValues, valuesCount, copyOffsets, copyNulls, size);
     }
 
     @Override
     public ColumnVector slice(int from, int to) {
         checkSliceBounds(from, to);
         int len = to - from;
-        String[] sliceData = new String[len];
-        System.arraycopy(data, from, sliceData, 0, len);
+        if (len == 0) {
+            return new StringColumnVector(name, 0, nullable);
+        }
+
+        int byteStart = offsets[from];
+        int byteEnd = offsets[to];
+        int byteLen = byteEnd - byteStart;
+
+        byte[] sliceValues = new byte[byteLen];
+        if (byteLen > 0) {
+            System.arraycopy(values, byteStart, sliceValues, 0, byteLen);
+        }
+
+        int[] sliceOffsets = new int[len + 1];
+        for (int i = 0; i <= len; i++) {
+            sliceOffsets[i] = offsets[from + i] - byteStart;
+        }
+
         BitSet sliceNulls = new BitSet(len);
         if (hasNulls()) {
             for (int i = 0; i < len; i++) {
@@ -166,7 +403,8 @@ public class StringColumnVector extends ColumnVector {
                 }
             }
         }
-        return new StringColumnVector(name, nullable, sliceData, sliceNulls, len);
+
+        return new StringColumnVector(name, nullable, sliceValues, byteLen, sliceOffsets, sliceNulls, len);
     }
 
     @Override
@@ -175,91 +413,223 @@ public class StringColumnVector extends ColumnVector {
             return;
         }
         String fillVal = value.toString();
+        byte[] fillBytes = fillVal.getBytes(StandardCharsets.UTF_8);
         for (int i = nulls.nextSetBit(0); i >= 0 && i < size; i = nulls.nextSetBit(i + 1)) {
-            data[i] = fillVal;
+            nulls.clear(i);
+            replaceRowBytes(i, fillBytes, 0, fillBytes.length);
         }
-        nulls.clear();
     }
 
     @Override
     public void permute(int[] order) {
-        String[] newData = new String[size];
-        BitSet newNulls = new BitSet(size);
-        boolean anyNulls = hasNulls();
+        // Calculate total byte size required
+        int newTotalBytes = 0;
         for (int i = 0; i < size; i++) {
             int src = order[i];
-            newData[i] = data[src];
-            if (anyNulls && nulls.get(src)) {
-                newNulls.set(i);
+            if (!nulls.get(src)) {
+                newTotalBytes += (offsets[src + 1] - offsets[src]);
             }
         }
-        this.data = newData;
+
+        byte[] newValues = new byte[newTotalBytes];
+        int[] newOffsets = new int[size + 1];
+        BitSet newNulls = new BitSet(size);
+        int currByte = 0;
+        newOffsets[0] = 0;
+
+        for (int i = 0; i < size; i++) {
+            int src = order[i];
+            if (nulls.get(src)) {
+                newNulls.set(i);
+                newOffsets[i + 1] = currByte;
+            } else {
+                int srcStart = offsets[src];
+                int srcLen = offsets[src + 1] - srcStart;
+                if (srcLen > 0) {
+                    System.arraycopy(values, srcStart, newValues, currByte, srcLen);
+                    currByte += srcLen;
+                }
+                newOffsets[i + 1] = currByte;
+            }
+        }
+
+        this.values = newValues;
+        this.valuesCount = currByte;
+        this.offsets = newOffsets;
         this.nulls.clear();
         this.nulls.or(newNulls);
     }
 
     @Override
     public ColumnVector filter(BitSet retainMask, int retainedCount) {
-        String[] newData = new String[retainedCount];
-        BitSet newNulls = new BitSet(retainedCount);
-        boolean anyNulls = hasNulls();
-        int dst = 0;
+        int newTotalBytes = 0;
         for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
-            newData[dst] = data[i];
-            if (anyNulls && nulls.get(i)) {
+            if (!nulls.get(i)) {
+                newTotalBytes += (offsets[i + 1] - offsets[i]);
+            }
+        }
+
+        byte[] newValues = new byte[newTotalBytes];
+        int[] newOffsets = new int[retainedCount + 1];
+        BitSet newNulls = new BitSet(retainedCount);
+        int currByte = 0;
+        newOffsets[0] = 0;
+        int dst = 0;
+
+        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
+            if (nulls.get(i)) {
                 newNulls.set(dst);
+                newOffsets[dst + 1] = currByte;
+            } else {
+                int srcStart = offsets[i];
+                int srcLen = offsets[i + 1] - srcStart;
+                if (srcLen > 0) {
+                    System.arraycopy(values, srcStart, newValues, currByte, srcLen);
+                    currByte += srcLen;
+                }
+                newOffsets[dst + 1] = currByte;
             }
             dst++;
         }
-        return new StringColumnVector(name, nullable, newData, newNulls, retainedCount);
+
+        return new StringColumnVector(name, nullable, newValues, currByte, newOffsets, newNulls, retainedCount);
     }
 
     @Override
     public void filterInPlace(BitSet retainMask, int retainedCount) {
-        String[] newData = new String[retainedCount];
-        BitSet newNulls = new BitSet(retainedCount);
-        boolean anyNulls = hasNulls();
-        int dst = 0;
-        for (int i = retainMask.nextSetBit(0); i >= 0 && i < size; i = retainMask.nextSetBit(i + 1)) {
-            newData[dst] = data[i];
-            if (anyNulls && nulls.get(i)) {
-                newNulls.set(dst);
-            }
-            dst++;
-        }
-        this.data = newData;
+        StringColumnVector filtered = (StringColumnVector) filter(retainMask, retainedCount);
+        this.values = filtered.values;
+        this.valuesCount = filtered.valuesCount;
+        this.offsets = filtered.offsets;
         this.nulls.clear();
-        this.nulls.or(newNulls);
+        this.nulls.or(filtered.nulls);
         this.size = retainedCount;
     }
 
     @Override
-    public void copyIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+    public synchronized void copyIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
         if (src instanceof StringColumnVector strSrc) {
-            String[] srcData = strSrc.data;
-            String[] dstData = this.data;
             for (int i = 0; i < count; i++) {
-                dstData[dstOffset + i] = srcData[srcIndices[i]];
+                int srcRow = srcIndices[i];
+                int dstRow = dstOffset + i;
+                if (strSrc.nulls.get(srcRow)) {
+                    this.nulls.set(dstRow);
+                    replaceRowBytes(dstRow, null, 0, 0);
+                } else {
+                    this.nulls.clear(dstRow);
+                    int sStart = strSrc.offsets[srcRow];
+                    int sLen = strSrc.offsets[srcRow + 1] - sStart;
+                    replaceRowBytes(dstRow, strSrc.values, sStart, sLen);
+                }
             }
         } else {
             super.copyIndexedValuesOnly(src, srcIndices, count, dstOffset);
         }
     }
 
+    // ==========================================
+    // Zero-Copy Byte Slice Comparisons & Hash
+    // ==========================================
+
+    /**
+     * Computes a 32-bit Murmur3/FNV-style hash over the row's UTF-8 byte slice without String instantiation.
+     */
+    public int hashRow(int row) {
+        if (nulls.get(row)) {
+            return 0;
+        }
+        int start = offsets[row];
+        int end = offsets[row + 1];
+        int len = end - start;
+        if (len == 0) {
+            return 0;
+        }
+        int h = 1;
+        for (int i = start; i < end; i++) {
+            h = 31 * h + (values[i] & 0xFF);
+        }
+        return h;
+    }
+
+    /**
+     * Compares the byte slice of two rows for equality without String instantiation.
+     */
+    public boolean rowsEqual(int rowA, int rowB) {
+        if (rowA == rowB) return true;
+        boolean nullA = nulls.get(rowA);
+        boolean nullB = nulls.get(rowB);
+        if (nullA != nullB) return false;
+        if (nullA) return true;
+
+        int startA = offsets[rowA];
+        int lenA = offsets[rowA + 1] - startA;
+        int startB = offsets[rowB];
+        int lenB = offsets[rowB + 1] - startB;
+
+        if (lenA != lenB) return false;
+        return Arrays.equals(values, startA, startA + lenA, values, startB, startB + lenB);
+    }
+
+    /**
+     * Compares the byte slice of this row with a raw byte slice for equality.
+     */
+    public boolean rowEqualsBytes(int row, byte[] other, int otherStart, int otherLen) {
+        if (nulls.get(row)) {
+            return other == null;
+        }
+        if (other == null) return false;
+        int start = offsets[row];
+        int len = offsets[row + 1] - start;
+        if (len != otherLen) return false;
+        return Arrays.equals(values, start, start + len, other, otherStart, otherStart + otherLen);
+    }
+
+    /**
+     * Performs lexicographical comparison of two row byte slices (matching UTF-8 order) without String instantiation.
+     */
+    @Override
+    public int compareRows(int rowA, int rowB) {
+        boolean nullA = nulls.get(rowA);
+        boolean nullB = nulls.get(rowB);
+        if (nullA && nullB) return 0;
+        if (nullA) return 1;
+        if (nullB) return -1;
+
+        int startA = offsets[rowA];
+        int endA = offsets[rowA + 1];
+        int startB = offsets[rowB];
+        int endB = offsets[rowB + 1];
+
+        return Arrays.compare(values, startA, endA, values, startB, endB);
+    }
+
+    /**
+     * Compares a row byte slice with a target String lexicographically.
+     */
+    public int compareRowToString(int row, String target) {
+        if (nulls.get(row)) {
+            return target == null ? 0 : 1;
+        }
+        if (target == null) return -1;
+        byte[] targetBytes = target.getBytes(StandardCharsets.UTF_8);
+        int start = offsets[row];
+        int end = offsets[row + 1];
+        return Arrays.compare(values, start, end, targetBytes, 0, targetBytes.length);
+    }
+
     @Override
     public Object min(int from, int to) {
         checkSliceBounds(from, to);
-        String best = null;
+        int bestRow = -1;
         boolean anyNulls = hasNulls();
         for (int i = from; i < to; i++) {
             if (!anyNulls || !nulls.get(i)) {
-                String v = data[i];
-                if (v != null && (best == null || v.compareTo(best) < 0)) {
-                    best = v;
+                if (bestRow == -1 || compareRows(i, bestRow) < 0) {
+                    bestRow = i;
                 }
             }
         }
-        return best;
+        return bestRow != -1 ? getString(bestRow) : null;
     }
 
     @Override
@@ -285,17 +655,16 @@ public class StringColumnVector extends ColumnVector {
     @Override
     public Object max(int from, int to) {
         checkSliceBounds(from, to);
-        String best = null;
+        int bestRow = -1;
         boolean anyNulls = hasNulls();
         for (int i = from; i < to; i++) {
             if (!anyNulls || !nulls.get(i)) {
-                String v = data[i];
-                if (v != null && (best == null || v.compareTo(best) > 0)) {
-                    best = v;
+                if (bestRow == -1 || compareRows(i, bestRow) > 0) {
+                    bestRow = i;
                 }
             }
         }
-        return best;
+        return bestRow != -1 ? getString(bestRow) : null;
     }
 
     @Override
@@ -319,24 +688,19 @@ public class StringColumnVector extends ColumnVector {
     }
 
     @Override
-    public int compareRows(int rowA, int rowB) {
-        boolean nullA = nulls.get(rowA);
-        boolean nullB = nulls.get(rowB);
-        if (nullA && nullB) return 0;
-        if (nullA) return 1;
-        if (nullB) return -1;
-        return data[rowA].compareTo(data[rowB]);
-    }
-
-    @Override
     public void clear() {
         this.size = 0;
+        this.valuesCount = 0;
+        this.offsets[0] = 0;
         this.nulls.clear();
-        Arrays.fill(data, null);
     }
 
     public String[] toStringArray() {
-        return Arrays.copyOf(data, size);
+        String[] arr = new String[size];
+        for (int i = 0; i < size; i++) {
+            arr[i] = getString(i);
+        }
+        return arr;
     }
 
     // ==========================================
@@ -434,7 +798,7 @@ public class StringColumnVector extends ColumnVector {
             if (nulls.get(i)) {
                 res.appendNull();
             } else {
-                res.appendBoolean(data[i].contains(sub));
+                res.appendBoolean(getString(i).contains(sub));
             }
         }
         return res;
@@ -443,11 +807,18 @@ public class StringColumnVector extends ColumnVector {
     public BooleanColumnVector startsWith(String prefix) {
         Objects.requireNonNull(prefix, "prefix cannot be null");
         BooleanColumnVector res = new BooleanColumnVector(name, size, true);
+        byte[] pBytes = prefix.getBytes(StandardCharsets.UTF_8);
         for (int i = 0; i < size; i++) {
             if (nulls.get(i)) {
                 res.appendNull();
             } else {
-                res.appendBoolean(data[i].startsWith(prefix));
+                int start = offsets[i];
+                int len = offsets[i + 1] - start;
+                if (len < pBytes.length) {
+                    res.appendBoolean(false);
+                } else {
+                    res.appendBoolean(Arrays.equals(values, start, start + pBytes.length, pBytes, 0, pBytes.length));
+                }
             }
         }
         return res;
@@ -456,11 +827,18 @@ public class StringColumnVector extends ColumnVector {
     public BooleanColumnVector endsWith(String suffix) {
         Objects.requireNonNull(suffix, "suffix cannot be null");
         BooleanColumnVector res = new BooleanColumnVector(name, size, true);
+        byte[] sBytes = suffix.getBytes(StandardCharsets.UTF_8);
         for (int i = 0; i < size; i++) {
             if (nulls.get(i)) {
                 res.appendNull();
             } else {
-                res.appendBoolean(data[i].endsWith(suffix));
+                int start = offsets[i];
+                int len = offsets[i + 1] - start;
+                if (len < sBytes.length) {
+                    res.appendBoolean(false);
+                } else {
+                    res.appendBoolean(Arrays.equals(values, start + len - sBytes.length, start + len, sBytes, 0, sBytes.length));
+                }
             }
         }
         return res;
@@ -501,7 +879,7 @@ public class StringColumnVector extends ColumnVector {
             if (nulls.get(i)) {
                 res.appendNull();
             } else {
-                res.appendObject(data[i].split(regex, n));
+                res.appendObject(getString(i).split(regex, n));
             }
         }
         return res;
@@ -541,7 +919,7 @@ public class StringColumnVector extends ColumnVector {
             if (nulls.get(i)) {
                 res.appendNull();
             } else {
-                res.appendInt(data[i].length());
+                res.appendInt(getString(i).length());
             }
         }
         return res;
@@ -572,23 +950,24 @@ public class StringColumnVector extends ColumnVector {
     }
 
     private StringColumnVector applyTransform(boolean inPlace, StringAccessor.StringTransformer transformer) {
+        StringColumnVector target = inPlace ? this : new StringColumnVector(name, size, nullable);
         if (inPlace) {
             for (int i = 0; i < size; i++) {
                 if (!nulls.get(i)) {
-                    data[i] = transformer.transform(data[i]);
+                    String transformed = transformer.transform(getString(i));
+                    setString(i, transformed);
                 }
             }
             return this;
         } else {
-            String[] copyData = new String[size];
             for (int i = 0; i < size; i++) {
-                if (!nulls.get(i)) {
-                    copyData[i] = transformer.transform(data[i]);
+                if (nulls.get(i)) {
+                    target.appendNull();
+                } else {
+                    target.appendString(transformer.transform(getString(i)));
                 }
             }
-            BitSet copyNulls = new BitSet(size);
-            copyNulls.or(nulls);
-            return new StringColumnVector(name, nullable, copyData, copyNulls, size);
+            return target;
         }
     }
 }

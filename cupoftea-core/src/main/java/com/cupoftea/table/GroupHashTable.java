@@ -189,8 +189,7 @@ public class GroupHashTable {
             case STRING: {
                 StringColumnVector v = (StringColumnVector) singleKey;
                 if (v.isNull(row)) return 0;
-                String s = v.getString(row);
-                return s != null ? mix(s.hashCode()) : 0;
+                return mix(v.hashRow(row));
             }
             case OBJECT: {
                 if (singleKey.isNull(row)) return 0;
@@ -257,7 +256,7 @@ public class GroupHashTable {
                 boolean n1 = v.isNull(r1);
                 boolean n2 = v.isNull(r2);
                 if (n1 != n2) return false;
-                return n1 || Objects.equals(v.getString(r1), v.getString(r2));
+                return n1 || v.rowsEqual(r1, r2);
             }
             case OBJECT: {
                 boolean n1 = singleKey.isNull(r1);
@@ -292,10 +291,7 @@ public class GroupHashTable {
             return Float.floatToIntBits(f == 0.0f ? 0.0f : f);
         }
         if (kv instanceof BooleanColumnVector bcv) return bcv.getBoolean(r) ? 1231 : 1237;
-        if (kv instanceof StringColumnVector scv) {
-            String s = scv.getString(r);
-            return s != null ? s.hashCode() : 0;
-        }
+        if (kv instanceof StringColumnVector scv) return scv.hashRow(r);
         Object o = kv.getObject(r);
         return (o != null && !NA.isNA(o)) ? o.hashCode() : 0;
     }
@@ -318,7 +314,7 @@ public class GroupHashTable {
             return Float.floatToIntBits(f1 == 0.0f ? 0.0f : f1) == Float.floatToIntBits(f2 == 0.0f ? 0.0f : f2);
         }
         if (kv instanceof BooleanColumnVector bcv) return bcv.getBoolean(r1) == bcv.getBoolean(r2);
-        if (kv instanceof StringColumnVector scv) return Objects.equals(scv.getString(r1), scv.getString(r2));
+        if (kv instanceof StringColumnVector scv) return scv.rowsEqual(r1, r2);
         return Objects.equals(kv.getObject(r1), kv.getObject(r2));
     }
 
