@@ -1,6 +1,7 @@
 # CSV Module (`cupoftea-csv`)
 
-The `cupoftea-csv` module handles delimited text data using [OpenCSV](https://opencsv.sourceforge.net/).
+The `cupoftea-csv` module handles high-performance delimited text ingestion and egress.
+Starting in **v0.16.0**, CupOfTea features a native multithreaded chunk-based reader (`FastCsvReader`) with direct byte-level parsing, NIO memory-mapping, zero intermediate `String[]` allocations, and transparent fallback to [OpenCSV](https://opencsv.sourceforge.net/) for complex legacy quoting.
 
 ---
 
@@ -10,13 +11,19 @@ The `cupoftea-csv` module handles delimited text data using [OpenCSV](https://op
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-csv</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.16.0</version>
 </dependency>
 ```
 
 ---
 
-## 📖 Reading CSV Files
+## ⚡ High-Performance Parallel Ingestion (`FastCsvReader`)
+
+By default, CupOfTea uses its native chunked parallel CSV reader:
+- **Zero/Low Allocation:** Primitives (`int`, `long`, `double`, `float`, `boolean`) are parsed directly from raw byte buffers without intermediate `String` or boxing object creation.
+- **Multithreaded Chunking:** Byte offsets are partitioned across available CPU cores via `ForkJoinPool.commonPool()`.
+- **NIO Memory-Mapping:** Uses `FileChannel` and `MappedByteBuffer` for large files to maximize OS page cache throughput.
+- **Categorical De-duplication:** Automatically pools repeated categorical strings without redundant heap allocations.
 
 ### Basic Ingestion
 
@@ -26,7 +33,7 @@ CupOfTea df = CupOfTea.read().csv("data/customers.csv");
 
 ### Advanced Options & Configuration
 
-You can configure delimiters, header presence, null string tokens, and schema parsing:
+You can configure delimiters, header presence, null string tokens, schema parsing, and toggle the fast parallel engine:
 
 ```java
 import com.cupoftea.importers.configurations.CSVImporterConfiguration;
@@ -41,9 +48,10 @@ CupOfTea df = CupOfTea.read()
 
 // Option 2: Typed configuration object
 CSVImporterConfiguration config = new CSVImporterConfiguration();
-config.setSeparator(';');
+config.setDelimiter(';');
 config.setHasHeaders(true);
-config.setNaStrings(List.of("NA", "N/A", "null", "EMPTY"));
+config.setFastEngine(true); // Enabled by default
+config.setNaStrings(Set.of("NA", "N/A", "null", "EMPTY"));
 config.setPreserveEmptyStrings(true);
 
 CupOfTea df2 = CupOfTea.read()

@@ -24,7 +24,7 @@ flowchart TD
 
 | Format | Module | Read Support | Write Support | Underlying Engine |
 | :--- | :--- | :---: | :---: | :--- |
-| **CSV** | `cupoftea-csv` | Yes | Yes | OpenCSV |
+| **CSV** | `cupoftea-csv` | Yes | Yes | Native `FastCsvReader` (NIO/SIMD-ready) / OpenCSV fallback |
 | **JSON** | `cupoftea-json` | Yes | Yes | Jackson Databind |
 | **Excel** | `cupoftea-excel` | Yes (`.xlsx`, `.xls`) | In Progress | Apache POI |
 | **Parquet** | `cupoftea-parquet` | Yes | Yes | Apache Parquet / Hadoop |

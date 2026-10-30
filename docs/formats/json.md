@@ -10,7 +10,7 @@ The `cupoftea-json` module parses and serializes JSON tabular datasets via [Jack
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-json</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>0.16.0</version>
 </dependency>
 ```
 
