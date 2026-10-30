@@ -28,6 +28,7 @@ import java.util.concurrent.Future;
 import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.CsvParseException;
 import com.cupoftea.importers.configurations.CSVImporterConfiguration;
+import com.cupoftea.lazy.StreamingDirectAggregator;
 import com.cupoftea.table.DataFrame;
 import com.cupoftea.table.Categorical;
 import com.cupoftea.table.Schema;
@@ -338,6 +339,28 @@ public class FastCsvReader {
             }
         }
         return parseChunkScalar(fullBytes, mappedBuf, start, end, delim, quote, escape, colCount, colTypes, charset, config);
+    }
+
+    public static void executeChunkDirect(
+            byte[] fullBytes, MappedByteBuffer mappedBuf, int start, int end,
+            byte delim, byte quote, byte escape,
+            String[] colNames, Class<?>[] colTypes, byte[] colTypeIds,
+            Charset charset, CSVImporterConfiguration config, boolean useSimd,
+            StreamingDirectAggregator aggregator) {
+
+        if (useSimd) {
+            if (mappedBuf != null) {
+                SimdCsvScanner.parseChunkSimdMappedDirect(mappedBuf, start, end,
+                        delim, quote, escape, colNames, colTypes, colTypeIds, charset, config, aggregator);
+                return;
+            } else if (fullBytes != null) {
+                SimdCsvScanner.parseChunkSimdDirect(fullBytes, start, end,
+                        delim, quote, escape, colNames, colTypes, colTypeIds, charset, config, aggregator);
+                return;
+            }
+        }
+        parseChunkScalarDirect(fullBytes, mappedBuf, start, end, delim, quote, escape,
+                colNames, colTypes, colTypeIds, charset, config, aggregator);
     }
 
     private static byte getByte(byte[] fullBytes, MappedByteBuffer mappedBuf, int idx) {
@@ -1276,6 +1299,100 @@ public class FastCsvReader {
             this.tableCode = newTableCode;
             this.tableMask = newMask;
             this.tableThreshold = (int) (newCap * 0.70f);
+        }
+    }
+
+    /**
+     * Scalar fallback for direct fused scan-aggregate evaluation.
+     */
+    public static void parseChunkScalarDirect(
+            byte[] fullBytes, MappedByteBuffer mappedBuf, int start, int end,
+            byte delim, byte quote, byte escape,
+            String[] colNames, Class<?>[] colTypes, byte[] colTypeIds,
+            Charset charset, CSVImporterConfiguration config,
+            StreamingDirectAggregator aggregator) {
+
+        int colCount = colNames.length;
+        byte[] fieldBuf = new byte[256];
+        boolean isIso88591 = StandardCharsets.ISO_8859_1.equals(charset);
+        Set<String> naStrings = config.getNaStrings();
+        boolean customNaStrings = naStrings != null && !naStrings.equals(SimdCsvScanner.DEFAULT_NA_STRINGS);
+
+        SimdCsvScanner.DirectRowState rowState = new SimdCsvScanner.DirectRowState(colCount, aggregator.isMultiKey() ? aggregator.getGroupColumns().length : 0);
+        rowState.reset(aggregator.isGlobal());
+
+        int curr = start;
+
+        while (curr < end) {
+            int colIdx = 0;
+            boolean inQuote = false;
+            boolean hadQuote = false;
+            int fStart = curr;
+            int fieldLen = 0;
+
+            while (curr < end) {
+                byte b = getByte(fullBytes, mappedBuf, curr);
+
+                if (b == escape && escape != ICSVParser.NULL_CHARACTER && escape != quote && curr + 1 < end) {
+                    hadQuote = true;
+                    if (fieldLen >= fieldBuf.length) {
+                        fieldBuf = Arrays.copyOf(fieldBuf, fieldBuf.length * 2);
+                    }
+                    fieldBuf[fieldLen++] = getByte(fullBytes, mappedBuf, curr + 1);
+                    curr += 2;
+                    continue;
+                }
+
+                if (b == quote && quote != ICSVParser.NULL_CHARACTER) {
+                    hadQuote = true;
+                    if (inQuote && curr + 1 < end && getByte(fullBytes, mappedBuf, curr + 1) == quote) {
+                        if (fieldLen >= fieldBuf.length) {
+                            fieldBuf = Arrays.copyOf(fieldBuf, fieldBuf.length * 2);
+                        }
+                        fieldBuf[fieldLen++] = quote;
+                        curr += 2;
+                        continue;
+                    }
+                    inQuote = !inQuote;
+                    curr++;
+                    continue;
+                }
+
+                if (!inQuote) {
+                    if (b == delim) {
+                        SimdCsvScanner.processFieldDirect(fullBytes, mappedBuf, fStart, curr, hadQuote, fieldBuf, fieldLen,
+                                colIdx, colTypeIds[colIdx], aggregator, rowState, isIso88591, customNaStrings, naStrings);
+                        colIdx++;
+                        curr++;
+                        fStart = curr;
+                        hadQuote = false;
+                        fieldLen = 0;
+                        continue;
+                    } else if (b == '\n' || b == '\r') {
+                        break;
+                    }
+                }
+
+                if (hadQuote) {
+                    if (fieldLen >= fieldBuf.length) {
+                        fieldBuf = Arrays.copyOf(fieldBuf, fieldBuf.length * 2);
+                    }
+                    fieldBuf[fieldLen++] = b;
+                }
+                curr++;
+            }
+
+            if (colIdx < colCount) {
+                SimdCsvScanner.processFieldDirect(fullBytes, mappedBuf, fStart, curr, hadQuote, fieldBuf, fieldLen,
+                        colIdx, colTypeIds[colIdx], aggregator, rowState, isIso88591, customNaStrings, naStrings);
+                colIdx++;
+            }
+
+            if (colIdx == colCount) {
+                SimdCsvScanner.finishRowDirect(aggregator, rowState, colTypeIds);
+            }
+
+            curr = skipLineBreak(fullBytes, mappedBuf, curr, end);
         }
     }
 

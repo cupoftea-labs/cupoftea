@@ -211,4 +211,87 @@ public class CsvLazyScanTest {
             assertThat(((Number) result.getRow(i).get("max_t")).doubleValue()).isCloseTo(34.5, offset(1e-4));
         }
     }
+
+    @Test
+    @DisplayName("Should evaluate fused scan-aggregate with multi-column group keys")
+    void test_fused_scan_multi_column_keys() throws IOException {
+        File file = createStandardCsvFile();
+
+        CupOfTea result = CupOfTea.scan()
+                .csv(file)
+                .groupBy("dept", "age")
+                .agg(Aggregations.sum("salary").as("tot_sal"))
+                .collect()
+                .orderBy("dept", "age");
+
+        assertThat(result.size()).isEqualTo(6);
+    }
+
+    @Test
+    @DisplayName("Should evaluate fused scan-aggregate for global aggregations without group columns")
+    void test_fused_scan_global_aggregation() throws IOException {
+        File file = createStandardCsvFile();
+
+        CupOfTea result = CupOfTea.scan()
+                .csv(file)
+                .agg(
+                    Aggregations.sum("salary").as("total_sal"),
+                    Aggregations.mean("salary").as("mean_sal"),
+                    Aggregations.count("salary").as("count_sal")
+                )
+                .collect();
+
+        assertThat(result.size()).isEqualTo(1);
+        assertThat(((Number) result.getRow(0).get("total_sal")).doubleValue()).isCloseTo(28000.0, offset(1e-4));
+        assertThat(((Number) result.getRow(0).get("mean_sal")).doubleValue()).isCloseTo(28000.0 / 6.0, offset(1e-4));
+        assertThat(((Number) result.getRow(0).get("count_sal")).longValue()).isEqualTo(6L);
+    }
+
+    @Test
+    @DisplayName("Should evaluate fused scan-aggregate on CSV with quoted fields")
+    void test_fused_scan_quoted_csv() throws IOException {
+        File file = new File(tempDir, "quoted_employees.csv");
+        try (FileWriter fw = new FileWriter(file)) {
+            fw.write("\"dept\",\"salary\"\n");
+            fw.write("\"Engineering\",\"10000.0\"\n");
+            fw.write("\"Marketing\",\"8000.0\"\n");
+            fw.write("\"Engineering\",\"12000.0\"\n");
+        }
+
+        CupOfTea result = CupOfTea.scan()
+                .csv(file)
+                .groupBy("dept")
+                .agg(
+                    Aggregations.sum("salary").as("total_sal"),
+                    Aggregations.count("salary").as("cnt")
+                )
+                .collect()
+                .orderBy("dept");
+
+        assertThat(result.size()).isEqualTo(2);
+        CupOfTea eng = result.filter(r -> "Engineering".equals(r.get("dept")));
+        assertThat(((Number) eng.getRow(0).get("total_sal")).doubleValue()).isCloseTo(22000.0, offset(1e-4));
+        assertThat(((Number) eng.getRow(0).get("cnt")).longValue()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("Should evaluate fused scan-aggregate with integer group keys")
+    void test_fused_scan_integer_group_key() throws IOException {
+        File file = createStandardCsvFile();
+
+        CupOfTea result = CupOfTea.scan()
+                .schema(Schema.builder()
+                        .add("name", String.class)
+                        .add("dept", String.class)
+                        .add("salary", Double.class)
+                        .add("age", Integer.class)
+                        .build())
+                .csv(file)
+                .groupBy("age")
+                .agg(Aggregations.sum("salary").as("total_sal"))
+                .collect()
+                .orderBy("age");
+
+        assertThat(result.size()).isEqualTo(6);
+    }
 }

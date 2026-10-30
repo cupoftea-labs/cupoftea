@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.1] - 2026-10-30
+
+### Performance
+
+- Fused Scan-Aggregate execution in `LazyCupOfTea` (`StreamingDirectAggregator`) to bypass intermediate DataFrame, ColumnVector, and StringChunkBuffer materialization ([#225](https://github.com/cupoftea-labs/cupoftea/issues/225)):
+  - Memory-mapped CSV partition scanner streams parsed field values directly into open-addressing group hash tables and primitive accumulators on the fly during streaming aggregations (`CupOfTea.scan().csv(...).groupBy(...).agg().collect()`).
+  - Added fast 1BRC SIMD execution path streaming station byte slices directly to group tables and temperature values directly to running accumulators with zero intermediate allocations.
+  - Added explain plan annotation `Optimization: Fused Scan-Aggregate (StreamingDirectAggregator)`.
+
 ## [0.20.0] - 2026-10-30
 
 ### Added
