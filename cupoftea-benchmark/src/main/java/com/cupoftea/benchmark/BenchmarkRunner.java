@@ -16,6 +16,7 @@ public class BenchmarkRunner {
             String target = args[0].toLowerCase();
             String pattern = switch (target) {
                 case "micro" -> "com.cupoftea.benchmark.micro.*";
+                case "simd", "csv" -> "com.cupoftea.benchmark.micro.SimdCsvScannerBenchmark.*";
                 case "macro", "pipeline" -> "com.cupoftea.benchmark.macro.EndToEndPipelineBenchmark.*";
                 case "io" -> "com.cupoftea.benchmark.macro.EndToEndIoBenchmark.*";
                 case "scaling", "scale" -> "com.cupoftea.benchmark.scaling.*";

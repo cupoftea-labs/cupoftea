@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-10-30
+
+### Added
+
+- Two-Stage SIMD CSV structural scanner (`SimdCsvScanner`) using the Java Vector API (`jdk.incubator.vector.ByteVector` with `SPECIES_PREFERRED` and 4× loop unrolling), branchless parallel prefix-XOR quote parity resolution (`prefixXor`), and `TZCNT`/`BLSR` bit-scanning intrinsics ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
+- Runtime hardware and module capability detector (`SimdDetector`) with automatic fallback to scalar scanning when `--add-modules jdk.incubator.vector` is absent or disabled (`-Dcupoftea.simd.disabled=true`) ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
+- Added `simdEnabled` toggle (`isSimdEnabled()`, `setSimdEnabled(boolean)`) to `CSVImporterConfiguration` (enabled by default) and `FastCsvReader.readInto(byte[], CupOfTea)` ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
+- JMH micro- and end-to-end SIMD CSV benchmark suite (`SimdCsvScannerBenchmark`) covering standard wide CSV, high-density quoted CSV, and mixed varied-length CSV datasets ([#215](https://github.com/cupoftea-labs/cupoftea/issues/215)).
+
 ## [0.16.0] - 2026-10-29
 
 ### Added

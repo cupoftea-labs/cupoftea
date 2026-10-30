@@ -10,7 +10,7 @@ The `cupoftea-excel` module provides ingestion for Microsoft Excel spreadsheets 
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-excel</artifactId>
-    <version>0.16.0</version>
+    <version>0.17.0</version>
 </dependency>
 ```
 

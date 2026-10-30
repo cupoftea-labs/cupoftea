@@ -8,18 +8,23 @@ import java.nio.charset.StandardCharsets;
  */
 public final class FastByteParser {
 
+    private static final double[] POW10 = {
+        1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9,
+        1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
+        1e20, 1e21, 1e22
+    };
+
     private FastByteParser() {
     }
 
     /**
-     * Checks if the byte range [start, end) matches any known NA string (e.g. NA, N/A, null, NULL, #N/A)
-     * or is empty/all whitespace.
+     * Checks if the byte range [start, end) is empty or all whitespace.
      */
     public static boolean isBlank(byte[] buf, int start, int end) {
-        while (start < end && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
             start++;
         }
-        while (end > start && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
             end--;
         }
         return start >= end;
@@ -30,24 +35,37 @@ public final class FastByteParser {
      * "", "NA", "N/A", "null", "NULL", "#N/A".
      */
     public static boolean isNaOrEmpty(byte[] buf, int start, int end) {
-        while (start < end && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+        if (start >= end) {
+            return true;
+        }
+        byte first = buf[start];
+        if (first > ' ' && first != 'N' && first != 'n' && first != '#') {
+            return false;
+        }
+        if (end - start == 1) {
+            return first == ' ' || first == '\t' || first == '\r';
+        }
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
             start++;
         }
-        while (end > start && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
             end--;
         }
         int len = end - start;
         if (len == 0) {
             return true;
         }
+        byte b0 = buf[start];
+        if (b0 != 'N' && b0 != 'n' && b0 != '#') {
+            return false;
+        }
         if (len == 2) {
-            return buf[start] == 'N' && buf[start + 1] == 'A';
+            return b0 == 'N' && buf[start + 1] == 'A';
         }
         if (len == 3) {
-            return buf[start] == 'N' && buf[start + 1] == '/' && buf[start + 2] == 'A';
+            return b0 == 'N' && buf[start + 1] == '/' && buf[start + 2] == 'A';
         }
         if (len == 4) {
-            byte b0 = buf[start];
             byte b1 = buf[start + 1];
             byte b2 = buf[start + 2];
             byte b3 = buf[start + 3];
@@ -63,10 +81,10 @@ public final class FastByteParser {
      * Throws NumberFormatException if invalid.
      */
     public static int parseInt(byte[] buf, int start, int end) {
-        while (start < end && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
             start++;
         }
-        while (end > start && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
             end--;
         }
         if (start >= end) {
@@ -80,8 +98,20 @@ public final class FastByteParser {
         } else if (first == '+') {
             start++;
         }
-        if (start >= end) {
+        int digitsLen = end - start;
+        if (digitsLen <= 0) {
             throw new NumberFormatException("Invalid integer format");
+        }
+        if (digitsLen <= 9) {
+            int result = 0;
+            for (int i = start; i < end; i++) {
+                int digit = buf[i] - '0';
+                if (digit < 0 || digit > 9) {
+                    throw new NumberFormatException("Invalid digit: " + (char) buf[i]);
+                }
+                result = result * 10 + digit;
+            }
+            return negative ? -result : result;
         }
         int result = 0;
         int limit = negative ? Integer.MIN_VALUE : -Integer.MAX_VALUE;
@@ -109,10 +139,10 @@ public final class FastByteParser {
      * Throws NumberFormatException if invalid.
      */
     public static long parseLong(byte[] buf, int start, int end) {
-        while (start < end && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
             start++;
         }
-        while (end > start && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
             end--;
         }
         if (start >= end) {
@@ -126,8 +156,20 @@ public final class FastByteParser {
         } else if (first == '+') {
             start++;
         }
-        if (start >= end) {
+        int digitsLen = end - start;
+        if (digitsLen <= 0) {
             throw new NumberFormatException("Invalid long format");
+        }
+        if (digitsLen <= 18) {
+            long result = 0L;
+            for (int i = start; i < end; i++) {
+                int digit = buf[i] - '0';
+                if (digit < 0 || digit > 9) {
+                    throw new NumberFormatException("Invalid digit: " + (char) buf[i]);
+                }
+                result = result * 10L + digit;
+            }
+            return negative ? -result : result;
         }
         long result = 0;
         long limit = negative ? Long.MIN_VALUE : -Long.MAX_VALUE;
@@ -156,16 +198,17 @@ public final class FastByteParser {
      * Falls back to Double.parseDouble via String only for rare complex formats.
      */
     public static double parseDouble(byte[] buf, int start, int end) {
-        while (start < end && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
             start++;
         }
-        while (end > start && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
             end--;
         }
         if (start >= end) {
             throw new NumberFormatException("Empty double string");
         }
 
+        int origStart = start;
         boolean negative = false;
         if (buf[start] == '-') {
             negative = true;
@@ -183,24 +226,22 @@ public final class FastByteParser {
 
         while (i < end && buf[i] >= '0' && buf[i] <= '9') {
             hasDigits = true;
-            // Prevent overflow during fast long accumulation; fallback to Double.parseDouble if huge
             if (integerPart > 900_719_925_474_099L) { // > 2^53
-                return Double.parseDouble(new String(buf, start, end - start, StandardCharsets.ISO_8859_1));
+                return Double.parseDouble(new String(buf, origStart, end - origStart, StandardCharsets.ISO_8859_1));
             }
             integerPart = integerPart * 10 + (buf[i] - '0');
             i++;
         }
 
         long fractionalPart = 0;
-        long divisor = 1;
+        int fracDigits = 0;
         if (i < end && buf[i] == '.') {
             i++;
-            int fracStart = i;
             while (i < end && buf[i] >= '0' && buf[i] <= '9') {
                 hasDigits = true;
-                if (fractionalPart <= 900_719_925_474_099L) {
+                if (fracDigits < 18) {
                     fractionalPart = fractionalPart * 10 + (buf[i] - '0');
-                    divisor *= 10;
+                    fracDigits++;
                 }
                 i++;
             }
@@ -210,7 +251,9 @@ public final class FastByteParser {
             throw new NumberFormatException("No digits found in double");
         }
 
-        double val = (double) integerPart + ((double) fractionalPart / (double) divisor);
+        double val = fracDigits > 0
+                ? (double) integerPart + ((double) fractionalPart / POW10[fracDigits])
+                : (double) integerPart;
 
         if (i < end && (buf[i] == 'e' || buf[i] == 'E')) {
             i++;
@@ -226,16 +269,15 @@ public final class FastByteParser {
                 exp = exp * 10 + (buf[i] - '0');
                 i++;
             }
-            if (expNeg) {
-                val /= Math.pow(10, exp);
+            if (exp < POW10.length) {
+                val = expNeg ? (val / POW10[exp]) : (val * POW10[exp]);
             } else {
-                val *= Math.pow(10, exp);
+                val = expNeg ? (val / Math.pow(10, exp)) : (val * Math.pow(10, exp));
             }
         }
 
         if (i < end) {
-            // Unparsed trailing characters
-            return Double.parseDouble(new String(buf, start, end - start, StandardCharsets.ISO_8859_1));
+            return Double.parseDouble(new String(buf, origStart, end - origStart, StandardCharsets.ISO_8859_1));
         }
 
         return negative ? -val : val;
@@ -254,10 +296,10 @@ public final class FastByteParser {
      * "false" / "0" -> false
      */
     public static boolean parseBoolean(byte[] buf, int start, int end) {
-        while (start < end && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
             start++;
         }
-        while (end > start && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
             end--;
         }
         int len = end - start;

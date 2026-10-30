@@ -13,6 +13,7 @@ import com.cupoftea.benchmark.macro.EndToEndPipelineBenchmark;
 import com.cupoftea.benchmark.micro.ColumnarVectorScanBenchmark;
 import com.cupoftea.benchmark.micro.MapReduceAggregationBenchmark;
 import com.cupoftea.benchmark.micro.ParallelScanAndFilterBenchmark;
+import com.cupoftea.benchmark.micro.SimdCsvScannerBenchmark;
 import com.cupoftea.benchmark.micro.ZeroCopySlicingBenchmark;
 import com.cupoftea.benchmark.scaling.CompetitiveBaselineBenchmark;
 import com.cupoftea.benchmark.scaling.DatasetScaleBenchmark;
@@ -198,5 +199,34 @@ public class BenchmarkSmokeTest {
 
         bench.mapSequential(noopBlackhole);
         bench.mapParallel(noopBlackhole);
+    }
+
+    @Test
+    @DisplayName("Should execute SimdCsvScannerBenchmark across all CSV profiles")
+    void testSimdCsvScannerBenchmark() throws IOException {
+        SimdCsvScannerBenchmark bench = new SimdCsvScannerBenchmark();
+        bench.rows = 200;
+        bench.setupTrial();
+        try {
+            bench.scanStandardWideScalar(noopBlackhole);
+            bench.scanStandardWideSimd(noopBlackhole);
+
+            bench.scanHighDensityQuotedScalar(noopBlackhole);
+            bench.scanHighDensityQuotedSimd(noopBlackhole);
+
+            bench.scanMixedVariedScalar(noopBlackhole);
+            bench.scanMixedVariedSimd(noopBlackhole);
+
+            bench.readStandardWideScalar(noopBlackhole);
+            bench.readStandardWideSimd(noopBlackhole);
+
+            bench.readHighDensityQuotedScalar(noopBlackhole);
+            bench.readHighDensityQuotedSimd(noopBlackhole);
+
+            bench.readMixedVariedScalar(noopBlackhole);
+            bench.readMixedVariedSimd(noopBlackhole);
+        } finally {
+            bench.tearDownTrial();
+        }
     }
 }

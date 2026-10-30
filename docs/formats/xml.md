@@ -10,7 +10,7 @@ The `cupoftea-xml` module parses hierarchical XML data structures into flat 2D D
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-xml</artifactId>
-    <version>0.16.0</version>
+    <version>0.17.0</version>
 </dependency>
 ```
 
