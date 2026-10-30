@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-10-30
+
+### Added
+
+- Streaming / Lazy DataFrame evaluation for out-of-core data processing (`CupOfTea.scan().csv(...)`, `CupOfTea.scanCsv(...)`, `df.lazy()`, `LazyCupOfTea`, `LazyDataFrame`, `LazyGroupBy`, `DataFrameScanner`, `FormatScanner`, `ScanOptions`, `LazySource`, `CompactRunningGroupBy`) ([#209](https://github.com/cupoftea-labs/cupoftea/issues/209)):
+  - Out-of-core memory-mapped streaming partition execution (`CsvLazySource`, `CsvMmapPartitionReader`) processing multi-gigabyte datasets (e.g. 1BRC 1 billion rows / 14 GB) without materializing full datasets into memory.
+  - Automatic line-aligned chunk partitioning with hardware-accelerated SIMD structural scanning and direct zero-copy columnar vector assembly (`FastCsvReader.assembleChunk`).
+  - Compact running GroupBy engine (`CompactRunningGroupBy`) maintaining cache-resident running statistics (`min`, `mean`, `max`, `sum`, `count`, `first`, `last`, `std`, `var`) with zero heap allocation during hot scanning loops and parallel partition state reduction.
+  - Lazy execution graph supporting stream filtering (`filter`), early projection (`select`, `drop`), early limit termination (`limit`, `head`), global aggregations (`agg`), out-of-core counting (`count`), and plan explanation (`explain`), finalized via `.collect()`.
+
 ## [0.18.0] - 2026-10-30
 
 ### Added
