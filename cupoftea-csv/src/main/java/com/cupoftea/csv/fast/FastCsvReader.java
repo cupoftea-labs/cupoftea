@@ -321,12 +321,7 @@ public class FastCsvReader {
                 return SimdCsvScanner.parseChunkSimd(fullBytes, start, end,
                         delim, quote, escape, colCount, colTypes, colTypeIds, charset, config);
             } else if (mappedBuf != null) {
-                int len = end - start;
-                byte[] chunkBytes = new byte[len];
-                ByteBuffer slice = mappedBuf.duplicate();
-                slice.position(start);
-                slice.get(chunkBytes, 0, len);
-                return SimdCsvScanner.parseChunkSimd(chunkBytes, 0, len,
+                return SimdCsvScanner.parseChunkSimdMapped(mappedBuf, start, end,
                         delim, quote, escape, colCount, colTypes, colTypeIds, charset, config);
             }
         }
@@ -960,16 +955,106 @@ public class FastCsvReader {
     }
 
     /**
+     * Contiguous UTF-8 byte buffer and row offset index for a single chunk of a String column.
+     * Eliminates per-row String allocation, FastStringPool hashing, and String[] reference arrays.
+     */
+    static final class StringChunkBuffer {
+        byte[] values;
+        int valuesCount;
+        int[] offsets;
+
+        StringChunkBuffer(int initialRowCapacity, int initialByteCapacity) {
+            this.values = new byte[Math.max(64, initialByteCapacity)];
+            this.offsets = new int[initialRowCapacity + 1];
+            this.offsets[0] = 0;
+            this.valuesCount = 0;
+        }
+
+        void ensureRowCapacity(int rowCapacity) {
+            if (rowCapacity + 1 > offsets.length) {
+                int newCap = Math.max(offsets.length << 1, rowCapacity + 1);
+                offsets = Arrays.copyOf(offsets, newCap);
+            }
+        }
+
+        void appendEmptyOrNull(int row) {
+            offsets[row + 1] = valuesCount;
+        }
+
+        void appendBytes(int row, byte[] src, int start, int len) {
+            int nextCount = valuesCount + len;
+            if (nextCount > values.length) {
+                growValues(nextCount);
+            }
+            System.arraycopy(src, start, values, valuesCount, len);
+            valuesCount = nextCount;
+            offsets[row + 1] = nextCount;
+        }
+
+        void appendBytes(int row, byte[] src, int start, int len, boolean isIso88591) {
+            if (!isIso88591) {
+                appendBytes(row, src, start, len);
+                return;
+            }
+            int end = start + len;
+            int nonAscii = 0;
+            for (int i = start; i < end; i++) {
+                if (src[i] < 0) {
+                    nonAscii++;
+                }
+            }
+            if (nonAscii == 0) {
+                appendBytes(row, src, start, len);
+                return;
+            }
+            int utf8Len = len + nonAscii;
+            int nextCount = valuesCount + utf8Len;
+            if (nextCount > values.length) {
+                growValues(nextCount);
+            }
+            int dst = valuesCount;
+            byte[] dstBuf = this.values;
+            for (int i = start; i < end; i++) {
+                byte b = src[i];
+                if (b >= 0) {
+                    dstBuf[dst++] = b;
+                } else {
+                    int u = b & 0xFF;
+                    dstBuf[dst++] = (byte) (0xC0 | (u >> 6));
+                    dstBuf[dst++] = (byte) (0x80 | (u & 0x3F));
+                }
+            }
+            this.valuesCount = dst;
+            this.offsets[row + 1] = dst;
+        }
+
+        private void growValues(int minCapacity) {
+            long doubled = (long) values.length << 1;
+            int newCap = (int) Math.min(Integer.MAX_VALUE - 8, Math.max(doubled, (long) minCapacity));
+            if (newCap < minCapacity) {
+                newCap = minCapacity;
+            }
+            values = Arrays.copyOf(values, newCap);
+        }
+    }
+
+    /**
      * Scalar fallback chunk parser for platforms without Java Vector API SIMD support
      * or when SIMD acceleration is explicitly disabled.
      */
     private static ChunkResult parseChunkScalar(byte[] fullBytes, MappedByteBuffer mappedBuf, int start, int end,
                                                 byte delim, byte quote, byte escape, int colCount, Class<?>[] colTypes,
                                                 Charset charset, CSVImporterConfiguration config) {
-        int estimatedRows = Math.max(16, (end - start) / Math.max(10, colCount * 8));
+        int chunkByteLen = end - start;
+        int estimatedRows = Math.max(16, chunkByteLen / Math.max(10, colCount * 8));
+        int estStringBytes = (colCount <= 2)
+                ? Math.max(256, (int) (((long) chunkByteLen * 3) >>> 2))
+                : Math.max(256, chunkByteLen / colCount);
 
         Object[] colData = new Object[colCount];
         BitSet[] nullBitsets = new BitSet[colCount];
+        boolean needsStringPool = false;
+        boolean isIso88591 = StandardCharsets.ISO_8859_1.equals(charset);
 
         for (int c = 0; c < colCount; c++) {
             Class<?> t = colTypes[c];
@@ -985,13 +1070,14 @@ public class FastCsvReader {
             } else if (t == boolean.class || t == Boolean.class) {
                 colData[c] = new boolean[estimatedRows];
             } else if (t == String.class) {
-                colData[c] = new String[estimatedRows];
+                colData[c] = new StringChunkBuffer(estimatedRows, estStringBytes);
             } else {
                 colData[c] = new Object[estimatedRows];
+                needsStringPool = true;
             }
         }
 
-        FastStringPool stringPool = new FastStringPool(charset);
+        FastStringPool stringPool = needsStringPool ? new FastStringPool(charset) : null;
         byte[] fieldBuf = new byte[256];
         int curr = start;
         int row = 0;
@@ -1041,7 +1127,7 @@ public class FastCsvReader {
                 if (!inQuote) {
                     if (b == delim) {
                         parseFieldScalar(fullBytes, mappedBuf, fStart, curr, hadQuote, fieldBuf, fieldLen,
-                                colIdx, row, colTypes, colData, nullBitsets, stringPool, charset, config);
+                                colIdx, row, colTypes, colData, nullBitsets, stringPool, isIso88591, config);
                         colIdx++;
                         curr++;
                         fStart = curr;
@@ -1063,7 +1149,7 @@ public class FastCsvReader {
             }
 
             parseFieldScalar(fullBytes, mappedBuf, fStart, curr, hadQuote, fieldBuf, fieldLen,
-                    colIdx, row, colTypes, colData, nullBitsets, stringPool, charset, config);
+                    colIdx, row, colTypes, colData, nullBitsets, stringPool, isIso88591, config);
             colIdx++;
 
             if (colIdx != colCount) {
@@ -1083,7 +1169,7 @@ public class FastCsvReader {
         if (type == double.class || type == Double.class) return ((double[]) arr).length;
         if (type == float.class || type == Float.class) return ((float[]) arr).length;
         if (type == boolean.class || type == Boolean.class) return ((boolean[]) arr).length;
-        if (type == String.class) return ((String[]) arr).length;
+        if (type == String.class) return ((StringChunkBuffer) arr).offsets.length - 1;
         return ((Object[]) arr).length;
     }
 
@@ -1093,14 +1179,18 @@ public class FastCsvReader {
         if (type == double.class || type == Double.class) return Arrays.copyOf((double[]) arr, newCap);
         if (type == float.class || type == Float.class) return Arrays.copyOf((float[]) arr, newCap);
         if (type == boolean.class || type == Boolean.class) return Arrays.copyOf((boolean[]) arr, newCap);
-        if (type == String.class) return Arrays.copyOf((String[]) arr, newCap);
+        if (type == String.class) {
+            StringChunkBuffer sb = (StringChunkBuffer) arr;
+            sb.ensureRowCapacity(newCap);
+            return sb;
+        }
         return Arrays.copyOf((Object[]) arr, newCap);
     }
 
     private static void parseFieldScalar(byte[] fullBytes, MappedByteBuffer mappedBuf, int start, int end,
                                          boolean hadQuote, byte[] fieldBuf, int fieldLen,
                                          int colIdx, int row, Class<?>[] colTypes, Object[] colData,
-                                         BitSet[] nullBitsets, FastStringPool stringPool, Charset charset,
+                                         BitSet[] nullBitsets, FastStringPool stringPool, boolean isIso88591,
                                          CSVImporterConfiguration config) {
         if (colIdx >= colTypes.length) {
             throw new CsvParseException("Row length mismatch: extra column at index " + colIdx);
@@ -1166,12 +1256,17 @@ public class FastCsvReader {
                 ((boolean[]) colData[colIdx])[row] = FastByteParser.parseBoolean(rawBuf, rawStart, rawEnd);
             }
         } else if (type == String.class) {
+            StringChunkBuffer strBuf = (StringChunkBuffer) colData[colIdx];
             if (!hadQuote && FastByteParser.isNaOrEmpty(rawBuf, rawStart, rawEnd)) {
                 nullBitsets[colIdx].set(row);
-            } else if (hadQuote && rawEnd == 0 && !config.isPreserveEmptyStrings()) {
-                nullBitsets[colIdx].set(row);
+                strBuf.appendEmptyOrNull(row);
+            } else if (hadQuote && (rawEnd - rawStart) == 0) {
+                if (!config.isPreserveEmptyStrings()) {
+                    nullBitsets[colIdx].set(row);
+                }
+                strBuf.appendEmptyOrNull(row);
             } else {
-                ((String[]) colData[colIdx])[row] = stringPool.getOrCreate(rawBuf, rawStart, rawEnd - rawStart);
+                strBuf.appendBytes(row, rawBuf, rawStart, rawEnd - rawStart, isIso88591);
             }
         } else {
             if (FastByteParser.isNaOrEmpty(rawBuf, rawStart, rawEnd)) {
@@ -1204,7 +1299,7 @@ public class FastCsvReader {
         int colCount = colNames.length;
         List<ColumnVector> vectors = new ArrayList<>(colCount);
 
-        if (useSimd && chunkResults.size() == 1) {
+        if (chunkResults.size() == 1) {
             ChunkResult single = chunkResults.get(0);
             for (int c = 0; c < colCount; c++) {
                 String name = colNames[c];
@@ -1220,8 +1315,10 @@ public class FastCsvReader {
                         vectors.add(new FloatColumnVector(name, true, (float[]) single.columnData[c], nulls, totalRows));
                     case SimdCsvScanner.TYPE_BOOLEAN ->
                         vectors.add(new BooleanColumnVector(name, true, (boolean[]) single.columnData[c], nulls, totalRows));
-                    case SimdCsvScanner.TYPE_STRING ->
-                        vectors.add(new StringColumnVector(name, true, (String[]) single.columnData[c], nulls, totalRows));
+                    case SimdCsvScanner.TYPE_STRING -> {
+                        StringChunkBuffer sb = (StringChunkBuffer) single.columnData[c];
+                        vectors.add(new StringColumnVector(name, true, sb.values, sb.valuesCount, sb.offsets, nulls, totalRows));
+                    }
                     default ->
                         vectors.add(new ObjectColumnVector(name, colTypes[c], true, (Object[]) single.columnData[c], nulls, totalRows));
                 }
@@ -1229,85 +1326,148 @@ public class FastCsvReader {
             return vectors;
         }
 
+        int numChunks = chunkResults.size();
+        int[] rowOffsets = new int[numChunks];
+        int runningRows = 0;
+        for (int k = 0; k < numChunks; k++) {
+            rowOffsets[k] = runningRows;
+            runningRows += chunkResults.get(k).rowCount;
+        }
+
         for (int c = 0; c < colCount; c++) {
             String name = colNames[c];
             BitSet nulls = new BitSet(totalRows);
+            final int colIdx = c;
 
             switch (colTypeIds[c]) {
                 case SimdCsvScanner.TYPE_INT -> {
                     int[] data = new int[totalRows];
-                    int offset = 0;
-                    for (ChunkResult chunk : chunkResults) {
-                        int rows = chunk.rowCount;
-                        System.arraycopy((int[]) chunk.columnData[c], 0, data, offset, rows);
-                        copyNullBits(chunk.nullBitsets[c], nulls, offset);
-                        offset += rows;
+                    if (totalRows >= 65_536 && numChunks > 1) {
+                        runParallelChunkCopy(numChunks, k -> {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((int[]) chunk.columnData[colIdx], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[colIdx] = null;
+                        });
+                    } else {
+                        for (int k = 0; k < numChunks; k++) {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((int[]) chunk.columnData[c], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[c] = null;
+                        }
+                    }
+                    for (int k = 0; k < numChunks; k++) {
+                        copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
                     }
                     vectors.add(new IntColumnVector(name, true, data, nulls, totalRows));
                 }
                 case SimdCsvScanner.TYPE_LONG -> {
                     long[] data = new long[totalRows];
-                    int offset = 0;
-                    for (ChunkResult chunk : chunkResults) {
-                        int rows = chunk.rowCount;
-                        System.arraycopy((long[]) chunk.columnData[c], 0, data, offset, rows);
-                        copyNullBits(chunk.nullBitsets[c], nulls, offset);
-                        offset += rows;
+                    if (totalRows >= 65_536 && numChunks > 1) {
+                        runParallelChunkCopy(numChunks, k -> {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((long[]) chunk.columnData[colIdx], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[colIdx] = null;
+                        });
+                    } else {
+                        for (int k = 0; k < numChunks; k++) {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((long[]) chunk.columnData[c], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[c] = null;
+                        }
+                    }
+                    for (int k = 0; k < numChunks; k++) {
+                        copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
                     }
                     vectors.add(new LongColumnVector(name, true, data, nulls, totalRows));
                 }
                 case SimdCsvScanner.TYPE_DOUBLE -> {
                     double[] data = new double[totalRows];
-                    int offset = 0;
-                    for (ChunkResult chunk : chunkResults) {
-                        int rows = chunk.rowCount;
-                        System.arraycopy((double[]) chunk.columnData[c], 0, data, offset, rows);
-                        copyNullBits(chunk.nullBitsets[c], nulls, offset);
-                        offset += rows;
+                    if (totalRows >= 65_536 && numChunks > 1) {
+                        runParallelChunkCopy(numChunks, k -> {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((double[]) chunk.columnData[colIdx], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[colIdx] = null;
+                        });
+                    } else {
+                        for (int k = 0; k < numChunks; k++) {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((double[]) chunk.columnData[c], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[c] = null;
+                        }
+                    }
+                    for (int k = 0; k < numChunks; k++) {
+                        copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
                     }
                     vectors.add(new DoubleColumnVector(name, true, data, nulls, totalRows));
                 }
                 case SimdCsvScanner.TYPE_FLOAT -> {
                     float[] data = new float[totalRows];
-                    int offset = 0;
-                    for (ChunkResult chunk : chunkResults) {
-                        int rows = chunk.rowCount;
-                        System.arraycopy((float[]) chunk.columnData[c], 0, data, offset, rows);
-                        copyNullBits(chunk.nullBitsets[c], nulls, offset);
-                        offset += rows;
+                    if (totalRows >= 65_536 && numChunks > 1) {
+                        runParallelChunkCopy(numChunks, k -> {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((float[]) chunk.columnData[colIdx], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[colIdx] = null;
+                        });
+                    } else {
+                        for (int k = 0; k < numChunks; k++) {
+                            ChunkResult chunk = chunkResults.get(k);
+                            System.arraycopy((float[]) chunk.columnData[c], 0, data, rowOffsets[k], chunk.rowCount);
+                            chunk.columnData[c] = null;
+                        }
+                    }
+                    for (int k = 0; k < numChunks; k++) {
+                        copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
                     }
                     vectors.add(new FloatColumnVector(name, true, data, nulls, totalRows));
                 }
                 case SimdCsvScanner.TYPE_BOOLEAN -> {
                     boolean[] data = new boolean[totalRows];
-                    int offset = 0;
-                    for (ChunkResult chunk : chunkResults) {
-                        int rows = chunk.rowCount;
-                        System.arraycopy((boolean[]) chunk.columnData[c], 0, data, offset, rows);
-                        copyNullBits(chunk.nullBitsets[c], nulls, offset);
-                        offset += rows;
+                    for (int k = 0; k < numChunks; k++) {
+                        ChunkResult chunk = chunkResults.get(k);
+                        System.arraycopy((boolean[]) chunk.columnData[c], 0, data, rowOffsets[k], chunk.rowCount);
+                        chunk.columnData[c] = null;
+                        copyNullBits(chunk.nullBitsets[c], nulls, rowOffsets[k]);
                     }
                     vectors.add(new BooleanColumnVector(name, true, data, nulls, totalRows));
                 }
                 case SimdCsvScanner.TYPE_STRING -> {
-                    String[] data = new String[totalRows];
-                    int offset = 0;
-                    for (ChunkResult chunk : chunkResults) {
-                        int rows = chunk.rowCount;
-                        System.arraycopy((String[]) chunk.columnData[c], 0, data, offset, rows);
-                        copyNullBits(chunk.nullBitsets[c], nulls, offset);
-                        offset += rows;
+                    int[] byteOffsets = new int[numChunks];
+                    long totalBytesLong = 0L;
+                    for (int k = 0; k < numChunks; k++) {
+                        byteOffsets[k] = (int) totalBytesLong;
+                        StringChunkBuffer sb = (StringChunkBuffer) chunkResults.get(k).columnData[c];
+                        totalBytesLong += sb.valuesCount;
                     }
-                    vectors.add(new StringColumnVector(name, true, data, nulls, totalRows));
+                    if (totalBytesLong > Integer.MAX_VALUE - 8) {
+                        throw new CsvParseException("String column '" + name + "' exceeds maximum byte buffer capacity");
+                    }
+                    int totalBytes = (int) totalBytesLong;
+                    byte[] values = new byte[totalBytes];
+                    int[] offsets = new int[totalRows + 1];
+                    offsets[0] = 0;
+
+                    if (totalRows >= 65_536 && numChunks > 1) {
+                        runParallelChunkCopy(numChunks, k -> copyStringChunk(
+                                chunkResults.get(k), colIdx, rowOffsets[k],
+                                byteOffsets[k], values, offsets));
+                    } else {
+                        for (int k = 0; k < numChunks; k++) {
+                            copyStringChunk(chunkResults.get(k), c, rowOffsets[k], byteOffsets[k], values, offsets);
+                        }
+                    }
+
+                    for (int k = 0; k < numChunks; k++) {
+                        copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
+                    }
+                    vectors.add(new StringColumnVector(name, true, values, totalBytes, offsets, nulls, totalRows));
                 }
                 default -> {
                     Object[] data = new Object[totalRows];
-                    int offset = 0;
-                    for (ChunkResult chunk : chunkResults) {
-                        int rows = chunk.rowCount;
-                        System.arraycopy((Object[]) chunk.columnData[c], 0, data, offset, rows);
-                        copyNullBits(chunk.nullBitsets[c], nulls, offset);
-                        offset += rows;
+                    for (int k = 0; k < numChunks; k++) {
+                        ChunkResult chunk = chunkResults.get(k);
+                        System.arraycopy((Object[]) chunk.columnData[c], 0, data, rowOffsets[k], chunk.rowCount);
+                        chunk.columnData[c] = null;
+                        copyNullBits(chunk.nullBitsets[c], nulls, rowOffsets[k]);
                     }
                     vectors.add(new ObjectColumnVector(name, colTypes[c], true, data, nulls, totalRows));
                 }
@@ -1315,6 +1475,47 @@ public class FastCsvReader {
         }
 
         return vectors;
+    }
+
+    private static void runParallelChunkCopy(int numChunks, java.util.function.IntConsumer task) {
+        ExecutorService pool = ForkJoinPool.commonPool();
+        List<Future<?>> copyFutures = new ArrayList<>(numChunks - 1);
+        for (int k = 1; k < numChunks; k++) {
+            final int chunkIdx = k;
+            copyFutures.add(pool.submit(() -> task.accept(chunkIdx)));
+        }
+        task.accept(0);
+        for (Future<?> f : copyFutures) {
+            try {
+                f.get();
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new CsvParseException("Interrupted while assembling ColumnVector", ie);
+            } catch (ExecutionException ee) {
+                throw new CsvParseException("Failed to assemble ColumnVector", ee.getCause());
+            }
+        }
+    }
+
+    private static void copyStringChunk(ChunkResult chunk, int colIdx, int rowBase, int byteBase,
+                                        byte[] dstValues, int[] dstOffsets) {
+        StringChunkBuffer sb = (StringChunkBuffer) chunk.columnData[colIdx];
+        int rows = chunk.rowCount;
+        int byteLen = sb.valuesCount;
+        if (byteLen > 0) {
+            System.arraycopy(sb.values, 0, dstValues, byteBase, byteLen);
+        }
+        int[] srcOffsets = sb.offsets;
+        if (byteBase == 0) {
+            System.arraycopy(srcOffsets, 1, dstOffsets, rowBase + 1, rows);
+        } else {
+            for (int r = 1; r <= rows; r++) {
+                dstOffsets[rowBase + r] = srcOffsets[r] + byteBase;
+            }
+        }
+        sb.values = null;
+        sb.offsets = null;
+        chunk.columnData[colIdx] = null;
     }
 
     private static void copyNullBits(BitSet src, BitSet dst, int offset) {

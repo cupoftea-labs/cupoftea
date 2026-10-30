@@ -509,6 +509,36 @@ public class StringColumnVector extends ColumnVector implements Serializable {
     @Override
     public synchronized void copyIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
         if (src instanceof StringColumnVector strSrc) {
+            if (dstOffset == 0 && count == this.size && this.valuesCount == 0) {
+                int totalBytes = 0;
+                for (int i = 0; i < count; i++) {
+                    int srcRow = srcIndices[i];
+                    if (!strSrc.nulls.get(srcRow)) {
+                        totalBytes += (strSrc.offsets[srcRow + 1] - strSrc.offsets[srcRow]);
+                    }
+                }
+                ensureValueCapacity(totalBytes);
+                ensureRowCapacity(count);
+                int currByte = 0;
+                this.offsets[0] = 0;
+                for (int i = 0; i < count; i++) {
+                    int srcRow = srcIndices[i];
+                    if (strSrc.nulls.get(srcRow)) {
+                        this.nulls.set(i);
+                    } else {
+                        this.nulls.clear(i);
+                        int sStart = strSrc.offsets[srcRow];
+                        int sLen = strSrc.offsets[srcRow + 1] - sStart;
+                        if (sLen > 0) {
+                            System.arraycopy(strSrc.values, sStart, this.values, currByte, sLen);
+                            currByte += sLen;
+                        }
+                    }
+                    this.offsets[i + 1] = currByte;
+                }
+                this.valuesCount = currByte;
+                return;
+            }
             for (int i = 0; i < count; i++) {
                 int srcRow = srcIndices[i];
                 int dstRow = dstOffset + i;
