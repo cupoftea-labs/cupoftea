@@ -318,6 +318,10 @@
                     <version>3.16.0</version>
                     <configuration>
                         <release>${maven.compiler.release}</release>
+                        <compilerArgs>
+                            <arg>--add-modules</arg>
+                            <arg>jdk.incubator.vector</arg>
+                        </compilerArgs>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -325,7 +329,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.6.0</version>
                     <configuration>
-                        <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
+                        <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -349,6 +353,10 @@
                         <source>${maven.compiler.source}</source>
                         <release>${maven.compiler.release}</release>
                         <doclint>none</doclint>
+                        <additionalOptions>
+                            <additionalOption>--add-modules</additionalOption>
+                            <additionalOption>jdk.incubator.vector</additionalOption>
+                        </additionalOptions>
                     </configuration>
                     <executions>
                         <execution>
