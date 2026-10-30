@@ -599,7 +599,8 @@ public final class SimdCsvScanner {
                 case TYPE_DOUBLE -> colData[c] = new double[capacity];
                 case TYPE_FLOAT -> colData[c] = new float[capacity];
                 case TYPE_BOOLEAN -> colData[c] = new boolean[capacity];
-                case TYPE_STRING, TYPE_CATEGORICAL -> colData[c] = new FastCsvReader.StringChunkBuffer(capacity, estStringBytes);
+                case TYPE_STRING -> colData[c] = new FastCsvReader.StringChunkBuffer(capacity, estStringBytes);
+                case TYPE_CATEGORICAL -> colData[c] = new FastCsvReader.DictionaryChunkBuffer(capacity, charset);
                 default -> {
                     colData[c] = new Object[capacity];
                     needsStringPool = true;
@@ -976,7 +977,8 @@ public final class SimdCsvScanner {
                 case TYPE_DOUBLE -> colData[c] = Arrays.copyOf((double[]) colData[c], newCap);
                 case TYPE_FLOAT -> colData[c] = Arrays.copyOf((float[]) colData[c], newCap);
                 case TYPE_BOOLEAN -> colData[c] = Arrays.copyOf((boolean[]) colData[c], newCap);
-                case TYPE_STRING, TYPE_CATEGORICAL -> ((FastCsvReader.StringChunkBuffer) colData[c]).ensureRowCapacity(newCap);
+                case TYPE_STRING -> ((FastCsvReader.StringChunkBuffer) colData[c]).ensureRowCapacity(newCap);
+                case TYPE_CATEGORICAL -> ((FastCsvReader.DictionaryChunkBuffer) colData[c]).ensureRowCapacity(newCap);
                 default -> colData[c] = Arrays.copyOf((Object[]) colData[c], newCap);
             }
         }
@@ -991,8 +993,10 @@ public final class SimdCsvScanner {
 
         if (start == end) {
             nullBitsets[colIdx].set(row);
-            if (typeId == TYPE_STRING || typeId == TYPE_CATEGORICAL) {
+            if (typeId == TYPE_STRING) {
                 ((FastCsvReader.StringChunkBuffer) colData[colIdx]).appendEmptyOrNull(row);
+            } else if (typeId == TYPE_CATEGORICAL) {
+                ((FastCsvReader.DictionaryChunkBuffer) colData[colIdx]).appendEmptyOrNull(row);
             }
             return;
         }
@@ -1038,7 +1042,7 @@ public final class SimdCsvScanner {
                     ((boolean[]) colData[colIdx])[row] = FastByteParser.parseBoolean(buf, start, end);
                 }
             }
-            case TYPE_STRING, TYPE_CATEGORICAL -> {
+            case TYPE_STRING -> {
                 FastCsvReader.StringChunkBuffer strBuf = (FastCsvReader.StringChunkBuffer) colData[colIdx];
                 if (FastByteParser.isNaOrEmpty(buf, start, end)
                         || (customNaStrings && isCustomNa(buf, start, end, naStrings))) {
@@ -1048,6 +1052,16 @@ public final class SimdCsvScanner {
                     strBuf.appendBytes(row, buf, start, end - start);
                 } else {
                     strBuf.appendBytes(row, buf, start, end - start, true);
+                }
+            }
+            case TYPE_CATEGORICAL -> {
+                FastCsvReader.DictionaryChunkBuffer dictBuf = (FastCsvReader.DictionaryChunkBuffer) colData[colIdx];
+                if (FastByteParser.isNaOrEmpty(buf, start, end)
+                        || (customNaStrings && isCustomNa(buf, start, end, naStrings))) {
+                    nullBitsets[colIdx].set(row);
+                    dictBuf.appendEmptyOrNull(row);
+                } else {
+                    dictBuf.appendBytes(row, buf, start, end - start, isIso88591);
                 }
             }
             default -> {
@@ -1119,7 +1133,7 @@ public final class SimdCsvScanner {
             rawEnd = fieldLen;
         }
 
-        if (typeId == TYPE_STRING || typeId == TYPE_CATEGORICAL) {
+        if (typeId == TYPE_STRING) {
             FastCsvReader.StringChunkBuffer strBuf = (FastCsvReader.StringChunkBuffer) colData[colIdx];
             int len = rawEnd - rawStart;
             if (len == 0) {
@@ -1134,6 +1148,25 @@ public final class SimdCsvScanner {
                 strBuf.appendBytes(row, rawBuf, rawStart, len);
             } else {
                 strBuf.appendBytes(row, rawBuf, rawStart, len, true);
+            }
+            return fieldBuf;
+        }
+
+        if (typeId == TYPE_CATEGORICAL) {
+            FastCsvReader.DictionaryChunkBuffer dictBuf = (FastCsvReader.DictionaryChunkBuffer) colData[colIdx];
+            int len = rawEnd - rawStart;
+            if (len == 0) {
+                if (!preserveEmptyStrings) {
+                    nullBitsets[colIdx].set(row);
+                    dictBuf.appendEmptyOrNull(row);
+                } else {
+                    dictBuf.appendBytes(row, rawBuf, rawStart, 0, isIso88591);
+                }
+            } else if (customNaStrings && isCustomNa(rawBuf, rawStart, rawEnd, naStrings)) {
+                nullBitsets[colIdx].set(row);
+                dictBuf.appendEmptyOrNull(row);
+            } else {
+                dictBuf.appendBytes(row, rawBuf, rawStart, len, isIso88591);
             }
             return fieldBuf;
         }
