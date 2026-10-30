@@ -17,7 +17,7 @@ import com.cupoftea.table.vector.ParallelVectorEngine;
 public class Aggregations {
 
     public static Aggregate sum(String column) {
-        return new BaseAggregate(column, column + "Sum") {
+        return new BaseAggregate(column, column + "Sum", Aggregation.SUM) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
@@ -116,7 +116,7 @@ public class Aggregations {
     }
 
     private static Aggregate createMeanAggregate(String column, String defaultOutputName) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.MEAN) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
@@ -195,7 +195,7 @@ public class Aggregations {
     }
 
     public static Aggregate count(String column) {
-        return new BaseAggregate(column, column + "Count") {
+        return new BaseAggregate(column, column + "Count", Aggregation.COUNT) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
@@ -259,7 +259,7 @@ public class Aggregations {
     }
 
     public static Aggregate count() {
-        return new BaseAggregate(null, "count") {
+        return new BaseAggregate(null, "count", Aggregation.COUNT) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
@@ -316,7 +316,7 @@ public class Aggregations {
     }
 
     private static Aggregate createMinAggregate(String column, String defaultOutputName) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.MIN) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
@@ -390,7 +390,7 @@ public class Aggregations {
     }
 
     private static Aggregate createMaxAggregate(String column, String defaultOutputName) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.MAX) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
@@ -577,7 +577,7 @@ public class Aggregations {
     }
 
     public static Aggregate first(String column) {
-        return new BaseAggregate(column, column + "First") {
+        return new BaseAggregate(column, column + "First", Aggregation.FIRST) {
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 for (HashMap<String, Object> row : rows) {
@@ -598,7 +598,7 @@ public class Aggregations {
     }
 
     public static Aggregate last(String column) {
-        return new BaseAggregate(column, column + "Last") {
+        return new BaseAggregate(column, column + "Last", Aggregation.LAST) {
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 for (int i = rows.size() - 1; i >= 0; i--) {
@@ -672,7 +672,7 @@ public class Aggregations {
     }
 
     private static Aggregate createVarAggregate(String column, String defaultOutputName, boolean isSample) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.VAR) {
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 double[] vals = extractDoubleArray(rows, column);
@@ -704,7 +704,7 @@ public class Aggregations {
     }
 
     private static Aggregate createStdAggregate(String column, String defaultOutputName, boolean isSample) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.STD) {
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 double[] vals = extractDoubleArray(rows, column);
@@ -838,10 +838,21 @@ public class Aggregations {
     public static abstract class BaseAggregate implements Aggregate {
         protected final String column;
         protected String outputColumnName;
+        protected final Aggregation aggregationType;
 
         public BaseAggregate(String column, String defaultOutputName) {
+            this(column, defaultOutputName, null);
+        }
+
+        public BaseAggregate(String column, String defaultOutputName, Aggregation aggregationType) {
             this.column = column;
             this.outputColumnName = defaultOutputName;
+            this.aggregationType = aggregationType;
+        }
+
+        @Override
+        public Aggregation getAggregationType() {
+            return aggregationType;
         }
 
         @Override

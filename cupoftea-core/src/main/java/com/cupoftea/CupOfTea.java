@@ -24,7 +24,9 @@ import com.cupoftea.exceptions.ExportException;
 import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.io.DataFrameReader;
+import com.cupoftea.io.DataFrameScanner;
 import com.cupoftea.io.DataFrameWriter;
+import com.cupoftea.lazy.LazyCupOfTea;
 import com.cupoftea.plot.Plot;
 import com.cupoftea.table.Aggregate;
 import com.cupoftea.table.Aggregation;
@@ -50,6 +52,7 @@ import com.cupoftea.utils.configurations.PrinterConfiguration;
 import com.cupoftea.utils.configurations.TableHtmlConfiguration;
 import com.cupoftea.utils.interfaces.IColumnCreator;
 import com.cupoftea.utils.interfaces.IFilter;
+import com.cupoftea.utils.interfaces.Order;
 import com.cupoftea.utils.interfaces.Orderer;
 
 public class CupOfTea {
@@ -237,6 +240,58 @@ public class CupOfTea {
      */
     public static DataFrameReader read() {
         return new DataFrameReader();
+    }
+
+    /**
+     * Entry point for scanning and lazy evaluation of tabular data formats.
+     * Evaluates execution plans over streaming chunks without materializing full datasets into memory.
+     * Example: {@code CupOfTea result = CupOfTea.scan().csv("measurements.txt").groupBy("station").agg(min("temp"), mean("temp"), max("temp")).collect();}
+     */
+    public static DataFrameScanner scan() {
+        return new DataFrameScanner();
+    }
+
+    public static LazyCupOfTea scanCsv(String path) {
+        return scan().csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file) {
+        return scan().csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(String path, boolean hasHeaders) {
+        return scan().hasHeaders(hasHeaders).csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, boolean hasHeaders) {
+        return scan().hasHeaders(hasHeaders).csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(String path, Schema schema) {
+        return scan().schema(schema).csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, Schema schema) {
+        return scan().schema(schema).csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(String path, boolean hasHeaders, Schema schema) {
+        return scan().hasHeaders(hasHeaders).schema(schema).csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, boolean hasHeaders, Schema schema) {
+        return scan().hasHeaders(hasHeaders).schema(schema).csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, Object configuration) {
+        return scan().csv(file, configuration);
+    }
+
+    /**
+     * Converts this in-memory DataFrame into a {@link LazyCupOfTea} for lazy streaming pipeline evaluation.
+     */
+    public LazyCupOfTea lazy() {
+        return LazyCupOfTea.fromDataFrame(this);
     }
 
     /**
@@ -651,6 +706,17 @@ public class CupOfTea {
         CupOfTea target = targetForMutation();
         target.dataFrame.orderBy(orderer);
         return target;
+    }
+
+    public CupOfTea orderBy(String... columns) {
+        if (columns == null || columns.length == 0) {
+            return this;
+        }
+        Orderer[] orderers = new Orderer[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            orderers[i] = new Orderer(columns[i], Order.ASCENDING);
+        }
+        return orderBy(orderers);
     }
 
     // --- Core pandas-like ops ---
