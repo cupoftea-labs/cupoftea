@@ -19,8 +19,11 @@ import org.junit.jupiter.api.Test;
 
 import com.cupoftea.CupOfTea;
 import com.cupoftea.importers.configurations.CSVImporterConfiguration;
+import com.cupoftea.table.Categorical;
 import com.cupoftea.table.Schema;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 import com.cupoftea.table.vector.StringColumnVector;
+import static com.cupoftea.table.Schema.CATEGORICAL;
 import static com.cupoftea.table.Schema.DOUBLE;
 import static com.cupoftea.table.Schema.INT;
 import static com.cupoftea.table.Schema.STRING;
@@ -229,6 +232,136 @@ public class FastCsvReaderTest {
             assertThat(df.getRow(1).get("city")).isEqualTo("São Paulo");
             assertThat(df.getRow(2).get("city")).isEqualTo("Münster");
             assertThat(df.getRow(3).get("city")).isEqualTo("PlainASCII");
+        }
+    }
+
+    @Test
+    @DisplayName("FastCsvReader directly parses categorical columns into DictionaryColumnVector without String allocation")
+    void testDirectCategoricalIngestionSimdAndScalar() throws IOException {
+        String csv = "id,category,status\n"
+                   + "1,ELECTRONICS,ACTIVE\n"
+                   + "2,CLOTHING,PENDING\n"
+                   + "3,ELECTRONICS,ACTIVE\n"
+                   + "4,BOOKS,INACTIVE\n"
+                   + "5,CLOTHING,ACTIVE\n";
+        File file = createTempCsv(csv);
+
+        for (boolean simd : new boolean[]{true, false}) {
+            CSVImporterConfiguration config = new CSVImporterConfiguration()
+                .setFastEngine(true)
+                .setSimdEnabled(simd)
+                .setSchema(Schema.of("id", INT, "category", CATEGORICAL, "status", CATEGORICAL));
+
+            CupOfTea df = new CupOfTea();
+            df.importFromCsv(file, config);
+
+            assertThat(df.size()).isEqualTo(5);
+            assertThat(df.getColumnHeader("category").columnType()).isEqualTo(Categorical.class);
+            assertThat(df.getColumnHeader("status").columnType()).isEqualTo(Categorical.class);
+
+            assertThat(df.isDictionaryEncoded("category")).isTrue();
+            assertThat(df.isDictionaryEncoded("status")).isTrue();
+
+            DictionaryColumnVector catVec = (DictionaryColumnVector) df.getColumnVector("category");
+            DictionaryColumnVector statVec = (DictionaryColumnVector) df.getColumnVector("status");
+
+            assertThat(catVec.getDictionarySize()).isEqualTo(3); // ELECTRONICS, CLOTHING, BOOKS
+            assertThat(statVec.getDictionarySize()).isEqualTo(3); // ACTIVE, PENDING, INACTIVE
+
+            assertThat(df.getRow(0).get("category")).isEqualTo("ELECTRONICS");
+            assertThat(df.getRow(1).get("category")).isEqualTo("CLOTHING");
+            assertThat(df.getRow(2).get("category")).isEqualTo("ELECTRONICS");
+            assertThat(df.getRow(3).get("category")).isEqualTo("BOOKS");
+            assertThat(df.getRow(4).get("category")).isEqualTo("CLOTHING");
+
+            assertThat(df.getRow(0).get("status")).isEqualTo("ACTIVE");
+            assertThat(df.getRow(1).get("status")).isEqualTo("PENDING");
+            assertThat(df.getRow(2).get("status")).isEqualTo("ACTIVE");
+            assertThat(df.getRow(3).get("status")).isEqualTo("INACTIVE");
+            assertThat(df.getRow(4).get("status")).isEqualTo("ACTIVE");
+        }
+    }
+
+    @Test
+    @DisplayName("FastCsvReader merges multi-chunk chunk dictionaries into unified global dictionary in parallel")
+    void testDirectCategoricalIngestionMultiChunkParallelMerging() throws IOException {
+        StringBuilder sb = new StringBuilder();
+        sb.append("id,station,region\n");
+        int rowCount = 20_000;
+        for (int i = 0; i < rowCount; i++) {
+            // Repeatable patterns across chunks to exercise local dictionary construction and global merging
+            String station = "Station_" + (i % 25);
+            String region = (i < 5_000) ? "North" : (i < 10_000 ? "East" : (i < 15_000 ? "South" : "West"));
+            sb.append(i).append(",").append(station).append(",").append(region).append("\n");
+        }
+        File file = createTempCsv(sb.toString());
+
+        for (boolean simd : new boolean[]{true, false}) {
+            CSVImporterConfiguration config = new CSVImporterConfiguration()
+                .setFastEngine(true)
+                .setSimdEnabled(simd)
+                .setSchema(Schema.of("id", INT, "station", CATEGORICAL, "region", CATEGORICAL));
+
+            CupOfTea df = new CupOfTea();
+            df.importFromCsv(file, config);
+
+            assertThat(df.size()).isEqualTo(rowCount);
+            assertThat(df.isDictionaryEncoded("station")).isTrue();
+            assertThat(df.isDictionaryEncoded("region")).isTrue();
+
+            DictionaryColumnVector stationVec = (DictionaryColumnVector) df.getColumnVector("station");
+            DictionaryColumnVector regionVec = (DictionaryColumnVector) df.getColumnVector("region");
+
+            assertThat(stationVec.getDictionarySize()).isEqualTo(25);
+            assertThat(regionVec.getDictionarySize()).isEqualTo(4);
+
+            for (int r = 0; r < rowCount; r += 237) {
+                assertThat(df.getRow(r).get("station")).isEqualTo("Station_" + (r % 25));
+                String expectedRegion = (r < 5_000) ? "North" : (r < 10_000 ? "East" : (r < 15_000 ? "South" : "West"));
+                assertThat(df.getRow(r).get("region")).isEqualTo(expectedRegion);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("FastCsvReader handles nulls, NA strings, and quoted fields in categorical columns")
+    void testDirectCategoricalIngestionWithNullsAndQuotes() throws IOException {
+        String csv = "id,category\n"
+                   + "1,\"SPECIAL, CATEGORY\"\n"
+                   + "2,NA\n"
+                   + "3,\"\"\n"
+                   + "4,null\n"
+                   + "5,\"REGULAR\"\n"
+                   + "6,\n";
+        File file = createTempCsv(csv);
+
+        for (boolean simd : new boolean[]{true, false}) {
+            CSVImporterConfiguration config = new CSVImporterConfiguration()
+                .setFastEngine(true)
+                .setSimdEnabled(simd)
+                .setPreserveEmptyStrings(true)
+                .setSchema(Schema.of("id", INT, "category", CATEGORICAL));
+
+            CupOfTea df = new CupOfTea();
+            df.importFromCsv(file, config);
+
+            assertThat(df.size()).isEqualTo(6);
+            assertThat(df.isDictionaryEncoded("category")).isTrue();
+            DictionaryColumnVector catVec = (DictionaryColumnVector) df.getColumnVector("category");
+
+            assertThat(df.getRow(0).get("category")).isEqualTo("SPECIAL, CATEGORY");
+            assertThat(df.getRow(1).get("category")).isNull(); // NA
+            assertThat(df.getRow(2).get("category")).isEqualTo(""); // preserved ""
+            assertThat(df.getRow(3).get("category")).isNull(); // null
+            assertThat(df.getRow(4).get("category")).isEqualTo("REGULAR");
+            assertThat(df.getRow(5).get("category")).isNull(); // empty unquoted -> null
+
+            assertThat(catVec.isNull(0)).isFalse();
+            assertThat(catVec.isNull(1)).isTrue();
+            assertThat(catVec.isNull(2)).isFalse();
+            assertThat(catVec.isNull(3)).isTrue();
+            assertThat(catVec.isNull(4)).isFalse();
+            assertThat(catVec.isNull(5)).isTrue();
         }
     }
 }

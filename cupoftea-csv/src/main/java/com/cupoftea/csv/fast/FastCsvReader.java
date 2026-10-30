@@ -16,7 +16,9 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -1045,6 +1047,170 @@ public class FastCsvReader {
     }
 
     /**
+     * Chunk buffer for categorical/dictionary columns during CSV ingestion.
+     * Maps incoming byte slices directly to dictionary integer codes via an open-addressing
+     * byte slice hash table, storing unique categories once in compact contiguous buffers.
+     * Completely eliminates per-row String allocations and StringChunkBuffer intermediate overhead.
+     */
+    static final class DictionaryChunkBuffer {
+        int[] codes;
+        int dictCount;
+        String[] dictStrings;
+        private byte[] dictBytes;
+        private int[] dictOffsets;
+
+        private int[] tableHash;
+        private int[] tableCode;
+        private int tableMask;
+        private int tableThreshold;
+        private int tableSize;
+        private final Charset charset;
+        private final boolean isUtf8;
+        private final boolean isIso88591;
+
+        DictionaryChunkBuffer(int initialRowCapacity, Charset charset) {
+            this.codes = new int[Math.max(16, initialRowCapacity)];
+            Arrays.fill(this.codes, DictionaryColumnVector.NULL_CODE);
+            this.charset = charset != null ? charset : StandardCharsets.UTF_8;
+            this.isUtf8 = StandardCharsets.UTF_8.equals(this.charset);
+            this.isIso88591 = StandardCharsets.ISO_8859_1.equals(this.charset);
+
+            int initialDictCap = 64;
+            this.dictStrings = new String[initialDictCap];
+            this.dictOffsets = new int[initialDictCap + 1];
+            this.dictOffsets[0] = 0;
+            this.dictBytes = new byte[Math.max(256, initialDictCap * 8)];
+            this.dictCount = 0;
+
+            int initialTableCap = 128;
+            this.tableHash = new int[initialTableCap];
+            this.tableCode = new int[initialTableCap];
+            Arrays.fill(this.tableCode, -1);
+            this.tableMask = initialTableCap - 1;
+            this.tableThreshold = (int) (initialTableCap * 0.70f);
+            this.tableSize = 0;
+        }
+
+        void ensureRowCapacity(int rowCapacity) {
+            if (rowCapacity > codes.length) {
+                int oldCap = codes.length;
+                int newCap = Math.max(oldCap << 1, rowCapacity);
+                codes = Arrays.copyOf(codes, newCap);
+                Arrays.fill(codes, oldCap, newCap, DictionaryColumnVector.NULL_CODE);
+            }
+        }
+
+        void appendEmptyOrNull(int row) {
+            ensureRowCapacity(row + 1);
+            codes[row] = DictionaryColumnVector.NULL_CODE;
+        }
+
+        void appendBytes(int row, byte[] src, int start, int len, boolean isIso) {
+            ensureRowCapacity(row + 1);
+            codes[row] = getOrInsertCode(src, start, len, isIso);
+        }
+
+        int getOrInsertCode(byte[] src, int start, int len, boolean isIso) {
+            if (isIso) {
+                int end = start + len;
+                boolean nonAscii = false;
+                for (int i = start; i < end; i++) {
+                    if (src[i] < 0) {
+                        nonAscii = true;
+                        break;
+                    }
+                }
+                if (nonAscii) {
+                    String str = new String(src, start, len, StandardCharsets.ISO_8859_1);
+                    byte[] utf8Bytes = str.getBytes(StandardCharsets.UTF_8);
+                    return getOrInsertUtf8(utf8Bytes, 0, utf8Bytes.length, str);
+                }
+            } else if (!isUtf8) {
+                String str = new String(src, start, len, charset);
+                byte[] utf8Bytes = str.getBytes(StandardCharsets.UTF_8);
+                return getOrInsertUtf8(utf8Bytes, 0, utf8Bytes.length, str);
+            }
+            return getOrInsertUtf8(src, start, len, null);
+        }
+
+        private int getOrInsertUtf8(byte[] buf, int start, int len, String precomputedStr) {
+            int h = 0x811c9dc5;
+            int end = start + len;
+            for (int i = start; i < end; i++) {
+                h = (h ^ (buf[i] & 0xFF)) * 0x01000193;
+            }
+
+            int mask = this.tableMask;
+            int pos = (h ^ (h >>> 16)) & mask;
+            while (true) {
+                int code = tableCode[pos];
+                if (code == -1) {
+                    int newCode = dictCount++;
+                    if (newCode >= dictStrings.length) {
+                        int newDictCap = dictStrings.length << 1;
+                        dictStrings = Arrays.copyOf(dictStrings, newDictCap);
+                        dictOffsets = Arrays.copyOf(dictOffsets, newDictCap + 1);
+                    }
+                    int curOffset = dictOffsets[newCode];
+                    int nextOffset = curOffset + len;
+                    if (nextOffset > dictBytes.length) {
+                        dictBytes = Arrays.copyOf(dictBytes, Math.max(dictBytes.length << 1, nextOffset));
+                    }
+                    if (len > 0) {
+                        System.arraycopy(buf, start, dictBytes, curOffset, len);
+                    }
+                    dictOffsets[newCode + 1] = nextOffset;
+                    dictStrings[newCode] = (precomputedStr != null)
+                            ? precomputedStr
+                            : new String(buf, start, len, StandardCharsets.UTF_8);
+
+                    tableHash[pos] = h;
+                    tableCode[pos] = newCode;
+                    tableSize++;
+                    if (tableSize >= tableThreshold) {
+                        rehash();
+                    }
+                    return newCode;
+                }
+                if (tableHash[pos] == h) {
+                    int entryStart = dictOffsets[code];
+                    int entryLen = dictOffsets[code + 1] - entryStart;
+                    if (entryLen == len && Arrays.equals(buf, start, start + len, dictBytes, entryStart, entryStart + entryLen)) {
+                        return code;
+                    }
+                }
+                pos = (pos + 1) & mask;
+            }
+        }
+
+        private void rehash() {
+            int oldCap = tableCode.length;
+            int newCap = oldCap << 1;
+            int newMask = newCap - 1;
+            int[] newTableHash = new int[newCap];
+            int[] newTableCode = new int[newCap];
+            Arrays.fill(newTableCode, -1);
+
+            for (int i = 0; i < oldCap; i++) {
+                int code = tableCode[i];
+                if (code != -1) {
+                    int h = tableHash[i];
+                    int pos = (h ^ (h >>> 16)) & newMask;
+                    while (newTableCode[pos] != -1) {
+                        pos = (pos + 1) & newMask;
+                    }
+                    newTableHash[pos] = h;
+                    newTableCode[pos] = code;
+                }
+            }
+            this.tableHash = newTableHash;
+            this.tableCode = newTableCode;
+            this.tableMask = newMask;
+            this.tableThreshold = (int) (newCap * 0.70f);
+        }
+    }
+
+    /**
      * Scalar fallback chunk parser for platforms without Java Vector API SIMD support
      * or when SIMD acceleration is explicitly disabled.
      */
@@ -1077,6 +1243,8 @@ public class FastCsvReader {
                 colData[c] = new boolean[estimatedRows];
             } else if (t == String.class) {
                 colData[c] = new StringChunkBuffer(estimatedRows, estStringBytes);
+            } else if (t == Categorical.class || (t != null && DictionaryColumnVector.class.isAssignableFrom(t))) {
+                colData[c] = new DictionaryChunkBuffer(estimatedRows, charset);
             } else {
                 colData[c] = new Object[estimatedRows];
                 needsStringPool = true;
@@ -1176,6 +1344,7 @@ public class FastCsvReader {
         if (type == float.class || type == Float.class) return ((float[]) arr).length;
         if (type == boolean.class || type == Boolean.class) return ((boolean[]) arr).length;
         if (type == String.class) return ((StringChunkBuffer) arr).offsets.length - 1;
+        if (type == Categorical.class || arr instanceof DictionaryChunkBuffer) return ((DictionaryChunkBuffer) arr).codes.length;
         return ((Object[]) arr).length;
     }
 
@@ -1189,6 +1358,11 @@ public class FastCsvReader {
             StringChunkBuffer sb = (StringChunkBuffer) arr;
             sb.ensureRowCapacity(newCap);
             return sb;
+        }
+        if (type == Categorical.class || arr instanceof DictionaryChunkBuffer) {
+            DictionaryChunkBuffer db = (DictionaryChunkBuffer) arr;
+            db.ensureRowCapacity(newCap);
+            return db;
         }
         return Arrays.copyOf((Object[]) arr, newCap);
     }
@@ -1261,7 +1435,7 @@ public class FastCsvReader {
             } else {
                 ((boolean[]) colData[colIdx])[row] = FastByteParser.parseBoolean(rawBuf, rawStart, rawEnd);
             }
-        } else if (type == String.class || type == Categorical.class || (type != null && DictionaryColumnVector.class.isAssignableFrom(type))) {
+        } else if (type == String.class) {
             StringChunkBuffer strBuf = (StringChunkBuffer) colData[colIdx];
             if (!hadQuote && FastByteParser.isNaOrEmpty(rawBuf, rawStart, rawEnd)) {
                 nullBitsets[colIdx].set(row);
@@ -1273,6 +1447,21 @@ public class FastCsvReader {
                 strBuf.appendEmptyOrNull(row);
             } else {
                 strBuf.appendBytes(row, rawBuf, rawStart, rawEnd - rawStart, isIso88591);
+            }
+        } else if (type == Categorical.class || (type != null && DictionaryColumnVector.class.isAssignableFrom(type))) {
+            DictionaryChunkBuffer dictBuf = (DictionaryChunkBuffer) colData[colIdx];
+            if (!hadQuote && FastByteParser.isNaOrEmpty(rawBuf, rawStart, rawEnd)) {
+                nullBitsets[colIdx].set(row);
+                dictBuf.appendEmptyOrNull(row);
+            } else if (hadQuote && (rawEnd - rawStart) == 0) {
+                if (!config.isPreserveEmptyStrings()) {
+                    nullBitsets[colIdx].set(row);
+                    dictBuf.appendEmptyOrNull(row);
+                } else {
+                    dictBuf.appendBytes(row, rawBuf, rawStart, 0, isIso88591);
+                }
+            } else {
+                dictBuf.appendBytes(row, rawBuf, rawStart, rawEnd - rawStart, isIso88591);
             }
         } else {
             if (FastByteParser.isNaOrEmpty(rawBuf, rawStart, rawEnd)) {
@@ -1326,9 +1515,14 @@ public class FastCsvReader {
                         vectors.add(new StringColumnVector(name, true, sb.values, sb.valuesCount, sb.offsets, nulls, totalRows));
                     }
                     case SimdCsvScanner.TYPE_CATEGORICAL -> {
-                        StringChunkBuffer sb = (StringChunkBuffer) single.columnData[c];
-                        StringColumnVector strVec = new StringColumnVector(name, true, sb.values, sb.valuesCount, sb.offsets, nulls, totalRows);
-                        vectors.add(strVec.toDictionary());
+                        DictionaryChunkBuffer db = (DictionaryChunkBuffer) single.columnData[c];
+                        String[] dict = Arrays.copyOf(db.dictStrings, db.dictCount);
+                        int[] codes = (totalRows == db.codes.length) ? db.codes : Arrays.copyOf(db.codes, totalRows);
+                        if (colTypes[c] == Categorical.class || (colTypes[c] != null && CategoricalColumnVector.class.isAssignableFrom(colTypes[c]))) {
+                            vectors.add(new CategoricalColumnVector(name, true, dict, codes, nulls, totalRows));
+                        } else {
+                            vectors.add(new DictionaryColumnVector(name, true, dict, codes, nulls, totalRows));
+                        }
                     }
                     default ->
                         vectors.add(new ObjectColumnVector(name, colTypes[c], true, (Object[]) single.columnData[c], nulls, totalRows));
@@ -1441,7 +1635,7 @@ public class FastCsvReader {
                     }
                     vectors.add(new BooleanColumnVector(name, true, data, nulls, totalRows));
                 }
-                case SimdCsvScanner.TYPE_STRING, SimdCsvScanner.TYPE_CATEGORICAL -> {
+                case SimdCsvScanner.TYPE_STRING -> {
                     int[] byteOffsets = new int[numChunks];
                     long totalBytesLong = 0L;
                     for (int k = 0; k < numChunks; k++) {
@@ -1469,12 +1663,74 @@ public class FastCsvReader {
 
                     for (int k = 0; k < numChunks; k++) {
                         copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
+                        chunkResults.get(k).columnData[c] = null;
                     }
-                    StringColumnVector strVec = new StringColumnVector(name, true, values, totalBytes, offsets, nulls, totalRows);
-                    if (colTypeIds[c] == SimdCsvScanner.TYPE_CATEGORICAL) {
-                        vectors.add(strVec.toDictionary());
+                    vectors.add(new StringColumnVector(name, true, values, totalBytes, offsets, nulls, totalRows));
+                }
+                case SimdCsvScanner.TYPE_CATEGORICAL -> {
+                    Map<String, Integer> globalDictMap = new LinkedHashMap<>();
+                    int[][] chunkToGlobal = new int[numChunks][];
+
+                    for (int k = 0; k < numChunks; k++) {
+                        DictionaryChunkBuffer db = (DictionaryChunkBuffer) chunkResults.get(k).columnData[c];
+                        int localCount = db.dictCount;
+                        String[] localStrings = db.dictStrings;
+                        int[] mapping = new int[localCount];
+                        for (int i = 0; i < localCount; i++) {
+                            String s = localStrings[i];
+                            Integer globalCode = globalDictMap.get(s);
+                            if (globalCode == null) {
+                                globalCode = globalDictMap.size();
+                                globalDictMap.put(s, globalCode);
+                            }
+                            mapping[i] = globalCode;
+                        }
+                        chunkToGlobal[k] = mapping;
+                    }
+
+                    int globalDictSize = globalDictMap.size();
+                    String[] globalDict = globalDictMap.keySet().toArray(new String[globalDictSize]);
+                    int[] finalCodes = new int[totalRows];
+
+                    if (totalRows >= 65_536 && numChunks > 1) {
+                        runParallelChunkCopy(numChunks, k -> {
+                            DictionaryChunkBuffer db = (DictionaryChunkBuffer) chunkResults.get(k).columnData[colIdx];
+                            int[] mapping = chunkToGlobal[k];
+                            int rOffset = rowOffsets[k];
+                            int rCount = chunkResults.get(k).rowCount;
+                            int[] srcCodes = db.codes;
+                            for (int i = 0; i < rCount; i++) {
+                                int code = srcCodes[i];
+                                finalCodes[rOffset + i] = (code == DictionaryColumnVector.NULL_CODE)
+                                        ? DictionaryColumnVector.NULL_CODE
+                                        : mapping[code];
+                            }
+                        });
                     } else {
-                        vectors.add(strVec);
+                        for (int k = 0; k < numChunks; k++) {
+                            DictionaryChunkBuffer db = (DictionaryChunkBuffer) chunkResults.get(k).columnData[c];
+                            int[] mapping = chunkToGlobal[k];
+                            int rOffset = rowOffsets[k];
+                            int rCount = chunkResults.get(k).rowCount;
+                            int[] srcCodes = db.codes;
+                            for (int i = 0; i < rCount; i++) {
+                                int code = srcCodes[i];
+                                finalCodes[rOffset + i] = (code == DictionaryColumnVector.NULL_CODE)
+                                        ? DictionaryColumnVector.NULL_CODE
+                                        : mapping[code];
+                            }
+                        }
+                    }
+
+                    for (int k = 0; k < numChunks; k++) {
+                        copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
+                        chunkResults.get(k).columnData[c] = null;
+                    }
+
+                    if (colTypes[c] == Categorical.class || (colTypes[c] != null && CategoricalColumnVector.class.isAssignableFrom(colTypes[c]))) {
+                        vectors.add(new CategoricalColumnVector(name, true, globalDict, finalCodes, nulls, totalRows));
+                    } else {
+                        vectors.add(new DictionaryColumnVector(name, true, globalDict, finalCodes, nulls, totalRows));
                     }
                 }
                 default -> {
