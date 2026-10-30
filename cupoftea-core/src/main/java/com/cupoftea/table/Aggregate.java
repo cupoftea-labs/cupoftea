@@ -43,4 +43,18 @@ public interface Aggregate {
     default boolean supportsVectorizedExecution() {
         return false;
     }
+
+    /**
+     * Indicates whether this aggregate supports single-pass accumulation across groups.
+     */
+    default boolean supportsSinglePass() {
+        return false;
+    }
+
+    /**
+     * Creates an accumulator for single-pass accumulation across {@code numGroups} groups.
+     */
+    default GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+        return null;
+    }
 }

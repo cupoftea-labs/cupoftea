@@ -191,6 +191,27 @@ Measured ingest and egress parsing throughput across data formats (10,000 record
 
 ---
 
+### 4.8 One Billion Row Challenge (1BRC) & High-Cardinality GroupBy Aggregation
+
+The **1BRC (One Billion Row Challenge)** workload tests dataframe performance on high-volume measurements (`<station_name>;<temperature>`) with multi-metric aggregation (`min`, `mean`, `max`, `count`) across thousands of distinct station keys.
+
+Following the optimizations introduced in Issue [#210](https://github.com/cupoftea-labs/cupoftea/issues/210) (primitive open-addressing hash table and single-pass accumulation), CupOfTea achieves massive speedups over earlier versions and competing Java DataFrame engines:
+
+#### Benchmark Execution Comparison (Aggregation Only)
+
+| Dataset Size | Tablesaw 0.43.1 | DFLib 1.3.0 | CupOfTea 0.15.1 (Legacy) | CupOfTea 0.15.2 (Issue #210) | Speedup vs Tablesaw | Speedup vs DFLib |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **1,000,000 rows** | ~ 720 ms | ~ 180 ms | 195 ms | **97 ms** | **7.4x faster** | **1.86x faster** |
+| **10,000,000 rows** | 7,157 ms | 712 ms | 653 ms | **377 ms** | **19.0x faster** | **1.89x faster** |
+| **100,000,000 rows** | 113.05 s | OOM / DNF | 15.34 s | **8.89 s** | **12.7x faster** | — |
+
+> **Key Architectural Drivers:**
+> 1. **Single-Pass Cache Locality:** `min`, `mean`, `max`, and `count` are computed concurrently in CPU L1/L2 cache during a single scan of chunk data, avoiding 4 redundant traversals.
+> 2. **Zero-Allocation Hash Table (`GroupHashTable`):** Linear probing in flat primitive `int[]` arrays completely eliminates composite `List<Object>` keys and `LinkedHashMap.Entry` allocations.
+> 3. **Direct Vector Output:** Direct primitive assignment into output `DoubleColumnVector` instances without intermediate boxing or per-row `HashMap` allocation.
+
+---
+
 ## 5. Continuous Performance Regression Gate
 
 The repository includes a GitHub Actions performance workflow (`.github/workflows/benchmarks.yml`) that can be triggered on demand or on pull requests labeled `benchmark`.

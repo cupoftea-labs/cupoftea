@@ -87,6 +87,11 @@ classDiagram
 ### 3. Minimized GC Pressure
 - Primitive arrays are allocated in chunks. Transforming or filtering columnar vectors creates far fewer object allocations, dramatically easing JVM GC pauses on large datasets.
 
+### 4. Zero-Allocation GroupBy Engine
+- Traditional dataframe grouping creates millions of heap objects (`Map<List<Object>, List<Integer>>`).
+- CupOfTea utilizes an open-addressing primitive hash table (`GroupHashTable`) storing representative row indices in contiguous `int[]` arrays.
+- Aggregate reductions (`sum`, `mean`, `min`, `max`, `count`) accumulate single-pass updates directly into primitive arrays (`double[]`, `long[]`, `int[]`) and populate destination `ColumnVector` instances without boxing or creating row-level objects.
+
 ---
 
 ## ⚡ Direct Vector Access

@@ -24,6 +24,16 @@ public class Aggregations {
             }
 
             @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createSumAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
+            }
+
+            @Override
             public Object computeVector(
                     ColumnVector vector,
                     int totalRows,
@@ -113,6 +123,16 @@ public class Aggregations {
             }
 
             @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createMeanAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
+            }
+
+            @Override
             public Object computeVector(
                     ColumnVector vector,
                     int totalRows,
@@ -182,6 +202,16 @@ public class Aggregations {
             }
 
             @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createNonNullCountAccumulator(numGroups, vector, getOutputColumnName());
+            }
+
+            @Override
             public Object computeVector(
                     ColumnVector vector,
                     int totalRows,
@@ -236,6 +266,16 @@ public class Aggregations {
             }
 
             @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createCountAccumulator(numGroups, getOutputColumnName());
+            }
+
+            @Override
             public Object computeVector(
                     ColumnVector vector,
                     int totalRows,
@@ -280,6 +320,16 @@ public class Aggregations {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createMinAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
             }
 
             @Override
@@ -347,6 +397,16 @@ public class Aggregations {
             }
 
             @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createMaxAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
+            }
+
+            @Override
             public Object computeVector(
                     ColumnVector vector,
                     int totalRows,
@@ -408,6 +468,16 @@ public class Aggregations {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createListAggAccumulator(numGroups, vector, separator, getOutputColumnName());
             }
 
             @Override

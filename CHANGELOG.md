@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-10-30
+
+### Performance
+
+- Optimized GroupBy with primitive open-addressing hash table and single-pass aggregation ([#210](https://github.com/cupoftea-labs/cupoftea/issues/210)):
+  - Replaced `Map<List<Object>, IntList>` with primitive-backed `GroupHashTable` storing representative row indices, eliminating per-row key object allocation and pointer chasing.
+  - Implemented single-pass accumulation across chunk data for `sum`, `mean`, `count`, `min`, `max`, and `listAgg`.
+  - Populated typed output column vectors (`DoubleColumnVector`, `IntColumnVector`, `LongColumnVector`, `FloatColumnVector`, `StringColumnVector`) directly by index, avoiding row-level `HashMap` creation and boxing.
+
 ## [0.17.0] - 2026-10-30
 
 ### Added
