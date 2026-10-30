@@ -23,6 +23,16 @@ public class CSVImporterConfiguration {
     private Schema schema = null;
     private Set<String> naStrings = new HashSet<>(Set.of("NA", "N/A", "null", "NULL", "#N/A"));
     private boolean preserveEmptyStrings = true;
+    private boolean fastEngine = true;
+
+    public boolean isFastEngine() {
+        return this.fastEngine;
+    }
+
+    public CSVImporterConfiguration setFastEngine(boolean fastEngine) {
+        this.fastEngine = fastEngine;
+        return this;
+    }
 
     public boolean isHasHeaders() {
         return this.hasHeaders;
