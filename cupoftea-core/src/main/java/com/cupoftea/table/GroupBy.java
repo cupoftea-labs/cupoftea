@@ -2,7 +2,6 @@ package com.cupoftea.table;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,39 +14,17 @@ import com.cupoftea.table.interfaces.IDataFrame;
 import com.cupoftea.table.vector.ColumnVector;
 import com.cupoftea.table.vector.ParallelVectorEngine;
 
+/**
+ * Enterprise columnar GroupBy engine.
+ * Uses an open-addressing hash table and single-pass aggregation to avoid key/row allocations
+ * and repeated memory traversals.
+ */
 public class GroupBy {
-
-    private static final class IntList {
-        int[] data;
-        int size;
-
-        IntList(int initialCapacity) {
-            this.data = new int[Math.max(8, initialCapacity)];
-            this.size = 0;
-        }
-
-        void add(int val) {
-            if (size == data.length) {
-                data = Arrays.copyOf(data, data.length * 2);
-            }
-            data[size++] = val;
-        }
-
-        void addAll(IntList other) {
-            if (other.size == 0) return;
-            if (size + other.size > data.length) {
-                int newCap = Math.max(data.length * 2, size + other.size);
-                data = Arrays.copyOf(data, newCap);
-            }
-            System.arraycopy(other.data, 0, data, size, other.size);
-            size += other.size;
-        }
-    }
 
     private final List<String> groupColumns;
     private final List<Column> sourceHeaders;
     private final Map<String, ColumnVector> columnVectors;
-    private final Map<List<Object>, IntList> partitions;
+    private final GroupPartitionState partitionState;
     private final MutationMode mutationMode;
     private final boolean parallel;
     private final ExecutorService executor;
@@ -94,46 +71,84 @@ public class GroupBy {
             keyVectors[i] = this.columnVectors.get(columns[i]);
         }
 
-        this.partitions = new LinkedHashMap<>();
-        if (totalRows > 0) {
-            if (this.parallel && totalRows >= this.parallelThreshold && totalRows > 1) {
-                List<Map<List<Object>, IntList>> chunkMaps = ParallelVectorEngine.executeChunks(
-                    totalRows, this.executor, (chunkIdx, start, end) -> {
-                        Map<List<Object>, IntList> localPartitions = new LinkedHashMap<>();
-                        for (int r = start; r < end; r++) {
-                            List<Object> key = extractKey(keyVectors, r);
-                            localPartitions.computeIfAbsent(key, k -> new IntList(16)).add(r);
-                        }
-                        return localPartitions;
-                    }
-                );
-                for (Map<List<Object>, IntList> chunkMap : chunkMaps) {
-                    for (Map.Entry<List<Object>, IntList> entry : chunkMap.entrySet()) {
-                        this.partitions.computeIfAbsent(entry.getKey(), k -> new IntList(entry.getValue().size))
-                                .addAll(entry.getValue());
-                    }
-                }
-            } else {
-                for (int r = 0; r < totalRows; r++) {
-                    List<Object> key = extractKey(keyVectors, r);
-                    this.partitions.computeIfAbsent(key, k -> new IntList(16)).add(r);
-                }
-            }
+        if (totalRows == 0) {
+            this.partitionState = new GroupPartitionState(
+                0, new int[0], new int[0], 0, this.sourceHeaders, this.columnVectors.values().toArray(new ColumnVector[0])
+            );
+        } else if (this.parallel && totalRows >= this.parallelThreshold && totalRows > 1) {
+            this.partitionState = buildParallelPartitions(keyVectors, totalRows);
+        } else {
+            this.partitionState = buildSequentialPartitions(keyVectors, totalRows);
         }
     }
 
-    private static List<Object> extractKey(ColumnVector[] keyVectors, int row) {
-        if (keyVectors.length == 1) {
-            Object val = keyVectors[0] != null ? keyVectors[0].getObject(row) : null;
-            List<Object> single = new ArrayList<>(1);
-            single.add(val);
-            return single;
+    private GroupPartitionState buildSequentialPartitions(ColumnVector[] keyVectors, int totalRows) {
+        GroupHashTable table = new GroupHashTable(keyVectors, totalRows);
+        int[] rowGroups = new int[totalRows];
+        for (int r = 0; r < totalRows; r++) {
+            rowGroups[r] = table.findOrInsert(r);
         }
-        List<Object> key = new ArrayList<>(keyVectors.length);
-        for (ColumnVector kv : keyVectors) {
-            key.add(kv != null ? kv.getObject(row) : null);
+        return new GroupPartitionState(
+            table.numGroups(),
+            table.getFirstRowOfGroup(),
+            rowGroups,
+            totalRows,
+            this.sourceHeaders,
+            this.sourceHeaders.stream().map(c -> this.columnVectors.get(c.columnName())).toArray(ColumnVector[]::new)
+        );
+    }
+
+    private static class ChunkPartition {
+        final GroupHashTable table;
+        final int[] rowGroups;
+        final int start;
+        final int end;
+
+        ChunkPartition(GroupHashTable table, int[] rowGroups, int start, int end) {
+            this.table = table;
+            this.rowGroups = rowGroups;
+            this.start = start;
+            this.end = end;
         }
-        return key;
+    }
+
+    private GroupPartitionState buildParallelPartitions(ColumnVector[] keyVectors, int totalRows) {
+        List<ChunkPartition> chunkPartitions = ParallelVectorEngine.executeChunks(
+            totalRows, this.executor, (chunkIdx, start, end) -> {
+                GroupHashTable localTable = new GroupHashTable(keyVectors, end - start);
+                int[] chunkRowGroups = new int[end - start];
+                for (int r = start; r < end; r++) {
+                    chunkRowGroups[r - start] = localTable.findOrInsert(r);
+                }
+                return new ChunkPartition(localTable, chunkRowGroups, start, end);
+            }
+        );
+
+        GroupHashTable globalTable = new GroupHashTable(keyVectors, totalRows);
+        int[] globalRowGroups = new int[totalRows];
+
+        for (ChunkPartition cp : chunkPartitions) {
+            int localNumGroups = cp.table.numGroups();
+            int[] localFirstRows = cp.table.getFirstRowOfGroup();
+            int[] chunkToGlobal = new int[localNumGroups];
+            for (int lg = 0; lg < localNumGroups; lg++) {
+                chunkToGlobal[lg] = globalTable.findOrInsert(localFirstRows[lg]);
+            }
+            int start = cp.start;
+            int len = cp.end - cp.start;
+            for (int i = 0; i < len; i++) {
+                globalRowGroups[start + i] = chunkToGlobal[cp.rowGroups[i]];
+            }
+        }
+
+        return new GroupPartitionState(
+            globalTable.numGroups(),
+            globalTable.getFirstRowOfGroup(),
+            globalRowGroups,
+            totalRows,
+            this.sourceHeaders,
+            this.sourceHeaders.stream().map(c -> this.columnVectors.get(c.columnName())).toArray(ColumnVector[]::new)
+        );
     }
 
     public CupOfTea agg(Aggregate... aggregates) {
@@ -147,96 +162,160 @@ public class GroupBy {
             }
         }
 
-        DataFrame resultDf = new DataFrame();
+        int numGroups = partitionState.getNumGroups();
+        int totalRows = partitionState.getTotalRows();
+
+        if (numGroups == 0) {
+            DataFrame emptyDf = new DataFrame();
+            if (this.parallel) {
+                emptyDf.parallel(this.executor);
+            }
+            emptyDf.setParallelThreshold(this.parallelThreshold);
+
+            ArrayList<Column> newHeaders = new ArrayList<>();
+            for (String colName : groupColumns) {
+                Column srcCol = findColumn(colName);
+                newHeaders.add(new Column(srcCol.columnName(), srcCol.columnType(), srcCol.nullable()));
+            }
+            for (Aggregate agg : aggregates) {
+                newHeaders.add(new Column(agg.getOutputColumnName(), agg.getResultType(this.sourceHeaders)));
+            }
+            emptyDf.setHeaders(newHeaders);
+            return new CupOfTea(emptyDf, this.mutationMode);
+        }
+
+        int[] firstRowOfGroup = partitionState.getFirstRowOfGroup();
+        List<ColumnVector> outputVectors = new ArrayList<>(groupColumns.size() + aggregates.length);
+
+        // Populate key columns directly by index into typed ColumnVectors
+        for (String colName : groupColumns) {
+            ColumnVector srcVec = columnVectors.get(colName);
+            ColumnVector outKeyVec = ColumnVector.create(srcVec.getName(), srcVec.getType(), Math.max(16, numGroups), srcVec.isNullable());
+            outKeyVec.setSizeUnchecked(numGroups);
+            outKeyVec.copyIndexedValuesOnly(srcVec, firstRowOfGroup, numGroups, 0);
+            if (srcVec.hasNulls()) {
+                outKeyVec.applyNullsFromIndexed(srcVec, firstRowOfGroup, numGroups, 0);
+            }
+            outputVectors.add(outKeyVec);
+        }
+
+        boolean allSinglePass = true;
+        for (Aggregate agg : aggregates) {
+            if (!agg.supportsSinglePass()) {
+                allSinglePass = false;
+                break;
+            }
+        }
+
+        if (allSinglePass) {
+            List<ColumnVector> aggVectors = computeSinglePassAggregates(aggregates, numGroups, totalRows);
+            outputVectors.addAll(aggVectors);
+        } else {
+            List<ColumnVector> aggVectors = computeFallbackAggregates(aggregates, numGroups, totalRows);
+            outputVectors.addAll(aggVectors);
+        }
+
+        DataFrame resultDf = DataFrame.fromVectors(outputVectors);
         if (this.parallel) {
             resultDf.parallel(this.executor);
         }
         resultDf.setParallelThreshold(this.parallelThreshold);
-
-        ArrayList<Column> newHeaders = new ArrayList<>();
-        for (String colName : groupColumns) {
-            Column srcCol = findColumn(colName);
-            newHeaders.add(new Column(srcCol.columnName(), srcCol.columnType(), srcCol.nullable()));
-        }
-
-        List<Column> srcHeaders = this.sourceHeaders;
-        for (Aggregate agg : aggregates) {
-            newHeaders.add(new Column(agg.getOutputColumnName(), agg.getResultType(srcHeaders)));
-        }
-
-        resultDf.setHeaders(newHeaders);
-
-        int numGroups = partitions.size();
-        if (numGroups == 0) {
-            return new CupOfTea(resultDf, this.mutationMode);
-        }
-
-        List<Map.Entry<List<Object>, IntList>> entries = new ArrayList<>(partitions.entrySet());
-        if (this.parallel && numGroups >= 32) {
-            List<List<Map<String, Object>>> chunkRows = ParallelVectorEngine.executeChunks(
-                numGroups, this.executor, (chunkIdx, start, end) -> {
-                    List<Map<String, Object>> localRows = new ArrayList<>(end - start);
-                    for (int g = start; g < end; g++) {
-                        localRows.add(computeGroupRow(entries.get(g), aggregates, srcHeaders));
-                    }
-                    return localRows;
-                }
-            );
-            for (List<Map<String, Object>> rows : chunkRows) {
-                for (Map<String, Object> row : rows) {
-                    resultDf.addRow(row);
-                }
-            }
-        } else {
-            for (Map.Entry<List<Object>, IntList> entry : entries) {
-                resultDf.addRow(computeGroupRow(entry, aggregates, srcHeaders));
-            }
-        }
-
         return new CupOfTea(resultDf, this.mutationMode);
     }
 
-    private Map<String, Object> computeGroupRow(
-            Map.Entry<List<Object>, IntList> entry,
-            Aggregate[] aggregates,
-            List<Column> srcHeaders) {
-        HashMap<String, Object> newRow = new HashMap<>(groupColumns.size() + aggregates.length);
-        List<Object> key = entry.getKey();
-        for (int i = 0; i < groupColumns.size(); i++) {
-            newRow.put(groupColumns.get(i), key.get(i));
-        }
-
-        IntList groupIndices = entry.getValue();
-        List<HashMap<String, Object>> lazyRowMaps = null;
-
-        for (Aggregate agg : aggregates) {
-            Object val;
-            if (agg.supportsVectorizedExecution()) {
-                ColumnVector vec = agg.getColumn() != null ? columnVectors.get(agg.getColumn()) : null;
-                val = agg.computeIndexedVector(vec, groupIndices.data, groupIndices.size, srcHeaders);
-            } else {
-                if (lazyRowMaps == null) {
-                    lazyRowMaps = materializeRowMaps(groupIndices);
+    private List<ColumnVector> computeSinglePassAggregates(Aggregate[] aggregates, int numGroups, int totalRows) {
+        int[] rowGroups = partitionState.getRowGroups();
+        if (this.parallel && totalRows >= this.parallelThreshold && totalRows > 1) {
+            List<GroupAccumulator[]> chunkAccsList = ParallelVectorEngine.executeChunks(
+                totalRows, this.executor, (chunkIdx, start, end) -> {
+                    GroupAccumulator[] localAccs = new GroupAccumulator[aggregates.length];
+                    for (int a = 0; a < aggregates.length; a++) {
+                        Aggregate agg = aggregates[a];
+                        ColumnVector vec = agg.getColumn() != null ? columnVectors.get(agg.getColumn()) : null;
+                        localAccs[a] = agg.createAccumulator(numGroups, vec, this.sourceHeaders);
+                    }
+                    for (int r = start; r < end; r++) {
+                        int g = rowGroups[r];
+                        for (int a = 0; a < localAccs.length; a++) {
+                            localAccs[a].accumulate(g, r);
+                        }
+                    }
+                    return localAccs;
                 }
-                val = agg.compute(lazyRowMaps, srcHeaders);
+            );
+
+            GroupAccumulator[] globalAccs = chunkAccsList.get(0);
+            for (int c = 1; c < chunkAccsList.size(); c++) {
+                GroupAccumulator[] other = chunkAccsList.get(c);
+                for (int a = 0; a < globalAccs.length; a++) {
+                    globalAccs[a].merge(other[a]);
+                }
             }
-            newRow.put(agg.getOutputColumnName(), val);
+
+            List<ColumnVector> result = new ArrayList<>(aggregates.length);
+            for (int a = 0; a < aggregates.length; a++) {
+                result.add(globalAccs[a].finish(numGroups));
+            }
+            return result;
+        } else {
+            GroupAccumulator[] accs = new GroupAccumulator[aggregates.length];
+            for (int a = 0; a < aggregates.length; a++) {
+                Aggregate agg = aggregates[a];
+                ColumnVector vec = agg.getColumn() != null ? columnVectors.get(agg.getColumn()) : null;
+                accs[a] = agg.createAccumulator(numGroups, vec, this.sourceHeaders);
+            }
+
+            for (int r = 0; r < totalRows; r++) {
+                int g = rowGroups[r];
+                for (int a = 0; a < accs.length; a++) {
+                    accs[a].accumulate(g, r);
+                }
+            }
+
+            List<ColumnVector> result = new ArrayList<>(aggregates.length);
+            for (int a = 0; a < aggregates.length; a++) {
+                result.add(accs[a].finish(numGroups));
+            }
+            return result;
         }
-        return newRow;
     }
 
-    private List<HashMap<String, Object>> materializeRowMaps(IntList indices) {
-        List<HashMap<String, Object>> list = new ArrayList<>(indices.size);
-        for (int i = 0; i < indices.size; i++) {
-            int rowIdx = indices.data[i];
-            HashMap<String, Object> map = new HashMap<>(sourceHeaders.size());
-            for (Column col : sourceHeaders) {
-                ColumnVector vec = columnVectors.get(col.columnName());
-                map.put(col.columnName(), vec != null ? vec.getObject(rowIdx) : null);
+    private List<ColumnVector> computeFallbackAggregates(Aggregate[] aggregates, int numGroups, int totalRows) {
+        int[][] groupIndices = partitionState.getGroupIndices();
+        int[] rowGroups = partitionState.getRowGroups();
+        List<ColumnVector> result = new ArrayList<>(aggregates.length);
+
+        for (Aggregate agg : aggregates) {
+            ColumnVector srcVec = agg.getColumn() != null ? columnVectors.get(agg.getColumn()) : null;
+
+            if (agg.supportsSinglePass()) {
+                GroupAccumulator acc = agg.createAccumulator(numGroups, srcVec, this.sourceHeaders);
+                for (int r = 0; r < totalRows; r++) {
+                    acc.accumulate(rowGroups[r], r);
+                }
+                result.add(acc.finish(numGroups));
+            } else if (agg.supportsVectorizedExecution()) {
+                Class<?> resType = agg.getResultType(this.sourceHeaders);
+                ColumnVector outVec = ColumnVector.create(agg.getOutputColumnName(), resType, Math.max(16, numGroups), true);
+                outVec.setSizeUnchecked(numGroups);
+                for (int g = 0; g < numGroups; g++) {
+                    int[] indices = groupIndices[g];
+                    Object val = agg.computeIndexedVector(srcVec, indices, indices.length, this.sourceHeaders);
+                    outVec.setObject(g, val);
+                }
+                result.add(outVec);
+            } else {
+                Class<?> resType = agg.getResultType(this.sourceHeaders);
+                ColumnVector outVec = ColumnVector.create(agg.getOutputColumnName(), resType, Math.max(16, numGroups), true);
+                outVec.setSizeUnchecked(numGroups);
+                for (int g = 0; g < numGroups; g++) {
+                    Object val = agg.compute(partitionState.getGroupRowMaps(g), this.sourceHeaders);
+                    outVec.setObject(g, val);
+                }
+                result.add(outVec);
             }
-            list.add(map);
         }
-        return list;
+        return result;
     }
 
     public CupOfTea sum(String column) {
