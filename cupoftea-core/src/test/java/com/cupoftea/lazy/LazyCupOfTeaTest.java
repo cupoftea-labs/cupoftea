@@ -185,5 +185,71 @@ public class LazyCupOfTeaTest {
         assertThat(plan).contains("LazyExecutionPlan");
         assertThat(plan).contains("GroupBy: [station]");
         assertThat(plan).contains("Select: [station, temperature]");
+        assertThat(plan).doesNotContain("Optimization: Fused Scan-Aggregate");
+    }
+
+    @Test
+    @DisplayName("Should detect fused scan-aggregate optimization in explain plan and predicate")
+    void test_fused_scan_aggregate_detection() {
+        CupOfTea df = createSampleDataFrame();
+
+        // 1. Scan directly followed by groupBy and agg -> Eligible for fusion
+        LazyCupOfTea planFused = df.lazy()
+                .groupBy("station")
+                .agg(Aggregations.mean("temperature"), Aggregations.count());
+
+        assertThat(planFused.canFuseScanAggregate()).isTrue();
+        assertThat(planFused.explain()).contains("Optimization: Fused Scan-Aggregate (StreamingDirectAggregator)");
+
+        // 2. Filter disables fusion
+        LazyCupOfTea planWithFilter = df.lazy()
+                .filter(r -> true)
+                .groupBy("station")
+                .agg(Aggregations.mean("temperature"));
+        assertThat(planWithFilter.canFuseScanAggregate()).isFalse();
+        assertThat(planWithFilter.explain()).doesNotContain("Optimization: Fused Scan-Aggregate");
+
+        // 3. Limit disables fusion
+        LazyCupOfTea planWithLimit = df.lazy()
+                .limit(5)
+                .groupBy("station")
+                .agg(Aggregations.mean("temperature"));
+        assertThat(planWithLimit.canFuseScanAggregate()).isFalse();
+        assertThat(planWithLimit.explain()).doesNotContain("Optimization: Fused Scan-Aggregate");
+
+        // 4. Select disables fusion
+        LazyCupOfTea planWithSelect = df.lazy()
+                .select("station", "temperature")
+                .groupBy("station")
+                .agg(Aggregations.mean("temperature"));
+        assertThat(planWithSelect.canFuseScanAggregate()).isFalse();
+        assertThat(planWithSelect.explain()).doesNotContain("Optimization: Fused Scan-Aggregate");
+
+        // 5. Global aggregation without groupBy is also eligible
+        LazyCupOfTea planGlobal = df.lazy()
+                .agg(Aggregations.mean("temperature"));
+        assertThat(planGlobal.canFuseScanAggregate()).isTrue();
+        assertThat(planGlobal.explain()).contains("Optimization: Fused Scan-Aggregate (StreamingDirectAggregator)");
+    }
+
+    @Test
+    @DisplayName("Should directly aggregate data via StreamingDirectAggregator for int and multi-column keys")
+    void test_streaming_direct_aggregator_keys() {
+        CupOfTea df = createSampleDataFrame();
+
+        // Int key direct aggregation
+        CupOfTea intKeyResult = df.lazy()
+                .groupBy("measurement_id")
+                .agg(Aggregations.sum("temperature").as("total_temp"))
+                .collect()
+                .orderBy("measurement_id");
+        assertThat(intKeyResult.size()).isEqualTo(8);
+
+        // Multi-column key direct aggregation
+        CupOfTea multiKeyResult = df.lazy()
+                .groupBy("station", "measurement_id")
+                .agg(Aggregations.mean("temperature").as("avg_temp"))
+                .collect();
+        assertThat(multiKeyResult.size()).isEqualTo(8);
     }
 }

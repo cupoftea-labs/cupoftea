@@ -306,9 +306,19 @@ public class LazyCupOfTea implements LazyDataFrame {
         if (orderColumns != null) {
             sb.append("  OrderBy: ").append(orderColumns).append("\n");
         }
+        if (canFuseScanAggregate()) {
+            sb.append("  Optimization: Fused Scan-Aggregate (StreamingDirectAggregator)\n");
+        }
         sb.append("  Execution Mode: ").append(parallel ? "Parallel" : "Sequential")
           .append(" (BatchSize=").append(batchSize).append(", ChunkSize=").append(chunkSizeBytes).append(")\n");
         return sb.toString();
+    }
+
+    public boolean canFuseScanAggregate() {
+        boolean hasGroupBy = groupBy != null;
+        boolean hasAgg = (hasGroupBy && groupBy.getAggregates() != null && groupBy.getAggregates().length > 0)
+                || (aggregates != null && aggregates.length > 0);
+        return hasAgg && filters.isEmpty() && limit < 0 && selectColumns == null;
     }
 
     // --- Materialization (collect) ---
@@ -339,26 +349,36 @@ public class LazyCupOfTea implements LazyDataFrame {
             return emptyState.finish();
         }
 
+        boolean fused = canFuseScanAggregate();
+
         if (parallel && partitions.size() > 1) {
             ExecutorService exec = executor != null ? executor : ForkJoinPool.commonPool();
             List<Future<CompactRunningGroupBy>> futures = new ArrayList<>(partitions.size());
 
             for (PartitionReader partition : partitions) {
                 futures.add(exec.submit(() -> {
-                    CompactRunningGroupBy localState = new CompactRunningGroupBy(groupCols, aggs, headers);
-                    try (partition) {
-                        CupOfTea batch;
-                        while ((batch = partition.nextBatch()) != null) {
-                            for (IFilter filter : filters) {
-                                batch = batch.filter(filter);
-                                if (batch.size() == 0) break;
-                            }
-                            if (batch.size() > 0) {
-                                localState.accumulateBatch(batch);
+                    if (fused) {
+                        StreamingDirectAggregator localState = new StreamingDirectAggregator(groupCols, aggs, headers);
+                        try (partition) {
+                            partition.aggregateDirect(localState);
+                        }
+                        return localState;
+                    } else {
+                        CompactRunningGroupBy localState = new CompactRunningGroupBy(groupCols, aggs, headers);
+                        try (partition) {
+                            CupOfTea batch;
+                            while ((batch = partition.nextBatch()) != null) {
+                                for (IFilter filter : filters) {
+                                    batch = batch.filter(filter);
+                                    if (batch.size() == 0) break;
+                                }
+                                if (batch.size() > 0) {
+                                    localState.accumulateBatch(batch);
+                                }
                             }
                         }
+                        return localState;
                     }
-                    return localState;
                 }));
             }
 
@@ -382,29 +402,45 @@ public class LazyCupOfTea implements LazyDataFrame {
             }
             return result;
         } else {
-            CompactRunningGroupBy state = new CompactRunningGroupBy(groupCols, aggs, headers);
-            for (PartitionReader partition : partitions) {
-                try (partition) {
-                    CupOfTea batch;
-                    while ((batch = partition.nextBatch()) != null) {
-                        for (IFilter filter : filters) {
-                            batch = batch.filter(filter);
-                            if (batch.size() == 0) break;
-                        }
-                        if (batch.size() > 0) {
-                            state.accumulateBatch(batch);
-                        }
+            if (fused) {
+                StreamingDirectAggregator state = new StreamingDirectAggregator(groupCols, aggs, headers);
+                for (PartitionReader partition : partitions) {
+                    try (partition) {
+                        partition.aggregateDirect(state);
+                    } catch (IOException e) {
+                        throw new CupOfTeaException("I/O error during fused streaming aggregation", e);
                     }
-                } catch (IOException e) {
-                    throw new CupOfTeaException("I/O error during streaming aggregation", e);
                 }
-            }
+                CupOfTea result = state.finish();
+                if (orderColumns != null && !orderColumns.isEmpty()) {
+                    result = result.orderBy(orderColumns.toArray(new String[0]));
+                }
+                return result;
+            } else {
+                CompactRunningGroupBy state = new CompactRunningGroupBy(groupCols, aggs, headers);
+                for (PartitionReader partition : partitions) {
+                    try (partition) {
+                        CupOfTea batch;
+                        while ((batch = partition.nextBatch()) != null) {
+                            for (IFilter filter : filters) {
+                                batch = batch.filter(filter);
+                                if (batch.size() == 0) break;
+                            }
+                            if (batch.size() > 0) {
+                                state.accumulateBatch(batch);
+                            }
+                        }
+                    } catch (IOException e) {
+                        throw new CupOfTeaException("I/O error during streaming aggregation", e);
+                    }
+                }
 
-            CupOfTea result = state.finish();
-            if (orderColumns != null && !orderColumns.isEmpty()) {
-                result = result.orderBy(orderColumns.toArray(new String[0]));
+                CupOfTea result = state.finish();
+                if (orderColumns != null && !orderColumns.isEmpty()) {
+                    result = result.orderBy(orderColumns.toArray(new String[0]));
+                }
+                return result;
             }
-            return result;
         }
     }
 

@@ -31,11 +31,11 @@ import com.cupoftea.table.vector.StringColumnVector;
  */
 public class CompactRunningGroupBy {
 
-    private final String[] groupColumns;
-    private final Aggregate[] aggregates;
-    private final List<Column> sourceHeaders;
-    private final GroupKeyTable keyTable;
-    private final RunningAccumulator[] accumulators;
+    protected final String[] groupColumns;
+    protected final Aggregate[] aggregates;
+    protected final List<Column> sourceHeaders;
+    protected final GroupKeyTable keyTable;
+    protected final RunningAccumulator[] accumulators;
 
     public CompactRunningGroupBy(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders) {
         this.groupColumns = groupColumns != null ? groupColumns : new String[0];
@@ -101,7 +101,7 @@ public class CompactRunningGroupBy {
         }
     }
 
-    private void ensureAccumulatorCapacity(int capacity) {
+    protected void ensureAccumulatorCapacity(int capacity) {
         for (RunningAccumulator acc : accumulators) {
             acc.ensureCapacity(capacity);
         }
@@ -217,6 +217,9 @@ public class CompactRunningGroupBy {
         int findOrInsert(ColumnVector[] vectors, int row);
         int insertFromOther(GroupKeyTable other, int otherGid);
         List<ColumnVector> finishKeyVectors(String[] columnNames);
+        default int findOrInsertNull() {
+            return 0;
+        }
     }
 
     interface RunningAccumulator {
@@ -224,6 +227,21 @@ public class CompactRunningGroupBy {
         void accumulate(int gid, ColumnVector vector, int row);
         void merge(RunningAccumulator other, int thisGid, int otherGid);
         ColumnVector finish(String outputName, int numGroups);
+
+        default void accumulateDouble(int gid, double value) {}
+        default void accumulateLong(int gid, long value) { accumulateDouble(gid, (double) value); }
+        default void accumulateInt(int gid, int value) { accumulateDouble(gid, (double) value); }
+        default void accumulateObject(int gid, Object value) {
+            if (value instanceof Number n) {
+                accumulateDouble(gid, n.doubleValue());
+            } else if (value != null) {
+                try {
+                    accumulateDouble(gid, Double.parseDouble(value.toString()));
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        default void accumulateNull(int gid) {}
     }
 
     // =========================================================================
@@ -338,7 +356,43 @@ public class CompactRunningGroupBy {
             }
         }
 
-        private int findOrInsertNull() {
+        public int findOrInsertBytes(byte[] buf, int offset, int len) {
+            int h = 1;
+            for (int i = offset; i < offset + len; i++) {
+                h = 31 * h + (buf[i] & 0xFF);
+            }
+            int pos = h & mask;
+            while (true) {
+                int gid = table[pos];
+                if (gid == -1) {
+                    gid = numGroups++;
+                    if (gid >= keys.length) {
+                        grow();
+                    }
+                    byte[] kb = new byte[len];
+                    System.arraycopy(buf, offset, kb, 0, len);
+                    keyBytes[gid] = kb;
+                    keys[gid] = new String(kb, StandardCharsets.UTF_8);
+
+                    table[pos] = gid;
+                    hashes[pos] = h;
+                    if (numGroups >= threshold) {
+                        resize();
+                    }
+                    return gid;
+                }
+                if (hashes[pos] == h) {
+                    byte[] kb = keyBytes[gid];
+                    if (kb != null && kb.length == len && Arrays.equals(buf, offset, offset + len, kb, 0, len)) {
+                        return gid;
+                    }
+                }
+                pos = (pos + 1) & mask;
+            }
+        }
+
+        @Override
+        public int findOrInsertNull() {
             int h = 0;
             int pos = 0;
             while (true) {
@@ -504,18 +558,23 @@ public class CompactRunningGroupBy {
         public int findOrInsert(ColumnVector[] vectors, int row) {
             ColumnVector vec = vectors[0];
             if (vec == null || vec.isNull(row)) {
-                if (nullGid == -1) {
-                    nullGid = numGroups++;
-                    if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                    nulls.set(nullGid);
-                }
-                return nullGid;
+                return findOrInsertNull();
             }
             int val = ((IntColumnVector) vec).getInt(row);
             return findOrInsertValue(val);
         }
 
-        private int findOrInsertValue(int val) {
+        @Override
+        public int findOrInsertNull() {
+            if (nullGid == -1) {
+                nullGid = numGroups++;
+                if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
+                nulls.set(nullGid);
+            }
+            return nullGid;
+        }
+
+        int findOrInsertValue(int val) {
             int h = Integer.hashCode(val);
             int pos = h & mask;
             while (true) {
@@ -603,20 +662,30 @@ public class CompactRunningGroupBy {
         public int findOrInsert(ColumnVector[] vectors, int row) {
             ColumnVector vec = vectors[0];
             if (vec == null || vec.isNull(row)) {
-                if (nullGid == -1) {
-                    nullGid = numGroups++;
-                    if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                    nulls.set(nullGid);
-                }
-                return nullGid;
+                return findOrInsertNull();
             }
             long val = ((LongColumnVector) vec).getLong(row);
+            return findOrInsertValue(val);
+        }
+
+        @Override
+        public int findOrInsertNull() {
+            if (nullGid == -1) {
+                nullGid = numGroups++;
+                if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
+                nulls.set(nullGid);
+            }
+            return nullGid;
+        }
+
+        int findOrInsertValue(long val) {
             Integer gid = map.get(val);
             if (gid == null) {
-                gid = numGroups++;
-                if (gid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                keys[gid] = val;
-                map.put(val, gid);
+                int g = numGroups++;
+                if (g >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
+                keys[g] = val;
+                map.put(val, g);
+                return g;
             }
             return gid;
         }
@@ -625,22 +694,9 @@ public class CompactRunningGroupBy {
         public int insertFromOther(GroupKeyTable other, int otherGid) {
             CompactLongTable o = (CompactLongTable) other;
             if (o.nulls.get(otherGid)) {
-                if (nullGid == -1) {
-                    nullGid = numGroups++;
-                    if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                    nulls.set(nullGid);
-                }
-                return nullGid;
+                return findOrInsertNull();
             }
-            long val = o.keys[otherGid];
-            Integer gid = map.get(val);
-            if (gid == null) {
-                gid = numGroups++;
-                if (gid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                keys[gid] = val;
-                map.put(val, gid);
-            }
-            return gid;
+            return findOrInsertValue(o.keys[otherGid]);
         }
 
         @Override
@@ -675,20 +731,30 @@ public class CompactRunningGroupBy {
         public int findOrInsert(ColumnVector[] vectors, int row) {
             ColumnVector vec = vectors[0];
             if (vec == null || vec.isNull(row)) {
-                if (nullGid == -1) {
-                    nullGid = numGroups++;
-                    if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                    nulls.set(nullGid);
-                }
-                return nullGid;
+                return findOrInsertNull();
             }
             double val = vec.getDouble(row);
+            return findOrInsertValue(val);
+        }
+
+        @Override
+        public int findOrInsertNull() {
+            if (nullGid == -1) {
+                nullGid = numGroups++;
+                if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
+                nulls.set(nullGid);
+            }
+            return nullGid;
+        }
+
+        int findOrInsertValue(double val) {
             Integer gid = map.get(val);
             if (gid == null) {
-                gid = numGroups++;
-                if (gid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                keys[gid] = val;
-                map.put(val, gid);
+                int g = numGroups++;
+                if (g >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
+                keys[g] = val;
+                map.put(val, g);
+                return g;
             }
             return gid;
         }
@@ -697,22 +763,9 @@ public class CompactRunningGroupBy {
         public int insertFromOther(GroupKeyTable other, int otherGid) {
             CompactDoubleTable o = (CompactDoubleTable) other;
             if (o.nulls.get(otherGid)) {
-                if (nullGid == -1) {
-                    nullGid = numGroups++;
-                    if (nullGid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                    nulls.set(nullGid);
-                }
-                return nullGid;
+                return findOrInsertNull();
             }
-            double val = o.keys[otherGid];
-            Integer gid = map.get(val);
-            if (gid == null) {
-                gid = numGroups++;
-                if (gid >= keys.length) keys = Arrays.copyOf(keys, keys.length * 2);
-                keys[gid] = val;
-                map.put(val, gid);
-            }
-            return gid;
+            return findOrInsertValue(o.keys[otherGid]);
         }
 
         @Override
@@ -752,15 +805,20 @@ public class CompactRunningGroupBy {
             for (int i = 0; i < colCount; i++) {
                 vals[i] = vectors[i] != null && !vectors[i].isNull(row) ? vectors[i].getObject(row) : null;
             }
+            return findOrInsertRow(vals);
+        }
+
+        int findOrInsertRow(Object[] vals) {
             MultiKey key = new MultiKey(vals);
             Integer gid = map.get(key);
             if (gid == null) {
-                gid = numGroups++;
-                if (gid >= groupValues.length) {
+                int g = numGroups++;
+                if (g >= groupValues.length) {
                     groupValues = Arrays.copyOf(groupValues, groupValues.length * 2);
                 }
-                groupValues[gid] = vals;
-                map.put(key, gid);
+                groupValues[g] = vals;
+                map.put(key, g);
+                return g;
             }
             return gid;
         }
@@ -845,6 +903,28 @@ public class CompactRunningGroupBy {
         }
 
         @Override
+        public void accumulateDouble(int gid, double value) {
+            counts[gid]++;
+        }
+
+        @Override
+        public void accumulateLong(int gid, long value) {
+            counts[gid]++;
+        }
+
+        @Override
+        public void accumulateInt(int gid, int value) {
+            counts[gid]++;
+        }
+
+        @Override
+        public void accumulateObject(int gid, Object value) {
+            if (value != null) {
+                counts[gid]++;
+            }
+        }
+
+        @Override
         public void merge(RunningAccumulator other, int thisGid, int otherGid) {
             this.counts[thisGid] += ((CountAccumulator) other).counts[otherGid];
         }
@@ -879,6 +959,24 @@ public class CompactRunningGroupBy {
                 sums[gid] += vector.getDouble(row);
                 hasValues[gid] = true;
             }
+        }
+
+        @Override
+        public void accumulateDouble(int gid, double value) {
+            sums[gid] += value;
+            hasValues[gid] = true;
+        }
+
+        @Override
+        public void accumulateLong(int gid, long value) {
+            sums[gid] += value;
+            hasValues[gid] = true;
+        }
+
+        @Override
+        public void accumulateInt(int gid, int value) {
+            sums[gid] += value;
+            hasValues[gid] = true;
         }
 
         @Override
@@ -937,6 +1035,24 @@ public class CompactRunningGroupBy {
         }
 
         @Override
+        public void accumulateDouble(int gid, double value) {
+            sums[gid] += value;
+            counts[gid]++;
+        }
+
+        @Override
+        public void accumulateLong(int gid, long value) {
+            sums[gid] += value;
+            counts[gid]++;
+        }
+
+        @Override
+        public void accumulateInt(int gid, int value) {
+            sums[gid] += value;
+            counts[gid]++;
+        }
+
+        @Override
         public void merge(RunningAccumulator other, int thisGid, int otherGid) {
             MeanAccumulator o = (MeanAccumulator) other;
             this.sums[thisGid] += o.sums[otherGid];
@@ -988,6 +1104,24 @@ public class CompactRunningGroupBy {
                 }
                 hasValues[gid] = true;
             }
+        }
+
+        @Override
+        public void accumulateDouble(int gid, double value) {
+            if (value < mins[gid]) {
+                mins[gid] = value;
+            }
+            hasValues[gid] = true;
+        }
+
+        @Override
+        public void accumulateLong(int gid, long value) {
+            accumulateDouble(gid, (double) value);
+        }
+
+        @Override
+        public void accumulateInt(int gid, int value) {
+            accumulateDouble(gid, (double) value);
         }
 
         @Override
@@ -1054,6 +1188,24 @@ public class CompactRunningGroupBy {
         }
 
         @Override
+        public void accumulateDouble(int gid, double value) {
+            if (value > maxs[gid]) {
+                maxs[gid] = value;
+            }
+            hasValues[gid] = true;
+        }
+
+        @Override
+        public void accumulateLong(int gid, long value) {
+            accumulateDouble(gid, (double) value);
+        }
+
+        @Override
+        public void accumulateInt(int gid, int value) {
+            accumulateDouble(gid, (double) value);
+        }
+
+        @Override
         public void merge(RunningAccumulator other, int thisGid, int otherGid) {
             MaxAccumulator o = (MaxAccumulator) other;
             if (o.hasValues[otherGid]) {
@@ -1111,6 +1263,22 @@ public class CompactRunningGroupBy {
         }
 
         @Override
+        public void accumulateDouble(int gid, double value) {
+            if (!hasValues[gid]) {
+                values[gid] = value;
+                hasValues[gid] = true;
+            }
+        }
+
+        @Override
+        public void accumulateObject(int gid, Object value) {
+            if (!hasValues[gid] && value != null) {
+                values[gid] = value;
+                hasValues[gid] = true;
+            }
+        }
+
+        @Override
         public void merge(RunningAccumulator other, int thisGid, int otherGid) {
             FirstAccumulator o = (FirstAccumulator) other;
             if (!this.hasValues[thisGid] && o.hasValues[otherGid]) {
@@ -1151,6 +1319,20 @@ public class CompactRunningGroupBy {
         public void accumulate(int gid, ColumnVector vector, int row) {
             if (vector != null && !vector.isNull(row)) {
                 values[gid] = vector.getObject(row);
+                hasValues[gid] = true;
+            }
+        }
+
+        @Override
+        public void accumulateDouble(int gid, double value) {
+            values[gid] = value;
+            hasValues[gid] = true;
+        }
+
+        @Override
+        public void accumulateObject(int gid, Object value) {
+            if (value != null) {
+                values[gid] = value;
                 hasValues[gid] = true;
             }
         }
@@ -1202,6 +1384,23 @@ public class CompactRunningGroupBy {
                 sums[gid] += v;
                 sumSqs[gid] += v * v;
             }
+        }
+
+        @Override
+        public void accumulateDouble(int gid, double value) {
+            counts[gid]++;
+            sums[gid] += value;
+            sumSqs[gid] += value * value;
+        }
+
+        @Override
+        public void accumulateLong(int gid, long value) {
+            accumulateDouble(gid, (double) value);
+        }
+
+        @Override
+        public void accumulateInt(int gid, int value) {
+            accumulateDouble(gid, (double) value);
         }
 
         @Override

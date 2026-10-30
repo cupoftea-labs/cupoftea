@@ -11,6 +11,7 @@ import com.cupoftea.csv.fast.FastCsvReader;
 import com.cupoftea.csv.fast.SimdDetector;
 import com.cupoftea.importers.configurations.CSVImporterConfiguration;
 import com.cupoftea.lazy.PartitionReader;
+import com.cupoftea.lazy.StreamingDirectAggregator;
 
 /**
  * Memory-mapped streaming partition reader for high-performance out-of-core CSV evaluation.
@@ -69,6 +70,39 @@ public class CsvMmapPartitionReader implements PartitionReader {
         );
 
         return FastCsvReader.assembleChunk(colNames, colTypes, colTypeIds, res);
+    }
+
+    @Override
+    public boolean supportsDirectAggregation() {
+        return true;
+    }
+
+    @Override
+    public void aggregateDirect(StreamingDirectAggregator aggregator) throws IOException {
+        if (consumed) {
+            return;
+        }
+        consumed = true;
+
+        long len = endOffset - startOffset;
+        if (len <= 0) {
+            return;
+        }
+
+        aggregator.bindSource(colNames, colTypes);
+
+        MappedByteBuffer mapped = channel.map(FileChannel.MapMode.READ_ONLY, startOffset, len);
+        boolean useSimd = config.isSimdEnabled() && SimdDetector.isSupported();
+        Charset charset = config.getCharset();
+
+        FastCsvReader.executeChunkDirect(
+                null, mapped, 0, (int) len,
+                (byte) config.getDelimiter(),
+                (byte) config.getQuoteChar(),
+                (byte) config.getEscapeChar(),
+                colNames, colTypes, colTypeIds,
+                charset, config, useSimd, aggregator
+        );
     }
 
     @Override
