@@ -35,14 +35,19 @@ public final class FastByteParser {
      * "", "NA", "N/A", "null", "NULL", "#N/A".
      */
     public static boolean isNaOrEmpty(byte[] buf, int start, int end) {
-        if (start >= end) {
+        int rawLen = end - start;
+        if (rawLen <= 0) {
             return true;
         }
         byte first = buf[start];
-        if (first > ' ' && first != 'N' && first != 'n' && first != '#') {
-            return false;
-        }
-        if (end - start == 1) {
+        if (first > ' ') {
+            if (first != 'N' && first != 'n' && first != '#') {
+                return false;
+            }
+            if (buf[end - 1] > ' ' && (rawLen > 4 || rawLen < 2)) {
+                return false;
+            }
+        } else if (rawLen == 1) {
             return first == ' ' || first == '\t' || first == '\r';
         }
         while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {

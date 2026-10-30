@@ -1,6 +1,9 @@
 package com.cupoftea.csv.fast;
 
+import java.nio.ByteBuffer;
+import java.nio.MappedByteBuffer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Set;
@@ -70,6 +73,8 @@ public final class SimdCsvScanner {
     static final byte TYPE_OBJECT = 6;
 
     private static final Set<String> DEFAULT_NA_STRINGS = Set.of("NA", "N/A", "null", "NULL", "#N/A");
+
+    private static final int MAPPED_WINDOW_SIZE = 1024 * 1024;
 
     private SimdCsvScanner() {
     }
@@ -533,6 +538,26 @@ public final class SimdCsvScanner {
     }
 
     /**
+     * Fused two-stage SIMD chunk parser for {@link FastCsvReader} over a memory-mapped file slice.
+     * Streams through an L2-cache-resident window buffer to avoid humongous heap allocations
+     * and redundant DRAM round-trips on multi-gigabyte files.
+     */
+    static FastCsvReader.ChunkResult parseChunkSimdMapped(
+            MappedByteBuffer mappedBuf, int chunkStart, int chunkEnd,
+            byte delim, byte quote, byte escape,
+            int colCount, Class<?>[] colTypes, byte[] colTypeIds,
+            Charset charset, CSVImporterConfiguration config) {
+        int totalChunkLen = chunkEnd - chunkStart;
+        int winSize = Math.min(totalChunkLen, MAPPED_WINDOW_SIZE);
+        byte[] window = new byte[Math.max(STEP, winSize)];
+        ByteBuffer slice = mappedBuf.duplicate();
+        slice.position(chunkStart);
+        slice.get(window, 0, winSize);
+        return parseChunkSimd(window, 0, winSize, slice, chunkStart + winSize, chunkEnd,
+                delim, quote, escape, colCount, colTypes, colTypeIds, charset, config);
+    }
+
+    /**
      * Fused two-stage SIMD chunk parser for {@link FastCsvReader}.
      * Scans {@code buf[start..end)} in 4x unrolled SIMD chunks, resolves quote parity via
      * {@link #prefixXor(long)}, and populates typed columnar arrays directly with zero
@@ -543,12 +568,27 @@ public final class SimdCsvScanner {
             byte delim, byte quote, byte escape,
             int colCount, Class<?>[] colTypes, byte[] colTypeIds,
             Charset charset, CSVImporterConfiguration config) {
+        return parseChunkSimd(buf, start, end, null, 0, 0,
+                delim, quote, escape, colCount, colTypes, colTypeIds, charset, config);
+    }
 
-        int capacity = Math.max(16, (end - start) / Math.max(10, colCount * 6));
+    private static FastCsvReader.ChunkResult parseChunkSimd(
+            byte[] buf, int start, int end,
+            ByteBuffer mappedSlice, int mapPos, int mapEnd,
+            byte delim, byte quote, byte escape,
+            int colCount, Class<?>[] colTypes, byte[] colTypeIds,
+            Charset charset, CSVImporterConfiguration config) {
+
+        int totalChunkBytes = (mappedSlice != null) ? (end - start) + (mapEnd - mapPos) : (end - start);
+        int capacity = Math.max(16, totalChunkBytes / Math.max(10, colCount * 6));
+        int estStringBytes = (colCount <= 2)
+                ? Math.max(256, (int) (((long) totalChunkBytes * 3) >>> 2))
+                : Math.max(256, totalChunkBytes / colCount);
 
         Object[] colData = new Object[colCount];
         BitSet[] nullBitsets = new BitSet[colCount];
         boolean needsStringPool = false;
+        boolean isIso88591 = StandardCharsets.ISO_8859_1.equals(charset);
 
         for (int c = 0; c < colCount; c++) {
             nullBitsets[c] = new BitSet(capacity);
@@ -558,10 +598,7 @@ public final class SimdCsvScanner {
                 case TYPE_DOUBLE -> colData[c] = new double[capacity];
                 case TYPE_FLOAT -> colData[c] = new float[capacity];
                 case TYPE_BOOLEAN -> colData[c] = new boolean[capacity];
-                case TYPE_STRING -> {
-                    colData[c] = new String[capacity];
-                    needsStringPool = true;
-                }
+                case TYPE_STRING -> colData[c] = new FastCsvReader.StringChunkBuffer(capacity, estStringBytes);
                 default -> {
                     colData[c] = new Object[capacity];
                     needsStringPool = true;
@@ -569,7 +606,9 @@ public final class SimdCsvScanner {
             }
         }
 
-        FastStringPool stringPool = needsStringPool ? new FastStringPool(charset, buf) : null;
+        FastStringPool stringPool = needsStringPool
+                ? new FastStringPool(charset, mappedSlice == null ? buf : null)
+                : null;
         byte[] fieldBuf = new byte[256];
         Set<String> naStrings = config.getNaStrings();
         boolean customNaStrings = naStrings != null && !naStrings.equals(DEFAULT_NA_STRINGS);
@@ -592,7 +631,25 @@ public final class SimdCsvScanner {
         int lastCrOffset = -2;
         int offset = start;
 
-        while (offset < end) {
+        while (offset < end || mapPos < mapEnd) {
+            if (mappedSlice != null && offset + STEP > end && mapPos < mapEnd) {
+                int keep = end - fStart;
+                if (keep > 0 && fStart > 0) {
+                    System.arraycopy(buf, fStart, buf, 0, keep);
+                }
+                offset -= fStart;
+                lastCrOffset = (lastCrOffset >= fStart - 1) ? (lastCrOffset - fStart) : -2;
+                fStart = 0;
+                if (buf.length - keep < STEP) {
+                    buf = Arrays.copyOf(buf, buf.length << 1);
+                }
+                int toRead = Math.min(buf.length - keep, mapEnd - mapPos);
+                mappedSlice.get(buf, keep, toRead);
+                end = keep + toRead;
+                mapPos += toRead;
+                start = 0;
+            }
+
             long dm0 = 0L, dm1 = 0L, dm2 = 0L, dm3 = 0L;
             long qm0 = 0L, qm1 = 0L, qm2 = 0L, qm3 = 0L;
             int blocksCount;
@@ -703,7 +760,7 @@ public final class SimdCsvScanner {
                             if (fieldHadQuote) {
                                 fieldBuf = materializeQuotedField(buf, fStart, absoluteOffset, fieldQuoteCount,
                                         quote, escape, fieldHadEscape, fieldBuf, colIdx, row, colTypeIds[colIdx],
-                                        colTypes[colIdx], colData, nullBitsets, stringPool, charset,
+                                        colTypes[colIdx], colData, nullBitsets, stringPool, isIso88591,
                                         preserveEmptyStrings, customNaStrings, naStrings);
                                 fieldHadQuote = false;
                                 fieldHadEscape = false;
@@ -711,7 +768,7 @@ public final class SimdCsvScanner {
                             } else {
                                 materializeUnquotedField(buf, fStart, absoluteOffset, colIdx, row,
                                         colTypeIds[colIdx], colTypes[colIdx], colData, nullBitsets,
-                                        stringPool, customNaStrings, naStrings);
+                                        stringPool, isIso88591, customNaStrings, naStrings);
                             }
                             colIdx++;
                             fStart = absoluteOffset + 1;
@@ -729,7 +786,7 @@ public final class SimdCsvScanner {
                             if (fieldHadQuote) {
                                 fieldBuf = materializeQuotedField(buf, fStart, absoluteOffset, fieldQuoteCount,
                                         quote, escape, fieldHadEscape, fieldBuf, colIdx, row, colTypeIds[colIdx],
-                                        colTypes[colIdx], colData, nullBitsets, stringPool, charset,
+                                        colTypes[colIdx], colData, nullBitsets, stringPool, isIso88591,
                                         preserveEmptyStrings, customNaStrings, naStrings);
                                 fieldHadQuote = false;
                                 fieldHadEscape = false;
@@ -737,7 +794,7 @@ public final class SimdCsvScanner {
                             } else {
                                 materializeUnquotedField(buf, fStart, absoluteOffset, colIdx, row,
                                         colTypeIds[colIdx], colTypes[colIdx], colData, nullBitsets,
-                                        stringPool, customNaStrings, naStrings);
+                                        stringPool, isIso88591, customNaStrings, naStrings);
                             }
                             row++;
                             if (row >= capacity) {
@@ -792,12 +849,12 @@ public final class SimdCsvScanner {
                             if (hadQ) {
                                 fieldBuf = materializeQuotedField(buf, fStart, absoluteOffset, qCount,
                                         quote, escape, hadEsc, fieldBuf, colIdx, row, colTypeIds[colIdx],
-                                        colTypes[colIdx], colData, nullBitsets, stringPool, charset,
+                                        colTypes[colIdx], colData, nullBitsets, stringPool, isIso88591,
                                         preserveEmptyStrings, customNaStrings, naStrings);
                             } else {
                                 materializeUnquotedField(buf, fStart, absoluteOffset, colIdx, row,
                                         colTypeIds[colIdx], colTypes[colIdx], colData, nullBitsets,
-                                        stringPool, customNaStrings, naStrings);
+                                        stringPool, isIso88591, customNaStrings, naStrings);
                             }
                             colIdx++;
                             fStart = absoluteOffset + 1;
@@ -814,12 +871,12 @@ public final class SimdCsvScanner {
                             if (hadQ) {
                                 fieldBuf = materializeQuotedField(buf, fStart, absoluteOffset, qCount,
                                         quote, escape, hadEsc, fieldBuf, colIdx, row, colTypeIds[colIdx],
-                                        colTypes[colIdx], colData, nullBitsets, stringPool, charset,
+                                        colTypes[colIdx], colData, nullBitsets, stringPool, isIso88591,
                                         preserveEmptyStrings, customNaStrings, naStrings);
                             } else {
                                 materializeUnquotedField(buf, fStart, absoluteOffset, colIdx, row,
                                         colTypeIds[colIdx], colTypes[colIdx], colData, nullBitsets,
-                                        stringPool, customNaStrings, naStrings);
+                                        stringPool, isIso88591, customNaStrings, naStrings);
                             }
                             row++;
                             if (row >= capacity) {
@@ -853,12 +910,12 @@ public final class SimdCsvScanner {
             if (fieldHadQuote) {
                 materializeQuotedField(buf, fStart, end, fieldQuoteCount,
                         quote, escape, fieldHadEscape, fieldBuf, colIdx, row, colTypeIds[colIdx],
-                        colTypes[colIdx], colData, nullBitsets, stringPool, charset,
+                        colTypes[colIdx], colData, nullBitsets, stringPool, isIso88591,
                         preserveEmptyStrings, customNaStrings, naStrings);
             } else {
                 materializeUnquotedField(buf, fStart, end, colIdx, row,
                         colTypeIds[colIdx], colTypes[colIdx], colData, nullBitsets,
-                        stringPool, customNaStrings, naStrings);
+                        stringPool, isIso88591, customNaStrings, naStrings);
             }
             row++;
         }
@@ -912,15 +969,15 @@ public final class SimdCsvScanner {
 
     private static void resizeColumns(Object[] colData, byte[] colTypeIds, int colCount, int newCap) {
         for (int c = 0; c < colCount; c++) {
-            colData[c] = switch (colTypeIds[c]) {
-                case TYPE_INT -> Arrays.copyOf((int[]) colData[c], newCap);
-                case TYPE_LONG -> Arrays.copyOf((long[]) colData[c], newCap);
-                case TYPE_DOUBLE -> Arrays.copyOf((double[]) colData[c], newCap);
-                case TYPE_FLOAT -> Arrays.copyOf((float[]) colData[c], newCap);
-                case TYPE_BOOLEAN -> Arrays.copyOf((boolean[]) colData[c], newCap);
-                case TYPE_STRING -> Arrays.copyOf((String[]) colData[c], newCap);
-                default -> Arrays.copyOf((Object[]) colData[c], newCap);
-            };
+            switch (colTypeIds[c]) {
+                case TYPE_INT -> colData[c] = Arrays.copyOf((int[]) colData[c], newCap);
+                case TYPE_LONG -> colData[c] = Arrays.copyOf((long[]) colData[c], newCap);
+                case TYPE_DOUBLE -> colData[c] = Arrays.copyOf((double[]) colData[c], newCap);
+                case TYPE_FLOAT -> colData[c] = Arrays.copyOf((float[]) colData[c], newCap);
+                case TYPE_BOOLEAN -> colData[c] = Arrays.copyOf((boolean[]) colData[c], newCap);
+                case TYPE_STRING -> ((FastCsvReader.StringChunkBuffer) colData[c]).ensureRowCapacity(newCap);
+                default -> colData[c] = Arrays.copyOf((Object[]) colData[c], newCap);
+            }
         }
     }
 
@@ -928,10 +985,14 @@ public final class SimdCsvScanner {
             byte[] buf, int start, int end,
             int colIdx, int row, byte typeId, Class<?> colType,
             Object[] colData, BitSet[] nullBitsets,
-            FastStringPool stringPool, boolean customNaStrings, Set<String> naStrings) {
+            FastStringPool stringPool, boolean isIso88591,
+            boolean customNaStrings, Set<String> naStrings) {
 
         if (start == end) {
             nullBitsets[colIdx].set(row);
+            if (typeId == TYPE_STRING) {
+                ((FastCsvReader.StringChunkBuffer) colData[colIdx]).appendEmptyOrNull(row);
+            }
             return;
         }
 
@@ -977,11 +1038,15 @@ public final class SimdCsvScanner {
                 }
             }
             case TYPE_STRING -> {
+                FastCsvReader.StringChunkBuffer strBuf = (FastCsvReader.StringChunkBuffer) colData[colIdx];
                 if (FastByteParser.isNaOrEmpty(buf, start, end)
                         || (customNaStrings && isCustomNa(buf, start, end, naStrings))) {
                     nullBitsets[colIdx].set(row);
+                    strBuf.appendEmptyOrNull(row);
+                } else if (!isIso88591) {
+                    strBuf.appendBytes(row, buf, start, end - start);
                 } else {
-                    ((String[]) colData[colIdx])[row] = stringPool.getOrCreate(buf, start, end - start);
+                    strBuf.appendBytes(row, buf, start, end - start, true);
                 }
             }
             default -> {
@@ -1001,7 +1066,7 @@ public final class SimdCsvScanner {
             byte quote, byte escape, boolean hasEscape, byte[] fieldBuf,
             int colIdx, int row, byte typeId, Class<?> colType,
             Object[] colData, BitSet[] nullBitsets,
-            FastStringPool stringPool, Charset charset,
+            FastStringPool stringPool, boolean isIso88591,
             boolean preserveEmptyStrings, boolean customNaStrings, Set<String> naStrings) {
 
         byte[] rawBuf;
@@ -1054,23 +1119,26 @@ public final class SimdCsvScanner {
         }
 
         if (typeId == TYPE_STRING) {
+            FastCsvReader.StringChunkBuffer strBuf = (FastCsvReader.StringChunkBuffer) colData[colIdx];
             int len = rawEnd - rawStart;
             if (len == 0) {
                 if (!preserveEmptyStrings) {
                     nullBitsets[colIdx].set(row);
-                } else {
-                    ((String[]) colData[colIdx])[row] = "";
                 }
-            } else if ((customNaStrings && isCustomNa(rawBuf, rawStart, rawEnd, naStrings))) {
+                strBuf.appendEmptyOrNull(row);
+            } else if (customNaStrings && isCustomNa(rawBuf, rawStart, rawEnd, naStrings)) {
                 nullBitsets[colIdx].set(row);
+                strBuf.appendEmptyOrNull(row);
+            } else if (!isIso88591) {
+                strBuf.appendBytes(row, rawBuf, rawStart, len);
             } else {
-                ((String[]) colData[colIdx])[row] = stringPool.getOrCreate(rawBuf, rawStart, len);
+                strBuf.appendBytes(row, rawBuf, rawStart, len, true);
             }
             return fieldBuf;
         }
 
         materializeUnquotedField(rawBuf, rawStart, rawEnd, colIdx, row, typeId, colType,
-                colData, nullBitsets, stringPool, customNaStrings, naStrings);
+                colData, nullBitsets, stringPool, isIso88591, customNaStrings, naStrings);
         return fieldBuf;
     }
 

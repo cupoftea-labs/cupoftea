@@ -23,8 +23,8 @@ By default, CupOfTea uses its native chunked parallel CSV reader:
 - **Two-Stage SIMD Structural Scanner (`SimdCsvScanner`):** Uses the Java Vector API (`jdk.incubator.vector.ByteVector`, e.g., AVX-512, AVX2, or ARM NEON) with 4× loop unrolling, branchless parallel prefix-XOR quote parity resolution, and `TZCNT`/`BLSR` bit-scanning intrinsics to locate field and row boundaries at multi-GB/s throughput. Automatically falls back to the scalar byte scanner if the Vector API incubator module is not enabled at runtime.
 - **Zero/Low Allocation:** Primitives (`int`, `long`, `double`, `float`, `boolean`) are parsed directly from raw byte buffers without intermediate `String` or boxing object creation.
 - **Multithreaded Chunking:** Byte offsets are partitioned across available CPU cores via `ForkJoinPool.commonPool()` with quote-parity-aware chunk boundary alignment.
-- **NIO Memory-Mapping:** Uses `FileChannel` and `MappedByteBuffer` for large files to maximize OS page cache throughput.
-- **Categorical De-duplication:** Automatically pools repeated categorical strings without redundant heap allocations.
+- **NIO Memory-Mapping:** Uses `FileChannel` and `MappedByteBuffer` with L2-cache-resident windowed SIMD scanning for large files to maximize OS page cache throughput without humongous heap allocations.
+- **Direct UTF-8 Byte Streaming:** Streams string column chunks directly as contiguous UTF-8 byte buffers (`byte[] values`, `int[] offsets`) and concatenates them in parallel into Arrow-style `StringColumnVector` buffers without materializing intermediate `java.lang.String` objects.
 
 ### Enabling Hardware SIMD Acceleration
 

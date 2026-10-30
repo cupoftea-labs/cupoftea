@@ -61,7 +61,7 @@ public class GroupBy {
         for (Column col : this.sourceHeaders) {
             ColumnVector vec = df.getColumnVector(col.columnName());
             if (vec != null) {
-                this.columnVectors.put(col.columnName(), vec.copy());
+                this.columnVectors.put(col.columnName(), vec);
             }
         }
 
@@ -190,7 +190,7 @@ public class GroupBy {
         // Populate key columns directly by index into typed ColumnVectors
         for (String colName : groupColumns) {
             ColumnVector srcVec = columnVectors.get(colName);
-            ColumnVector outKeyVec = ColumnVector.create(srcVec.getName(), srcVec.getType(), Math.max(16, numGroups), srcVec.isNullable());
+            ColumnVector outKeyVec = ColumnVector.create(colName, srcVec.getType(), Math.max(16, numGroups), srcVec.isNullable());
             outKeyVec.setSizeUnchecked(numGroups);
             outKeyVec.copyIndexedValuesOnly(srcVec, firstRowOfGroup, numGroups, 0);
             if (srcVec.hasNulls()) {
