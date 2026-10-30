@@ -35,6 +35,7 @@ jobs:
           TARGET="${{ github.event.inputs.target || 'micro' }}"
           echo "Running benchmark target: $TARGET"
           java --add-opens=java.base/java.nio=ALL-UNNAMED \
+               --add-modules=jdk.incubator.vector \
                -jar cupoftea-benchmark/target/benchmarks.jar "$TARGET" \
                -rf json -rff jmh-results.json
 

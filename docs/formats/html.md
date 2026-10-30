@@ -10,7 +10,7 @@ The `cupoftea-html` module allows extracting structured tabular data directly fr
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-html</artifactId>
-    <version>0.16.0</version>
+    <version>0.17.0</version>
 </dependency>
 ```
 

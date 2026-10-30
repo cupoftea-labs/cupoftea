@@ -10,7 +10,7 @@ The `cupoftea-parquet` module integrates [Apache Parquet](https://parquet.apache
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-parquet</artifactId>
-    <version>0.16.0</version>
+    <version>0.17.0</version>
 </dependency>
 ```
 

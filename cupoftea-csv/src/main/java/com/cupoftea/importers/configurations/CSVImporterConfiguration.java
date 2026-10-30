@@ -24,6 +24,16 @@ public class CSVImporterConfiguration {
     private Set<String> naStrings = new HashSet<>(Set.of("NA", "N/A", "null", "NULL", "#N/A"));
     private boolean preserveEmptyStrings = true;
     private boolean fastEngine = true;
+    private boolean simdEnabled = true;
+
+    public boolean isSimdEnabled() {
+        return this.simdEnabled;
+    }
+
+    public CSVImporterConfiguration setSimdEnabled(boolean simdEnabled) {
+        this.simdEnabled = simdEnabled;
+        return this;
+    }
 
     public boolean isFastEngine() {
         return this.fastEngine;
