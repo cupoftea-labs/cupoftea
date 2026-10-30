@@ -162,6 +162,9 @@ public class DataFrameScanner {
     }
 
     public LazyCupOfTea csv(File file, Object configuration) {
+        if (configuration instanceof ScanOptions so) {
+            return scan("csv", so);
+        }
         return scan("csv", buildOptions().file(file).option("configuration", configuration).build());
     }
 

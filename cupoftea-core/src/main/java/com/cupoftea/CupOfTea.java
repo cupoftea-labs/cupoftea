@@ -283,6 +283,14 @@ public class CupOfTea {
         return scan().hasHeaders(hasHeaders).schema(schema).csv(file);
     }
 
+    public static LazyCupOfTea scanCsv(String path, com.cupoftea.spi.ScanOptions options) {
+        return scan().csv(new File(path), options);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, com.cupoftea.spi.ScanOptions options) {
+        return scan().csv(file, options);
+    }
+
     public static LazyCupOfTea scanCsv(File file, Object configuration) {
         return scan().csv(file, configuration);
     }
