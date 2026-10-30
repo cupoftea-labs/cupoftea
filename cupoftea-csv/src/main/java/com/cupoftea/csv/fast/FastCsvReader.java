@@ -27,9 +27,12 @@ import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.CsvParseException;
 import com.cupoftea.importers.configurations.CSVImporterConfiguration;
 import com.cupoftea.table.DataFrame;
+import com.cupoftea.table.Categorical;
 import com.cupoftea.table.Schema;
 import com.cupoftea.table.vector.BooleanColumnVector;
+import com.cupoftea.table.vector.CategoricalColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
@@ -307,6 +310,9 @@ public class FastCsvReader {
         if (t == float.class || t == Float.class) return SimdCsvScanner.TYPE_FLOAT;
         if (t == boolean.class || t == Boolean.class) return SimdCsvScanner.TYPE_BOOLEAN;
         if (t == String.class) return SimdCsvScanner.TYPE_STRING;
+        if (t == Categorical.class || (t != null && DictionaryColumnVector.class.isAssignableFrom(t))) {
+            return SimdCsvScanner.TYPE_CATEGORICAL;
+        }
         return SimdCsvScanner.TYPE_OBJECT;
     }
 
@@ -1255,7 +1261,7 @@ public class FastCsvReader {
             } else {
                 ((boolean[]) colData[colIdx])[row] = FastByteParser.parseBoolean(rawBuf, rawStart, rawEnd);
             }
-        } else if (type == String.class) {
+        } else if (type == String.class || type == Categorical.class || (type != null && DictionaryColumnVector.class.isAssignableFrom(type))) {
             StringChunkBuffer strBuf = (StringChunkBuffer) colData[colIdx];
             if (!hadQuote && FastByteParser.isNaOrEmpty(rawBuf, rawStart, rawEnd)) {
                 nullBitsets[colIdx].set(row);
@@ -1318,6 +1324,11 @@ public class FastCsvReader {
                     case SimdCsvScanner.TYPE_STRING -> {
                         StringChunkBuffer sb = (StringChunkBuffer) single.columnData[c];
                         vectors.add(new StringColumnVector(name, true, sb.values, sb.valuesCount, sb.offsets, nulls, totalRows));
+                    }
+                    case SimdCsvScanner.TYPE_CATEGORICAL -> {
+                        StringChunkBuffer sb = (StringChunkBuffer) single.columnData[c];
+                        StringColumnVector strVec = new StringColumnVector(name, true, sb.values, sb.valuesCount, sb.offsets, nulls, totalRows);
+                        vectors.add(strVec.toDictionary());
                     }
                     default ->
                         vectors.add(new ObjectColumnVector(name, colTypes[c], true, (Object[]) single.columnData[c], nulls, totalRows));
@@ -1430,7 +1441,7 @@ public class FastCsvReader {
                     }
                     vectors.add(new BooleanColumnVector(name, true, data, nulls, totalRows));
                 }
-                case SimdCsvScanner.TYPE_STRING -> {
+                case SimdCsvScanner.TYPE_STRING, SimdCsvScanner.TYPE_CATEGORICAL -> {
                     int[] byteOffsets = new int[numChunks];
                     long totalBytesLong = 0L;
                     for (int k = 0; k < numChunks; k++) {
@@ -1459,7 +1470,12 @@ public class FastCsvReader {
                     for (int k = 0; k < numChunks; k++) {
                         copyNullBits(chunkResults.get(k).nullBitsets[c], nulls, rowOffsets[k]);
                     }
-                    vectors.add(new StringColumnVector(name, true, values, totalBytes, offsets, nulls, totalRows));
+                    StringColumnVector strVec = new StringColumnVector(name, true, values, totalBytes, offsets, nulls, totalRows);
+                    if (colTypeIds[c] == SimdCsvScanner.TYPE_CATEGORICAL) {
+                        vectors.add(strVec.toDictionary());
+                    } else {
+                        vectors.add(strVec);
+                    }
                 }
                 default -> {
                     Object[] data = new Object[totalRows];

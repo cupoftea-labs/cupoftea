@@ -222,19 +222,95 @@ public class DictionaryColumnVector extends ColumnVector {
         Objects.requireNonNull(src, "Source StringColumnVector cannot be null");
         int n = src.size();
         DictionaryColumnVector dictVec = new DictionaryColumnVector(src.getName(), Math.max(16, n), src.isNullable(), useShortCodes);
-        String[] rawData = src.getRawData();
         boolean anyNulls = src.hasNulls();
         BitSet srcNulls = src.getNulls();
+
+        byte[] values = src.getValues();
+        int[] offsets = src.getOffsets();
+
+        // Optimized open-addressing byte slice map for zero-allocation dictionary encoding
+        int cap = 1024;
+        int mask = cap - 1;
+        int[] tableHash = new int[cap];
+        int[] tableRow = new int[cap];
+        int[] tableCode = new int[cap];
+        Arrays.fill(tableRow, -1);
+        int tableSize = 0;
+        int threshold = (int) (cap * 0.70f);
+
         for (int i = 0; i < n; i++) {
             if (anyNulls && srcNulls.get(i)) {
                 dictVec.appendNull();
-            } else {
-                String val = rawData[i];
-                if (val == null) {
-                    dictVec.appendNull();
-                } else {
-                    dictVec.appendString(val);
+                continue;
+            }
+            int start = offsets[i];
+            int len = offsets[i + 1] - start;
+            if (len == 0) {
+                dictVec.appendString("");
+                continue;
+            }
+
+            int h = 1;
+            for (int k = start; k < start + len; k++) {
+                h = 31 * h + (values[k] & 0xFF);
+            }
+
+            int pos = (h ^ (h >>> 16)) & mask;
+            int foundCode = -1;
+            while (true) {
+                int repRow = tableRow[pos];
+                if (repRow == -1) {
+                    // Not found, insert new entry
+                    String val = new String(values, start, len, java.nio.charset.StandardCharsets.UTF_8);
+                    int code = dictVec.getOrInsertCode(val);
+                    tableRow[pos] = i;
+                    tableHash[pos] = h;
+                    tableCode[pos] = code;
+                    tableSize++;
+                    dictVec.setCodeInternal(i, code);
+                    dictVec.nulls.clear(i);
+                    dictVec.size++;
+
+                    if (tableSize >= threshold) {
+                        int newCap = cap << 1;
+                        int newMask = newCap - 1;
+                        int[] newTableHash = new int[newCap];
+                        int[] newTableRow = new int[newCap];
+                        int[] newTableCode = new int[newCap];
+                        Arrays.fill(newTableRow, -1);
+                        for (int t = 0; t < cap; t++) {
+                            if (tableRow[t] != -1) {
+                                int nh = tableHash[t];
+                                int npos = (nh ^ (nh >>> 16)) & newMask;
+                                while (newTableRow[npos] != -1) {
+                                    npos = (npos + 1) & newMask;
+                                }
+                                newTableRow[npos] = tableRow[t];
+                                newTableHash[npos] = nh;
+                                newTableCode[npos] = tableCode[t];
+                            }
+                        }
+                        cap = newCap;
+                        mask = newMask;
+                        tableHash = newTableHash;
+                        tableRow = newTableRow;
+                        tableCode = newTableCode;
+                        threshold = (int) (newCap * 0.70f);
+                    }
+                    break;
                 }
+                if (tableHash[pos] == h) {
+                    int repStart = offsets[repRow];
+                    int repLen = offsets[repRow + 1] - repStart;
+                    if (len == repLen && Arrays.equals(values, start, start + len, values, repStart, repStart + repLen)) {
+                        foundCode = tableCode[pos];
+                        dictVec.setCodeInternal(i, foundCode);
+                        dictVec.nulls.clear(i);
+                        dictVec.size++;
+                        break;
+                    }
+                }
+                pos = (pos + 1) & mask;
             }
         }
         return dictVec;
