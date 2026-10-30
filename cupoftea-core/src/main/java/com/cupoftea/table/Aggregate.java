@@ -14,6 +14,13 @@ public interface Aggregate {
     Class<?> getResultType(List<Column> sourceHeaders);
 
     /**
+     * Returns the high-level {@link Aggregation} type, or {@code null} if custom.
+     */
+    default Aggregation getAggregationType() {
+        return null;
+    }
+
+    /**
      * Computes this aggregate directly over a {@link ColumnVector} (sequentially or in parallel).
      */
     default Object computeVector(

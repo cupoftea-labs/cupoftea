@@ -185,6 +185,7 @@ public class FastCsvReader {
         int colCount = firstRowFields.size();
         String[] colNames = new String[colCount];
         int bodyStart;
+        Schema explicitSchema = config.getSchema() != null ? config.getSchema() : target.getSchema();
 
         if (config.isHasHeaders()) {
             for (int i = 0; i < colCount; i++) {
@@ -193,13 +194,16 @@ public class FastCsvReader {
             bodyStart = skipLineBreak(fullBytes, mappedBuf, headerEnd, length);
         } else {
             for (int i = 0; i < colCount; i++) {
-                colNames[i] = String.valueOf(i);
+                if (explicitSchema != null && i < explicitSchema.size()) {
+                    colNames[i] = explicitSchema.getColumn(i).columnName();
+                } else {
+                    colNames[i] = String.valueOf(i);
+                }
             }
             bodyStart = dataStart;
         }
 
         // 3. Resolve Column Types
-        Schema explicitSchema = config.getSchema() != null ? config.getSchema() : target.getSchema();
         Class<?>[] colTypes = new Class<?>[colCount];
 
         for (int i = 0; i < colCount; i++) {
@@ -305,7 +309,7 @@ public class FastCsvReader {
         target.setDataFrame(df);
     }
 
-    private static byte resolveTypeId(Class<?> t) {
+    public static byte resolveTypeId(Class<?> t) {
         if (t == int.class || t == Integer.class) return SimdCsvScanner.TYPE_INT;
         if (t == long.class || t == Long.class) return SimdCsvScanner.TYPE_LONG;
         if (t == double.class || t == Double.class) return SimdCsvScanner.TYPE_DOUBLE;
@@ -318,7 +322,7 @@ public class FastCsvReader {
         return SimdCsvScanner.TYPE_OBJECT;
     }
 
-    private static ChunkResult executeChunk(
+    public static ChunkResult executeChunk(
             byte[] fullBytes, MappedByteBuffer mappedBuf, int start, int end,
             byte delim, byte quote, byte escape,
             int colCount, Class<?>[] colTypes, byte[] colTypeIds,
@@ -950,12 +954,12 @@ public class FastCsvReader {
         return insideQuote;
     }
 
-    static final class ChunkResult {
-        final int rowCount;
-        final Object[] columnData;
-        final BitSet[] nullBitsets;
+    public static final class ChunkResult {
+        public final int rowCount;
+        public final Object[] columnData;
+        public final BitSet[] nullBitsets;
 
-        ChunkResult(int rowCount, Object[] columnData, BitSet[] nullBitsets) {
+        public ChunkResult(int rowCount, Object[] columnData, BitSet[] nullBitsets) {
             this.rowCount = rowCount;
             this.columnData = columnData;
             this.nullBitsets = nullBitsets;
@@ -963,15 +967,80 @@ public class FastCsvReader {
     }
 
     /**
+     * Assembles a single {@link ChunkResult} into an independent {@link CupOfTea} DataFrame with zero-copy columnar vectors.
+     */
+    public static CupOfTea assembleChunk(String[] colNames, Class<?>[] colTypes, byte[] colTypeIds, ChunkResult chunk) {
+        if (chunk == null || chunk.rowCount == 0) {
+            List<ColumnVector> emptyVecs = new ArrayList<>(colNames.length);
+            for (int i = 0; i < colNames.length; i++) {
+                emptyVecs.add(ColumnVector.create(colNames[i], colTypes[i] != null ? colTypes[i] : String.class, 0, true));
+            }
+            return new CupOfTea(DataFrame.fromVectors(emptyVecs));
+        }
+
+        int totalRows = chunk.rowCount;
+        int colCount = colNames.length;
+        List<ColumnVector> vectors = new ArrayList<>(colCount);
+
+        for (int c = 0; c < colCount; c++) {
+            String name = colNames[c];
+            BitSet nulls = chunk.nullBitsets[c];
+            byte typeId = colTypeIds[c];
+
+            switch (typeId) {
+                case SimdCsvScanner.TYPE_INT -> {
+                    int[] data = (int[]) chunk.columnData[c];
+                    vectors.add(new IntColumnVector(name, true, data, nulls, totalRows));
+                }
+                case SimdCsvScanner.TYPE_LONG -> {
+                    long[] data = (long[]) chunk.columnData[c];
+                    vectors.add(new LongColumnVector(name, true, data, nulls, totalRows));
+                }
+                case SimdCsvScanner.TYPE_DOUBLE -> {
+                    double[] data = (double[]) chunk.columnData[c];
+                    vectors.add(new DoubleColumnVector(name, true, data, nulls, totalRows));
+                }
+                case SimdCsvScanner.TYPE_FLOAT -> {
+                    float[] data = (float[]) chunk.columnData[c];
+                    vectors.add(new FloatColumnVector(name, true, data, nulls, totalRows));
+                }
+                case SimdCsvScanner.TYPE_BOOLEAN -> {
+                    boolean[] data = (boolean[]) chunk.columnData[c];
+                    vectors.add(new BooleanColumnVector(name, true, data, nulls, totalRows));
+                }
+                case SimdCsvScanner.TYPE_STRING -> {
+                    StringChunkBuffer sb = (StringChunkBuffer) chunk.columnData[c];
+                    vectors.add(new StringColumnVector(name, true, sb.values, sb.valuesCount, sb.offsets, nulls, totalRows));
+                }
+                case SimdCsvScanner.TYPE_CATEGORICAL -> {
+                    DictionaryChunkBuffer db = (DictionaryChunkBuffer) chunk.columnData[c];
+                    String[] dict = Arrays.copyOf(db.dictStrings, db.dictCount);
+                    int[] codes = (totalRows == db.codes.length) ? db.codes : Arrays.copyOf(db.codes, totalRows);
+                    if (colTypes[c] == Categorical.class || (colTypes[c] != null && CategoricalColumnVector.class.isAssignableFrom(colTypes[c]))) {
+                        vectors.add(new CategoricalColumnVector(name, true, dict, codes, nulls, totalRows));
+                    } else {
+                        vectors.add(new DictionaryColumnVector(name, true, dict, codes, nulls, totalRows));
+                    }
+                }
+                default -> {
+                    Object[] data = (Object[]) chunk.columnData[c];
+                    vectors.add(new ObjectColumnVector(name, colTypes[c] != null ? colTypes[c] : Object.class, true, data, nulls, totalRows));
+                }
+            }
+        }
+        return new CupOfTea(DataFrame.fromVectors(vectors));
+    }
+
+    /**
      * Contiguous UTF-8 byte buffer and row offset index for a single chunk of a String column.
      * Eliminates per-row String allocation, FastStringPool hashing, and String[] reference arrays.
      */
-    static final class StringChunkBuffer {
-        byte[] values;
-        int valuesCount;
-        int[] offsets;
+    public static final class StringChunkBuffer {
+        public byte[] values;
+        public int valuesCount;
+        public int[] offsets;
 
-        StringChunkBuffer(int initialRowCapacity, int initialByteCapacity) {
+        public StringChunkBuffer(int initialRowCapacity, int initialByteCapacity) {
             this.values = new byte[Math.max(64, initialByteCapacity)];
             this.offsets = new int[initialRowCapacity + 1];
             this.offsets[0] = 0;
