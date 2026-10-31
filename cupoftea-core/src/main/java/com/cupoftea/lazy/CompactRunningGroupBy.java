@@ -284,6 +284,9 @@ public class CompactRunningGroupBy {
      */
     static class CompactStringTable implements GroupKeyTable {
         private static final float LOAD_FACTOR = 0.70f;
+        private static final int SSO_MAX_LEN = 16;
+        private static final java.lang.invoke.VarHandle LONG_LE = java.lang.invoke.MethodHandles
+                .byteArrayViewVarHandle(long[].class, java.nio.ByteOrder.LITTLE_ENDIAN);
         private int capacity;
         private int mask;
         private int threshold;
@@ -291,6 +294,9 @@ public class CompactRunningGroupBy {
 
         private int[] table;
         private int[] hashes;
+        private int[] lengths;
+        private long[] prefix1;
+        private long[] prefix2;
         private String[] keys;
         private byte[][] keyBytes;
 
@@ -302,6 +308,9 @@ public class CompactRunningGroupBy {
             this.table = new int[capacity];
             Arrays.fill(this.table, -1);
             this.hashes = new int[capacity];
+            this.lengths = new int[capacity];
+            this.prefix1 = new long[capacity];
+            this.prefix2 = new long[capacity];
             this.keys = new String[Math.max(16, capacity / 4)];
             this.keyBytes = new byte[Math.max(16, capacity / 4)][];
         }
@@ -320,40 +329,9 @@ public class CompactRunningGroupBy {
             if (vec == null || vec.isNull(row)) {
                 return findOrInsertNull();
             }
-            int h = vec.hashRow(row);
-            int pos = h & mask;
-            byte[] vBytes = vec.getValues();
             int[] vOffsets = vec.getOffsets();
             int rStart = vOffsets[row];
-            int rLen = vOffsets[row + 1] - rStart;
-
-            while (true) {
-                int gid = table[pos];
-                if (gid == -1) {
-                    gid = numGroups++;
-                    if (gid >= keys.length) {
-                        grow();
-                    }
-                    byte[] kb = new byte[rLen];
-                    System.arraycopy(vBytes, rStart, kb, 0, rLen);
-                    keyBytes[gid] = kb;
-                    keys[gid] = new String(kb, StandardCharsets.UTF_8);
-
-                    table[pos] = gid;
-                    hashes[pos] = h;
-                    if (numGroups >= threshold) {
-                        resize();
-                    }
-                    return gid;
-                }
-                if (hashes[pos] == h) {
-                    byte[] kb = keyBytes[gid];
-                    if (kb != null && kb.length == rLen && Arrays.equals(vBytes, rStart, rStart + rLen, kb, 0, rLen)) {
-                        return gid;
-                    }
-                }
-                pos = (pos + 1) & mask;
-            }
+            return findOrInsertSlice(vec.getValues(), rStart, vOffsets[row + 1] - rStart, vec.hashRow(row), null);
         }
 
         public int findOrInsertBytes(byte[] buf, int offset, int len) {
@@ -361,6 +339,18 @@ public class CompactRunningGroupBy {
             for (int i = offset; i < offset + len; i++) {
                 h = 31 * h + (buf[i] & 0xFF);
             }
+            return findOrInsertSlice(buf, offset, len, h, null);
+        }
+
+        /**
+         * Short String Optimization (SSO): keys of up to {@link #SSO_MAX_LEN} bytes are compared
+         * using the stored length and two packed 64-bit prefixes (register comparisons), falling
+         * back to a full byte comparison only for longer keys.
+         */
+        private int findOrInsertSlice(byte[] buf, int offset, int len, int h, String knownKey) {
+            final boolean shortKey = len <= SSO_MAX_LEN;
+            final long p1 = shortKey ? loadWord(buf, offset, len, 0) : 0L;
+            final long p2 = shortKey ? loadWord(buf, offset, len, 1) : 0L;
             int pos = h & mask;
             while (true) {
                 int gid = table[pos];
@@ -372,23 +362,51 @@ public class CompactRunningGroupBy {
                     byte[] kb = new byte[len];
                     System.arraycopy(buf, offset, kb, 0, len);
                     keyBytes[gid] = kb;
-                    keys[gid] = new String(kb, StandardCharsets.UTF_8);
+                    keys[gid] = knownKey != null ? knownKey : new String(kb, StandardCharsets.UTF_8);
 
                     table[pos] = gid;
                     hashes[pos] = h;
+                    lengths[pos] = len;
+                    if (shortKey) {
+                        prefix1[pos] = p1;
+                        prefix2[pos] = p2;
+                    }
                     if (numGroups >= threshold) {
                         resize();
                     }
                     return gid;
                 }
-                if (hashes[pos] == h) {
-                    byte[] kb = keyBytes[gid];
-                    if (kb != null && kb.length == len && Arrays.equals(buf, offset, offset + len, kb, 0, len)) {
-                        return gid;
+                if (hashes[pos] == h && lengths[pos] == len) {
+                    if (shortKey) {
+                        if (prefix1[pos] == p1 && prefix2[pos] == p2) {
+                            return gid;
+                        }
+                    } else {
+                        byte[] kb = keyBytes[gid];
+                        if (kb != null && Arrays.equals(buf, offset, offset + len, kb, 0, len)) {
+                            return gid;
+                        }
                     }
                 }
                 pos = (pos + 1) & mask;
             }
+        }
+
+        /** Packs bytes [wordIdx*8, min(len, wordIdx*8+8)) of the slice into a little-endian long. */
+        private static long loadWord(byte[] b, int off, int len, int wordIdx) {
+            int start = wordIdx << 3;
+            int n = len - start;
+            if (n <= 0) {
+                return 0L;
+            }
+            if (n >= 8) {
+                return (long) LONG_LE.get(b, off + start);
+            }
+            long v = 0L;
+            for (int i = n - 1; i >= 0; i--) {
+                v = (v << 8) | (b[off + start + i] & 0xFFL);
+            }
+            return v;
         }
 
         @Override
@@ -404,6 +422,7 @@ public class CompactRunningGroupBy {
                     keyBytes[gid] = null;
                     table[pos] = gid;
                     hashes[pos] = 0;
+                    lengths[pos] = -1;
                     if (numGroups >= threshold) resize();
                     return gid;
                 }
@@ -433,24 +452,7 @@ public class CompactRunningGroupBy {
             for (byte b : kb) {
                 h = 31 * h + (b & 0xFF);
             }
-            int pos = h & mask;
-            while (true) {
-                int gid = table[pos];
-                if (gid == -1) {
-                    gid = numGroups++;
-                    if (gid >= keys.length) grow();
-                    keys[gid] = s;
-                    keyBytes[gid] = kb;
-                    table[pos] = gid;
-                    hashes[pos] = h;
-                    if (numGroups >= threshold) resize();
-                    return gid;
-                }
-                if (hashes[pos] == h && keyBytes[gid] != null && Arrays.equals(keyBytes[gid], kb)) {
-                    return gid;
-                }
-                pos = (pos + 1) & mask;
-            }
+            return findOrInsertSlice(kb, 0, kb.length, h, s);
         }
 
         @Override
@@ -505,6 +507,9 @@ public class CompactRunningGroupBy {
             int[] newTable = new int[newCap];
             Arrays.fill(newTable, -1);
             int[] newHashes = new int[newCap];
+            int[] newLengths = new int[newCap];
+            long[] newP1 = new long[newCap];
+            long[] newP2 = new long[newCap];
 
             for (int i = 0; i < capacity; i++) {
                 int gid = table[i];
@@ -516,10 +521,16 @@ public class CompactRunningGroupBy {
                     }
                     newTable[pos] = gid;
                     newHashes[pos] = h;
+                    newLengths[pos] = lengths[i];
+                    newP1[pos] = prefix1[i];
+                    newP2[pos] = prefix2[i];
                 }
             }
             this.table = newTable;
             this.hashes = newHashes;
+            this.lengths = newLengths;
+            this.prefix1 = newP1;
+            this.prefix2 = newP2;
             this.capacity = newCap;
             this.mask = newMask;
             this.threshold = (int) (newCap * LOAD_FACTOR);

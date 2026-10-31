@@ -6,7 +6,7 @@
 
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-parent</artifactId>
-    <version>0.20.2</version>
+    <version>0.20.3</version>
     <packaging>pom</packaging>
 
     <name>CupOfTea Parent</name>
