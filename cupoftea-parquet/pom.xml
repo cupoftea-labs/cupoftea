@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.cupoftea-labs</groupId>
         <artifactId>cupoftea-parent</artifactId>
-        <version>0.20.2</version>
+        <version>0.20.3</version>
     </parent>
 
     <artifactId>cupoftea-parquet</artifactId>

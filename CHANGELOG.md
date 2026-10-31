@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.3] - 2026-10-30
+
+### Performance
+
+- Short String Optimization (SSO) in `CompactRunningGroupBy.CompactStringTable` ([#227](https://github.com/cupoftea-labs/cupoftea/issues/227)):
+  - Each hash slot stores the key length and the first 16 key bytes packed into two 64-bit `long` prefixes.
+  - Keys of up to 16 bytes are matched with length plus 1-2 primitive `long` comparisons; full byte-array comparison is used only for longer keys.
+
 ## [0.20.2] - 2026-10-30
 
 ### Performance
