@@ -331,15 +331,11 @@ public class CompactRunningGroupBy {
             }
             int[] vOffsets = vec.getOffsets();
             int rStart = vOffsets[row];
-            return findOrInsertSlice(vec.getValues(), rStart, vOffsets[row + 1] - rStart, vec.hashRow(row), null);
+            return findOrInsertSlice(vec.getValues(), rStart, vOffsets[row + 1] - rStart, null);
         }
 
         public int findOrInsertBytes(byte[] buf, int offset, int len) {
-            int h = 1;
-            for (int i = offset; i < offset + len; i++) {
-                h = 31 * h + (buf[i] & 0xFF);
-            }
-            return findOrInsertSlice(buf, offset, len, h, null);
+            return findOrInsertSlice(buf, offset, len, null);
         }
 
         /**
@@ -347,10 +343,13 @@ public class CompactRunningGroupBy {
          * using the stored length and two packed 64-bit prefixes (register comparisons), falling
          * back to a full byte comparison only for longer keys.
          */
-        private int findOrInsertSlice(byte[] buf, int offset, int len, int h, String knownKey) {
+        private int findOrInsertSlice(byte[] buf, int offset, int len, String knownKey) {
             final boolean shortKey = len <= SSO_MAX_LEN;
             final long p1 = shortKey ? loadWord(buf, offset, len, 0) : 0L;
             final long p2 = shortKey ? loadWord(buf, offset, len, 1) : 0L;
+            final int h = shortKey
+                    ? StringColumnVector.hashShortWords(p1, p2, len)
+                    : StringColumnVector.hashBytes(buf, offset, len);
             int pos = h & mask;
             while (true) {
                 int gid = table[pos];
@@ -399,12 +398,16 @@ public class CompactRunningGroupBy {
             if (n <= 0) {
                 return 0L;
             }
+            int idx = off + start;
             if (n >= 8) {
-                return (long) LONG_LE.get(b, off + start);
+                return (long) LONG_LE.get(b, idx);
+            }
+            if (idx + 8 <= b.length) {
+                return ((long) LONG_LE.get(b, idx)) & (~0L >>> ((8 - n) << 3));
             }
             long v = 0L;
             for (int i = n - 1; i >= 0; i--) {
-                v = (v << 8) | (b[off + start + i] & 0xFFL);
+                v = (v << 8) | (b[idx + i] & 0xFFL);
             }
             return v;
         }
@@ -448,11 +451,7 @@ public class CompactRunningGroupBy {
                 return findOrInsertNull();
             }
             byte[] kb = s.getBytes(StandardCharsets.UTF_8);
-            int h = 1;
-            for (byte b : kb) {
-                h = 31 * h + (b & 0xFF);
-            }
-            return findOrInsertSlice(kb, 0, kb.length, h, s);
+            return findOrInsertSlice(kb, 0, kb.length, s);
         }
 
         @Override

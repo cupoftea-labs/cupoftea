@@ -250,10 +250,7 @@ public class DictionaryColumnVector extends ColumnVector {
                 continue;
             }
 
-            int h = 1;
-            for (int k = start; k < start + len; k++) {
-                h = 31 * h + (values[k] & 0xFF);
-            }
+            int h = StringColumnVector.hashBytes(values, start, len);
 
             int pos = (h ^ (h >>> 16)) & mask;
             int foundCode = -1;

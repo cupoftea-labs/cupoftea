@@ -190,8 +190,7 @@ public class GroupHashTable {
             }
             case STRING: {
                 StringColumnVector v = (StringColumnVector) singleKey;
-                if (v.isNull(row)) return 0;
-                return mix(v.hashRow(row));
+                return v.hashRow(row);
             }
             case DICTIONARY: {
                 DictionaryColumnVector v = (DictionaryColumnVector) singleKey;
