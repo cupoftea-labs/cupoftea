@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.2] - 2026-10-30
+
+### Performance
+
+- SWAR (SIMD Within A Register) 64-bit delimiter / newline scanner in `FastByteParser` (`indexOfByte`, `indexOfStructural`), used by the scalar CSV fallback path to skip 8 bytes per step with zero incubator-module dependencies ([#226](https://github.com/cupoftea-labs/cupoftea/issues/226)).
+
 ## [0.20.1] - 2026-10-30
 
 ### Performance
