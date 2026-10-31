@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.5] - 2026-10-30
+
+### Performance
+
+- Dynamic work-stealing partition execution with `AtomicLong` cursor in `CsvLazySource` and `CsvMmapPartitionReader` ([#229](https://github.com/cupoftea-labs/cupoftea/issues/229)):
+  - Worker threads dynamically claim memory-mapped segments on demand using an `AtomicLong` cursor over the memory-mapped channel (`long current = cursor.addAndGet(SEGMENT_SIZE) - SEGMENT_SIZE`), eliminating tail latency caused by uneven page faults or I/O delays.
+  - Workers continuously consume segments until the entire file is exhausted, keeping 100% CPU core utilization across all available cores.
+  - Automatically aligns dynamic segment boundaries to line breaks without gaps or record duplication.
+
 ## [0.20.4] - 2026-10-30
 
 ### Performance
