@@ -448,29 +448,37 @@ public class LazyCupOfTea implements LazyDataFrame {
         List<CupOfTea> collected = new ArrayList<>();
         long remaining = limit >= 0 ? limit : Long.MAX_VALUE;
 
-        for (PartitionReader partition : partitions) {
-            try (partition) {
-                CupOfTea batch;
-                while ((batch = partition.nextBatch()) != null && remaining > 0) {
-                    for (IFilter filter : filters) {
-                        batch = batch.filter(filter);
-                        if (batch.size() == 0) break;
-                    }
-                    if (batch.size() > 0) {
-                        if (selectColumns != null && !selectColumns.isEmpty()) {
-                            batch = batch.select(selectColumns);
+        try {
+            for (PartitionReader partition : partitions) {
+                try (partition) {
+                    CupOfTea batch;
+                    while ((batch = partition.nextBatch()) != null && remaining > 0) {
+                        for (IFilter filter : filters) {
+                            batch = batch.filter(filter);
+                            if (batch.size() == 0) break;
                         }
-                        if (batch.size() > remaining) {
-                            batch = batch.head((int) remaining);
+                        if (batch.size() > 0) {
+                            if (selectColumns != null && !selectColumns.isEmpty()) {
+                                batch = batch.select(selectColumns);
+                            }
+                            if (batch.size() > remaining) {
+                                batch = batch.head((int) remaining);
+                            }
+                            remaining -= batch.size();
+                            collected.add(batch);
                         }
-                        remaining -= batch.size();
-                        collected.add(batch);
                     }
+                } catch (IOException e) {
+                    throw new CupOfTeaException("I/O error during lazy collect", e);
                 }
-            } catch (IOException e) {
-                throw new CupOfTeaException("I/O error during lazy collect", e);
+                if (remaining <= 0) break;
             }
-            if (remaining <= 0) break;
+        } finally {
+            for (PartitionReader partition : partitions) {
+                try {
+                    partition.close();
+                } catch (IOException ignored) {}
+            }
         }
 
         if (collected.isEmpty()) {

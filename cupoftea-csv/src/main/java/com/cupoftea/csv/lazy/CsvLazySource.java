@@ -10,6 +10,8 @@ import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.cupoftea.csv.fast.FastCsvReader;
 import com.cupoftea.csv.fast.SimdCsvScanner;
@@ -206,6 +208,8 @@ public class CsvLazySource implements LazySource {
         return "CsvFile(path=" + file.getName() + ", size=" + file.length() + "B)";
     }
 
+    public static final int DEFAULT_SEGMENT_SIZE = 4 * 1024 * 1024; // 4 MB
+
     @Override
     public List<PartitionReader> getPartitions(ScanContext context) {
         long fileLength = file.length();
@@ -221,54 +225,49 @@ public class CsvLazySource implements LazySource {
             }
         }
 
+        FileChannel channel = null;
         try {
-            FileChannel channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
-            int targetChunkBytes = context.getChunkSizeBytes() > 0 ? context.getChunkSizeBytes() : 32 * 1024 * 1024;
+            channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
+            int segmentSize = context.getChunkSizeBytes() > 0 ? context.getChunkSizeBytes() : DEFAULT_SEGMENT_SIZE;
             long dataLen = fileLength - dataStartOffset;
 
+            int procs = Runtime.getRuntime().availableProcessors();
             int numPartitions = 1;
-            if (dataLen > targetChunkBytes) {
-                int procs = Runtime.getRuntime().availableProcessors();
-                numPartitions = (int) Math.max(context.isParallel() ? procs : 1,
-                        Math.min(256, (dataLen + targetChunkBytes - 1) / targetChunkBytes));
+            if (context.isParallel() && dataLen > segmentSize) {
+                long totalSegments = (dataLen + segmentSize - 1) / segmentSize;
+                numPartitions = (int) Math.max(1, Math.min((long) procs, totalSegments));
             }
 
-            List<Long> boundaries = new ArrayList<>(numPartitions + 1);
-            boundaries.add(dataStartOffset);
+            AtomicLong cursor = new AtomicLong(dataStartOffset);
+            AtomicInteger activeReaders = new AtomicInteger(numPartitions);
 
-            if (numPartitions > 1) {
-                long step = dataLen / numPartitions;
-                for (int i = 1; i < numPartitions; i++) {
-                    long targetPos = dataStartOffset + i * step;
-                    long nextLine = findNextLineBreak(channel, targetPos, fileLength);
-                    if (nextLine > boundaries.get(boundaries.size() - 1) && nextLine < fileLength) {
-                        boundaries.add(nextLine);
-                    }
-                }
-            }
-            boundaries.add(fileLength);
-
-            List<PartitionReader> readers = new ArrayList<>(boundaries.size() - 1);
-            for (int i = 0; i < boundaries.size() - 1; i++) {
-                long start = boundaries.get(i);
-                long end = boundaries.get(i + 1);
-                if (end > start) {
-                    readers.add(new CsvMmapPartitionReader(channel, start, end, colNames, colTypes, colTypeIds, config));
-                }
+            List<PartitionReader> readers = new ArrayList<>(numPartitions);
+            for (int i = 0; i < numPartitions; i++) {
+                readers.add(new CsvMmapPartitionReader(
+                        channel, cursor, fileLength, dataStartOffset, segmentSize, activeReaders,
+                        colNames, colTypes, colTypeIds, config
+                ));
             }
             return readers;
 
         } catch (IOException e) {
+            if (channel != null && channel.isOpen()) {
+                try {
+                    channel.close();
+                } catch (IOException ignored) {}
+            }
             throw new CsvParseException("Failed partitioning CSV file: " + file.getPath(), e);
         }
     }
 
-    private static long findNextLineBreak(FileChannel channel, long startPos, long maxPos) throws IOException {
+    public static long findNextLineBreak(FileChannel channel, long startPos, long maxPos) throws IOException {
         long pos = startPos;
         ByteBuffer buf = ByteBuffer.allocate(8192);
 
         while (pos < maxPos) {
             buf.clear();
+            int toRead = (int) Math.min((long) buf.capacity(), maxPos - pos);
+            buf.limit(toRead);
             int read = channel.read(buf, pos);
             if (read <= 0) break;
             buf.flip();
@@ -278,8 +277,17 @@ public class CsvLazySource implements LazySource {
                 if (b == '\n') {
                     return pos + i + 1;
                 } else if (b == '\r') {
-                    if (i + 1 < read && buf.get(i + 1) == '\n') {
-                        return pos + i + 2;
+                    if (i + 1 < read) {
+                        if (buf.get(i + 1) == '\n') {
+                            return pos + i + 2;
+                        }
+                        return pos + i + 1;
+                    } else if (pos + i + 1 < maxPos) {
+                        ByteBuffer nextBuf = ByteBuffer.allocate(1);
+                        if (channel.read(nextBuf, pos + i + 1) > 0 && nextBuf.get(0) == '\n') {
+                            return pos + i + 2;
+                        }
+                        return pos + i + 1;
                     }
                     return pos + i + 1;
                 }
