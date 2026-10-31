@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.4] - 2026-10-30
+
+### Performance
+
+- SWAR 64-bit block hashing in `StringColumnVector.hashRow` and `StringColumnVector.hashBytes` ([#228](https://github.com/cupoftea-labs/cupoftea/issues/228)):
+  - Reads 8 bytes at a time via little-endian `VarHandle` (`long`) with 64-bit prime multiplications and bit rotations instead of a scalar byte-by-byte loop.
+  - Processes remaining tail bytes (1–7) with a bit-masked 64-bit read and Murmur3/xxHash-style 64-bit avalanche finalizer.
+  - Applied consistently across `StringColumnVector.hashRow`, `CompactRunningGroupBy.CompactStringTable`, and `DictionaryColumnVector.fromStringVector`.
+
 ## [0.20.3] - 2026-10-30
 
 ### Performance

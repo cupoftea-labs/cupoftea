@@ -1,6 +1,9 @@
 package com.cupoftea.table.vector;
 
 import java.io.Serializable;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -25,6 +28,13 @@ public class StringColumnVector extends ColumnVector implements Serializable {
     private static final long serialVersionUID = 2L;
 
     private static final int DEFAULT_VALUE_CAPACITY = 128;
+
+    private static final VarHandle LONG_LE =
+            MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
+    private static final long PRIME64_1 = 0x9E3779B185EBCA87L;
+    private static final long PRIME64_2 = 0xC2B2AE3D27D4EB4FL;
+    private static final long PRIME64_3 = 0x165667B19E3779F9L;
 
     /** Contiguous UTF-8 encoded string bytes back-to-back. */
     private byte[] values;
@@ -562,23 +572,76 @@ public class StringColumnVector extends ColumnVector implements Serializable {
     // ==========================================
 
     /**
-     * Computes a 32-bit Murmur3/FNV-style hash over the row's UTF-8 byte slice without String instantiation.
+     * Computes a 32-bit hash over the row's UTF-8 byte slice using 64-bit SWAR block hashing
+     * without String instantiation.
      */
     public int hashRow(int row) {
         if (nulls.get(row)) {
             return 0;
         }
         int start = offsets[row];
-        int end = offsets[row + 1];
-        int len = end - start;
-        if (len == 0) {
+        int len = offsets[row + 1] - start;
+        if (len <= 0) {
             return 0;
         }
-        int h = 1;
-        for (int i = start; i < end; i++) {
-            h = 31 * h + (values[i] & 0xFF);
+        return hashBytes(values, start, len);
+    }
+
+    /**
+     * Computes a 32-bit hash over a UTF-8 byte slice {@code [start, start + len)} using 64-bit
+     * block reads, primitive multiplications/rotations, and a bit-masked tail finalizer.
+     *
+     * @param buf byte buffer containing the slice
+     * @param start start offset in {@code buf}
+     * @param len length in bytes
+     * @return 32-bit mixed hash code, or {@code 0} if {@code buf == null} or {@code len <= 0}
+     */
+    public static int hashBytes(byte[] buf, int start, int len) {
+        if (buf == null || len <= 0) {
+            return 0;
         }
-        return h;
+        int end = start + len;
+        long h = (len & 0xFFFFFFFFL) * PRIME64_1;
+        int i = start;
+        for (int limit = end - 9; i <= limit; i += 8) {
+            h = Long.rotateLeft((h ^ (long) LONG_LE.get(buf, i)) * PRIME64_1, 31);
+        }
+        int shift = (8 - (end - i)) << 3;
+        long tail;
+        if (i + 8 <= buf.length) {
+            tail = ((long) LONG_LE.get(buf, i)) & (~0L >>> shift);
+        } else if (end >= 8) {
+            tail = ((long) LONG_LE.get(buf, end - 8)) >>> shift;
+        } else {
+            tail = 0L;
+            for (int k = end - 1; k >= i; k--) {
+                tail = (tail << 8) | (buf[k] & 0xFFL);
+            }
+        }
+        h = (h ^ tail) * PRIME64_2;
+        h ^= h >>> 33;
+        h *= PRIME64_3;
+        return (int) (h ^ (h >>> 29));
+    }
+
+    /**
+     * Computes the exact same 32-bit SWAR hash as {@link #hashBytes(byte[], int, int)} for slices
+     * of length {@code 1..16} whose two little-endian 64-bit words have already been loaded into registers.
+     */
+    public static int hashShortWords(long p1, long p2, int len) {
+        if (len <= 0) {
+            return 0;
+        }
+        long h = (len & 0xFFFFFFFFL) * PRIME64_1;
+        if (len <= 8) {
+            h = (h ^ p1) * PRIME64_2;
+        } else {
+            h = Long.rotateLeft((h ^ p1) * PRIME64_1, 31);
+            h = (h ^ p2) * PRIME64_2;
+        }
+        h ^= h >>> 33;
+        h *= PRIME64_3;
+        return (int) (h ^ (h >>> 29));
     }
 
     /**
