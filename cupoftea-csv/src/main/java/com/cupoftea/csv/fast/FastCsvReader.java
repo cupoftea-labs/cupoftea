@@ -1456,7 +1456,16 @@ public class FastCsvReader {
             int fStart = curr;
             int fieldLen = 0;
 
+            final byte swarQuote = quote == ICSVParser.NULL_CHARACTER ? delim : quote;
+            final byte swarEscape = escape == ICSVParser.NULL_CHARACTER ? delim : escape;
+
             while (curr < end) {
+                if (fullBytes != null && !inQuote && !hadQuote) {
+                    curr = FastByteParser.indexOfStructural(fullBytes, curr, end, delim, swarQuote, swarEscape);
+                    if (curr >= end) {
+                        break;
+                    }
+                }
                 byte b = getByte(fullBytes, mappedBuf, curr);
 
                 if (b == escape && escape != ICSVParser.NULL_CHARACTER && escape != quote && curr + 1 < end) {

@@ -1,5 +1,8 @@
 package com.cupoftea.csv.fast;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -14,7 +17,75 @@ public final class FastByteParser {
         1e20, 1e21, 1e22
     };
 
+    private static final VarHandle LONG_LE =
+            MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
+    private static final long LO_BITS = 0x0101010101010101L;
+    private static final long HI_BITS = 0x8080808080808080L;
+
     private FastByteParser() {
+    }
+
+    /**
+     * SWAR (SIMD Within A Register) zero-byte detector. The lowest set 0x80 bit of the result
+     * marks the first zero byte of {@code x}; higher bits may be false positives.
+     */
+    private static long zeroBytes(long x) {
+        return (x - LO_BITS) & ~x & HI_BITS;
+    }
+
+    /**
+     * Finds the first index in [start, end) holding {@code target}, scanning 8 bytes per step
+     * with plain 64-bit arithmetic (no incubator modules required).
+     *
+     * @return the index, or -1 if absent
+     */
+    public static int indexOfByte(byte[] buf, int start, int end, byte target) {
+        final long bt = (target & 0xFFL) * LO_BITS;
+        int i = start;
+        for (int limit = end - 8; i <= limit; i += 8) {
+            long mask = zeroBytes(((long) LONG_LE.get(buf, i)) ^ bt);
+            if (mask != 0) {
+                return i + (Long.numberOfTrailingZeros(mask) >>> 3);
+            }
+        }
+        for (; i < end; i++) {
+            if (buf[i] == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Finds the first index in [start, end) holding any CSV structural byte: the delimiter,
+     * the quote, the escape (each ignored when {@code NUL}-disabled by passing a duplicate byte),
+     * {@code '\n'} or {@code '\r'}.
+     *
+     * @return the index, or {@code end} if none found
+     */
+    public static int indexOfStructural(byte[] buf, int start, int end, byte delim, byte quote, byte escape) {
+        final long bd = (delim & 0xFFL) * LO_BITS;
+        final long bq = (quote & 0xFFL) * LO_BITS;
+        final long be = (escape & 0xFFL) * LO_BITS;
+        final long bn = ('\n') * LO_BITS;
+        final long br = ('\r') * LO_BITS;
+        int i = start;
+        for (int limit = end - 8; i <= limit; i += 8) {
+            long w = (long) LONG_LE.get(buf, i);
+            long mask = zeroBytes(w ^ bd) | zeroBytes(w ^ bq) | zeroBytes(w ^ be)
+                    | zeroBytes(w ^ bn) | zeroBytes(w ^ br);
+            if (mask != 0) {
+                return i + (Long.numberOfTrailingZeros(mask) >>> 3);
+            }
+        }
+        for (; i < end; i++) {
+            byte b = buf[i];
+            if (b == delim || b == quote || b == escape || b == '\n' || b == '\r') {
+                return i;
+            }
+        }
+        return end;
     }
 
     /**
