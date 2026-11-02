@@ -74,10 +74,11 @@ public class CsvOpenCsvPartitionReader implements PartitionReader {
             }
         } else {
             for (int i = 0; i < colCount; i++) {
-                headerNames[i] = String.valueOf(i);
                 if (explicitSchema != null && i < explicitSchema.size()) {
+                    headerNames[i] = explicitSchema.getColumn(i).columnName();
                     colTypes[i] = explicitSchema.getColumn(i).columnType();
                 } else {
+                    headerNames[i] = String.valueOf(i);
                     colTypes[i] = String.class;
                 }
             }
