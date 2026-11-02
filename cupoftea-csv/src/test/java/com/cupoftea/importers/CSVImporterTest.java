@@ -393,4 +393,68 @@ private File createTempCsv(String content, Charset charset) throws IOException {
         assertThat(df.getRow(2).get("price")).isEqualTo(19.99);
         assertThat(df.getRow(2).get("category")).isEqualTo("Tools");
     }
+
+    @Test
+    @DisplayName("Should use column names defined in Schema when hasHeaders is false (OpenCSV)")
+    void testImportCsvWithoutHeadersWithExplicitSchema_OpenCsv() throws Exception {
+        String csv = "Hamburg;12.0\n"
+            + "Berlin;15.5\n"
+            + "Munich;10.2\n";
+        File file = createTempCsv(csv, StandardCharsets.UTF_8);
+
+        Schema schema = Schema.of("station", STRING, "measure", DOUBLE);
+        CSVImporterConfiguration config = new CSVImporterConfiguration()
+            .setDelimiter(';')
+            .setHasHeaders(false)
+            .setFastEngine(false)
+            .setSchema(schema);
+
+        CupOfTea df = new CupOfTea().importFromCsv(file, config);
+
+        assertThat(df.getSchema().getColumnNames()).containsExactly("station", "measure");
+        assertThat(df.getColumnNames()).containsExactly("station", "measure");
+        assertThat(df.size()).isEqualTo(3);
+        assertThat(df.getRow(0).get("station")).isEqualTo("Hamburg");
+        assertThat(df.getRow(0).get("measure")).isEqualTo(12.0);
+        assertThat(df.getRow(1).get("station")).isEqualTo("Berlin");
+        assertThat(df.getRow(1).get("measure")).isEqualTo(15.5);
+        assertThat(df.getRow(2).get("station")).isEqualTo("Munich");
+        assertThat(df.getRow(2).get("measure")).isEqualTo(10.2);
+
+        // Verify groupBy("station") works as described in issue 211
+        com.cupoftea.table.GroupBy grouped = df.groupBy("station");
+        assertThat(grouped).isNotNull();
+    }
+
+    @Test
+    @DisplayName("Should use column names defined in Schema when hasHeaders is false (FastEngine)")
+    void testImportCsvWithoutHeadersWithExplicitSchema_FastEngine() throws Exception {
+        String csv = "Hamburg;12.0\n"
+            + "Berlin;15.5\n"
+            + "Munich;10.2\n";
+        File file = createTempCsv(csv, StandardCharsets.UTF_8);
+
+        Schema schema = Schema.of("station", STRING, "measure", DOUBLE);
+        CSVImporterConfiguration config = new CSVImporterConfiguration()
+            .setDelimiter(';')
+            .setHasHeaders(false)
+            .setFastEngine(true)
+            .setSchema(schema);
+
+        CupOfTea df = new CupOfTea().importFromCsv(file, config);
+
+        assertThat(df.getSchema().getColumnNames()).containsExactly("station", "measure");
+        assertThat(df.getColumnNames()).containsExactly("station", "measure");
+        assertThat(df.size()).isEqualTo(3);
+        assertThat(df.getRow(0).get("station")).isEqualTo("Hamburg");
+        assertThat(df.getRow(0).get("measure")).isEqualTo(12.0);
+        assertThat(df.getRow(1).get("station")).isEqualTo("Berlin");
+        assertThat(df.getRow(1).get("measure")).isEqualTo(15.5);
+        assertThat(df.getRow(2).get("station")).isEqualTo("Munich");
+        assertThat(df.getRow(2).get("measure")).isEqualTo(10.2);
+
+        // Verify groupBy("station") works as described in issue 211
+        com.cupoftea.table.GroupBy grouped = df.groupBy("station");
+        assertThat(grouped).isNotNull();
+    }
 }
