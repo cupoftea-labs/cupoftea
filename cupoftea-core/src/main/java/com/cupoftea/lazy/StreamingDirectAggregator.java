@@ -325,6 +325,15 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         }
     }
 
+    public void accumulateFieldScaled(int gid, int colIdx, long scaledVal, int scale) {
+        int[] aggs = (colToAggIndices != null && colIdx < colToAggIndices.length) ? colToAggIndices[colIdx] : null;
+        if (aggs != null) {
+            for (int a : aggs) {
+                accumulators[a].accumulateScaled(gid, scaledVal, scale);
+            }
+        }
+    }
+
     public void accumulateFieldObject(int gid, int colIdx, Object val) {
         int[] aggs = (colToAggIndices != null && colIdx < colToAggIndices.length) ? colToAggIndices[colIdx] : null;
         if (aggs != null) {
@@ -360,6 +369,18 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         ensureAccumulatorCapacity(singleStringTable.capacityLimit());
         for (int a = 0; a < accumulators.length; a++) {
             accumulators[a].accumulateDouble(gid, val);
+        }
+    }
+
+    /**
+     * Ultra-fast path for 1BRC style queries with fixed-point decimal parsing.
+     * Passes scaled long values directly into accumulators to avoid branch mispredictions and float division.
+     */
+    public void accumulate1BrcScaled(byte[] buf, int keyStart, int keyLen, long scaledVal, int scale) {
+        int gid = singleStringTable.findOrInsertBytes(buf, keyStart, keyLen);
+        ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+        for (int a = 0; a < accumulators.length; a++) {
+            accumulators[a].accumulateScaled(gid, scaledVal, scale);
         }
     }
 

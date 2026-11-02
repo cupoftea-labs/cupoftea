@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.7] - 2026-11-02
+
+### Performance
+
+- Fast branchless integer and fixed-point decimal parsing in `FastByteParser` ([#230](https://github.com/cupoftea-labs/cupoftea/issues/230)):
+  - Added specialized SWAR bitshift digit unpacking routines (`parseFixedPoint1`, `parseFixedPoint2`) using Quan Anh Mai's algorithm to parse 1- and 2-decimal numbers directly into scaled `long` integers without floating-point operations or branch mispredictions.
+  - Implemented 64-bit parallel SWAR digit parsing in `FastByteParser.parseInt` for integers up to 8 digits with validation against non-digit ASCII bytes.
+  - Extended `CompactRunningGroupBy` accumulators (`SumAccumulator`, `MeanAccumulator`, `MinAccumulator`, `MaxAccumulator`) to maintain scaled integer aggregations via `accumulateScaled`, scaling back to floating point only when computing final result vectors.
+  - Integrated fixed-point fast paths into `StreamingDirectAggregator` (`accumulate1BrcScaled`) and `SimdCsvScanner` (1BRC memory-mapped direct execution).
+
 ## [0.20.6] - 2026-11-02
 
 ### Fixed
