@@ -247,6 +247,20 @@ public class IntColumnVector extends ColumnVector {
         }
     }
 
+    @Override
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof IntColumnVector intSrc) {
+            int[] srcData = intSrc.data;
+            int[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                int idx = srcIndices[i];
+                dstData[dstOffset + i] = idx >= 0 ? srcData[idx] : 0;
+            }
+        } else {
+            super.copyNullableIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
+    }
+
     public IntColumnVector mapInt(IntUnaryOperator mapper) {
         Objects.requireNonNull(mapper, "Mapper cannot be null");
         int[] newData = new int[size];

@@ -254,6 +254,20 @@ public class DoubleColumnVector extends ColumnVector {
         }
     }
 
+    @Override
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof DoubleColumnVector doubleSrc) {
+            double[] srcData = doubleSrc.data;
+            double[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                int idx = srcIndices[i];
+                dstData[dstOffset + i] = idx >= 0 ? srcData[idx] : Double.NaN;
+            }
+        } else {
+            super.copyNullableIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
+    }
+
     public DoubleColumnVector mapDouble(DoubleUnaryOperator mapper) {
         Objects.requireNonNull(mapper, "Mapper cannot be null");
         double[] newData = new double[size];

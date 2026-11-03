@@ -1271,6 +1271,38 @@ public class DictionaryColumnVector extends ColumnVector {
         super.copyIndexedValuesOnly(src, srcIndices, count, dstOffset);
     }
 
+    @Override
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof DictionaryColumnVector dictSrc && sharesDictionaryStructure(dictSrc)) {
+            if (this.shortStorage && dictSrc.shortStorage) {
+                short[] srcArr = dictSrc.shortCodes;
+                short[] dstArr = this.shortCodes;
+                for (int i = 0; i < count; i++) {
+                    int idx = srcIndices[i];
+                    dstArr[dstOffset + i] = idx >= 0 ? srcArr[idx] : NULL_SHORT_CODE;
+                }
+                return;
+            } else if (!this.shortStorage && !dictSrc.shortStorage) {
+                int[] srcArr = dictSrc.codes;
+                int[] dstArr = this.codes;
+                for (int i = 0; i < count; i++) {
+                    int idx = srcIndices[i];
+                    dstArr[dstOffset + i] = idx >= 0 ? srcArr[idx] : NULL_CODE;
+                }
+                return;
+            } else if (!this.shortStorage && dictSrc.shortStorage) {
+                short[] srcArr = dictSrc.shortCodes;
+                int[] dstArr = this.codes;
+                for (int i = 0; i < count; i++) {
+                    int idx = srcIndices[i];
+                    dstArr[dstOffset + i] = idx >= 0 ? srcArr[idx] : NULL_CODE;
+                }
+                return;
+            }
+        }
+        super.copyNullableIndexedValuesOnly(src, srcIndices, count, dstOffset);
+    }
+
     // ==========================================
     // Code-Accelerated Comparisons & Min / Max
     // ==========================================

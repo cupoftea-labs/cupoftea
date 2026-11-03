@@ -562,6 +562,32 @@ public class StringColumnVector extends ColumnVector implements Serializable {
     }
 
     /**
+     * Computes the total UTF-8 byte length across {@code srcIndices[0 .. count)} in this vector,
+     * where negative indices ({@code -1}) represent unmatched/null rows.
+     */
+    public int computeNullableIndexedByteCount(int[] srcIndices, int count) {
+        int[] srcOffsets = this.offsets;
+        int totalBytes = 0;
+        if (!this.hasNulls()) {
+            for (int i = 0; i < count; i++) {
+                int r = srcIndices[i];
+                if (r >= 0) {
+                    totalBytes += (srcOffsets[r + 1] - srcOffsets[r]);
+                }
+            }
+        } else {
+            BitSet srcNulls = this.nulls;
+            for (int i = 0; i < count; i++) {
+                int r = srcIndices[i];
+                if (r >= 0 && !srcNulls.get(r)) {
+                    totalBytes += (srcOffsets[r + 1] - srcOffsets[r]);
+                }
+            }
+        }
+        return totalBytes;
+    }
+
+    /**
      * Lock-free chunk compaction pass: copies UTF-8 bytes and populates {@code offsets[dstRowOffset + 1 .. dstRowOffset + count]}
      * starting at {@code dstByteOffset} without synchronization or intermediate shifts.
      * Safe for concurrent execution across disjoint {@code (dstRowOffset, dstByteOffset)} chunk slices.
@@ -594,6 +620,51 @@ public class StringColumnVector extends ColumnVector implements Serializable {
             for (int i = 0; i < count; i++) {
                 int srcRow = srcIndices[i];
                 if (!srcNulls.get(srcRow)) {
+                    int sStart = srcOffsets[srcRow];
+                    int sLen = srcOffsets[srcRow + 1] - sStart;
+                    if (sLen > 0) {
+                        System.arraycopy(srcValues, sStart, dstValues, currByte, sLen);
+                        currByte += sLen;
+                    }
+                }
+                dstOffsets[dstRowOffset + i + 1] = currByte;
+            }
+        }
+    }
+
+    /**
+     * Lock-free chunk compaction pass supporting negative ({@code -1}) unmatched row indices.
+     */
+    public void copyNullableIndexedBytesLockFree(
+            StringColumnVector strSrc,
+            int[] srcIndices,
+            int count,
+            int dstRowOffset,
+            int dstByteOffset) {
+        byte[] srcValues = strSrc.values;
+        int[] srcOffsets = strSrc.offsets;
+        byte[] dstValues = this.values;
+        int[] dstOffsets = this.offsets;
+        int currByte = dstByteOffset;
+
+        if (!strSrc.hasNulls()) {
+            for (int i = 0; i < count; i++) {
+                int srcRow = srcIndices[i];
+                if (srcRow >= 0) {
+                    int sStart = srcOffsets[srcRow];
+                    int sLen = srcOffsets[srcRow + 1] - sStart;
+                    if (sLen > 0) {
+                        System.arraycopy(srcValues, sStart, dstValues, currByte, sLen);
+                        currByte += sLen;
+                    }
+                }
+                dstOffsets[dstRowOffset + i + 1] = currByte;
+            }
+        } else {
+            BitSet srcNulls = strSrc.nulls;
+            for (int i = 0; i < count; i++) {
+                int srcRow = srcIndices[i];
+                if (srcRow >= 0 && !srcNulls.get(srcRow)) {
                     int sStart = srcOffsets[srcRow];
                     int sLen = srcOffsets[srcRow + 1] - sStart;
                     if (sLen > 0) {
