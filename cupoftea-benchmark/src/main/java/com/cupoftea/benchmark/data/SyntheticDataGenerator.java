@@ -547,25 +547,17 @@ public final class SyntheticDataGenerator {
     }
 
     /**
-     * Checks if Hadoop UserGroupInformation is supported on the current Java runtime.
+     * Checks if Parquet / Hadoop operations are supported.
+     * Always returns true since cupoftea-parquet uses native LocalInputFile/LocalOutputFile.
      */
     public static boolean isHadoopSupported() {
-        try {
-            org.apache.hadoop.security.UserGroupInformation.getCurrentUser();
-            return true;
-        } catch (Throwable t) {
-            return false;
-        }
+        return true;
     }
 
     /**
      * Writes synthetic rows to a temporary Parquet file using CupOfTea's Parquet writer.
-     * Returns null if Hadoop is not supported on this Java runtime.
      */
     public static File generateTempParquet(int rows) throws IOException {
-        if (!isHadoopSupported()) {
-            return null;
-        }
         File file = File.createTempFile("bench_", ".parquet");
         file.delete();
         file.deleteOnExit();
