@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: 'Benchmark target preset (micro, io, pipeline, scaling, competitive, all)'
+        description: 'Benchmark target preset (micro, io, pipeline, scaling, competitive, polars, 1brc, all)'
         required: true
         default: 'micro'
   pull_request:

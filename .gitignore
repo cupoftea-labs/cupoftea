@@ -43,3 +43,7 @@ build/
 ### Documentation Site Build ###
 site/
 
+### Benchmark Generated Outputs ###
+benchmarks/results/
+
+

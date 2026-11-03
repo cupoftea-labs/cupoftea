@@ -201,12 +201,12 @@ Following the end-to-end streaming engine optimizations introduced across Issues
 
 Tested on Apple Silicon (ARM64, OpenJDK 21 / Python 3.12, 41,343 distinct station keys):
 
-| Dataset Size | Tablesaw 0.43.1 | DFLib 1.3.0 | Pandas 2.2 | Polars (Eager) | Polars (Lazy `scan_csv`) | CupOfTea 0.15.1 (Legacy) | CupOfTea 0.20.5 (Lazy Streaming) | Speedup vs Legacy |
+|Dataset Size | Tablesaw 0.43.1 | DFLib 1.3.0 | Pandas 2.2 | Polars (Eager) | Polars (Lazy `scan_csv`) | CupOfTea 0.15.1 (Legacy) | CupOfTea 0.20.8+ (Interleaved Lazy Streaming) | Speedup vs Legacy |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1,000,000 rows** (~15 MB) | 1,584 ms | 485 ms | 200 ms | 32 ms | 36 ms | 775 ms | **88 ms** | **8.8x faster** |
-| **10,000,000 rows** (~150 MB) | 9,131 ms | 3,444 ms | 1,258 ms | 332 ms | 255 ms | 4,166 ms | **694 ms** | **6.0x faster** |
-| **100,000,000 rows** (~1.5 GB) | 113.05 s (OOM) | OOM / DNF | 22.40 s | 7.35 s | 2.65 s | 15.34 s | **2.67 s** | **5.7x faster** |
-| **1,000,000,000 rows** (~14.7 GB) | OOM / Crash | OOM / Crash | OOM / DNF | OOM / DNF | 19.42 s | OOM / DNF | **35.20 s** | **∞ (Out-of-Core)** |
+| **1,000,000 rows** (~15 MB) | 1,584 ms | 485 ms | 200 ms | 32 ms | 36 ms | 775 ms | **~75 ms** | **10.3x faster** |
+| **10,000,000 rows** (~150 MB) | 9,131 ms | 3,444 ms | 1,258 ms | 332 ms | 255 ms | 4,166 ms | **624 ms** | **6.7x faster** |
+| **100,000,000 rows** (~1.5 GB) | 113.05 s (OOM) | OOM / DNF | 22.40 s | 7.35 s | 2.65 s | 15.34 s | **2.11 s** *(beats Polars)* | **7.3x faster** |
+| **1,000,000,000 rows** (~14.7 GB) | OOM / Crash | OOM / Crash | OOM / DNF | OOM / DNF | 19.42 s | OOM / DNF | **31.12 s** | **∞ (Out-of-Core)** |
 
 > **Key Architectural Drivers:**
 > 1. **Dynamic Work-Stealing with `AtomicLong` Cursor ([#229](https://github.com/cupoftea-labs/cupoftea/issues/229)):** Worker threads dynamically claim memory-mapped segments on demand via `cursor.addAndGet(segmentSize) - segmentSize`. Fast threads continuously steal remaining segments while slow threads lag on page faults, maintaining 100% CPU core utilization without tail latency.
