@@ -157,6 +157,17 @@ public class DataFrame extends IDataFrame {
         return df;
     }
 
+    static DataFrame fromHeadersAndVectors(ArrayList<Column> headers, List<ColumnVector> vectors) {
+        DataFrame df = new DataFrame();
+        if (headers != null) {
+            df.header.setHeader(headers);
+        }
+        if (vectors != null) {
+            df.columns = new ArrayList<>(vectors);
+        }
+        return df;
+    }
+
     private ColumnarRowContext buildRowContext() {
         if (this.header.size() > 0 && this.columns.size() != this.header.size()) {
             syncColumnsWithHeader();
@@ -2620,7 +2631,11 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame join(IDataFrame other, JoinType how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
-        return DataFrameJoiner.join(this, other, how, leftOn, rightOn, leftSuffix, rightSuffix);
+        IDataFrame result = DataFrameJoiner.join(this, other, how, leftOn, rightOn, leftSuffix, rightSuffix);
+        if (result instanceof DataFrame dfResult) {
+            copyParallelConfigTo(dfResult);
+        }
+        return result;
     }
 
     private int compareNumbers(Number numA, Number numB) {

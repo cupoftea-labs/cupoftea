@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.2] - 2026-11-03
+
+### Performance
+
+- Refactored `DataFrameJoiner` to a vectorized Columnar Hash Join engine with zero `Row`, `HashMap`, `Integer` boxing, or `String` materialization ([#254](https://github.com/cupoftea-labs/cupoftea/issues/254)):
+  - Replaced `Map<Object, List<Integer>>` and `Row`-based build/probe/materialize loops with flat primitive chained hash tables (`int[] bucketHead` + `int[] nextRowIdx`) built in reverse row order to preserve ascending match emission without `ArrayList` allocations.
+  - Added specialized zero-allocation fast-path indices: `IntHashJoinIndex` (`int[]`), `LongHashJoinIndex` (`long[]`), `StringHashJoinIndex` (direct UTF-8 `byte[]` slices + precomputed 64-bit SWAR `int[] buildHashes`), `DictionaryHashJoinIndex` (direct dictionary code lookup table), and `GeneralColumnarHashJoinIndex` (composite keys and cross-type numeric equivalence).
+  - Implemented vectorized columnar Gather materialization across all `ColumnVector` implementations (`copyNullableIndexedValuesOnly`, `applyNullsFromNullableIndexed`, `computeNullableIndexedByteCount`, `copyNullableIndexedBytesLockFree`) and a unique-build-key fast-path (`executeLeftJoinUniqueRight`) for 1:1 / N:1 `LEFT` joins that clones left columns via `System.arraycopy`.
+  - Reduced `PolarsJoinBenchmark` (100k rows) latency and allocation rate by ~30–45x: `innerJoinInt1to1` from ~55.0 ms (1,932 B/row) to ~1.21 ms (64.7 B/row), `leftJoinInt1to1` from ~60.1 ms (1,960 B/row) to ~1.46 ms (64.8 B/row), `innerJoinString1to1` from ~54.5 ms to ~1.70 ms (57.9 B/row), and `leftJoinString1to1` from ~56.3 ms to ~1.93 ms (58.0 B/row).
+
 ## [0.21.1] - 2026-11-03
 
 ### Performance

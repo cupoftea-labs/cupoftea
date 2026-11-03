@@ -241,6 +241,20 @@ public class BooleanColumnVector extends ColumnVector {
     }
 
     @Override
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof BooleanColumnVector boolSrc) {
+            boolean[] srcData = boolSrc.data;
+            boolean[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                int idx = srcIndices[i];
+                dstData[dstOffset + i] = idx >= 0 && srcData[idx];
+            }
+        } else {
+            super.copyNullableIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
+    }
+
+    @Override
     public int compareRows(int rowA, int rowB) {
         boolean nullA = nulls.get(rowA);
         boolean nullB = nulls.get(rowB);

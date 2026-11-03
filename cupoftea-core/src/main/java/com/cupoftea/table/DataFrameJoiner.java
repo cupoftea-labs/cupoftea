@@ -1,20 +1,43 @@
 package com.cupoftea.table;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 
 import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.table.interfaces.IDataFrame;
+import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
 import com.cupoftea.table.vector.DictionaryColumnVector;
+import com.cupoftea.table.vector.DoubleColumnVector;
+import com.cupoftea.table.vector.FloatColumnVector;
+import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.ParallelVectorEngine;
+import com.cupoftea.table.vector.StringColumnVector;
 
+/**
+ * Vectorized Columnar Hash Join engine operating directly on {@link ColumnVector} storage.
+ * <p>
+ * Eliminates row-level object materialization ({@code Row}, {@code JoinKey}, {@code HashMap}) by:
+ * <ol>
+ *   <li><b>Build Phase:</b> Constructing a flat primitive-array chained hash table ({@code int[] bucketHead},
+ *       {@code int[] nextRowIdx}) with specialized zero-boxing fast-paths for {@code int}, {@code long},
+ *       dictionary codes, and UTF-8 byte slices ({@link StringColumnVector}).</li>
+ *   <li><b>Probe Phase:</b> Partitioning the probe table across parallel worker chunks to emit primitive
+ *       gather index pairs {@code (leftMatchIdx, rightMatchIdx)} (with {@code -1} indicating unmatched null rows).</li>
+ *   <li><b>Gather Phase:</b> Materializing output {@link ColumnVector}s in bulk via indexed array gather
+ *       and lock-free two-pass UTF-8 byte compaction.</li>
+ * </ol>
+ */
 public final class DataFrameJoiner {
 
     private DataFrameJoiner() {
@@ -111,6 +134,28 @@ public final class DataFrameJoiner {
         return common;
     }
 
+    private record OutputColSpec(
+            String outName,
+            Class<?> outType,
+            boolean nullable,
+            ColumnVector primaryVec,
+            ColumnVector fallbackRightKeyVec,
+            boolean fromLeft,
+            boolean mayHaveNegativeIndices) {
+    }
+
+    private static final class ProbeChunk {
+        int[] leftIndices;
+        int[] rightIndices;
+        int count;
+
+        ProbeChunk(int[] leftIndices, int[] rightIndices, int count) {
+            this.leftIndices = leftIndices;
+            this.rightIndices = rightIndices;
+            this.count = count;
+        }
+    }
+
     private static IDataFrame executeJoin(
             IDataFrame left,
             IDataFrame right,
@@ -119,6 +164,9 @@ public final class DataFrameJoiner {
             List<String> rightOn,
             String lSuffix,
             String rSuffix) {
+
+        int leftSize = left.size();
+        int rightSize = right.size();
 
         List<Column> leftHeaders = left.getHeaders() != null ? left.getHeaders() : Collections.emptyList();
         List<Column> rightHeaders = right.getHeaders() != null ? right.getHeaders() : Collections.emptyList();
@@ -173,320 +221,1795 @@ public final class DataFrameJoiner {
             }
         }
 
-        ArrayList<Column> outputHeaders = new ArrayList<>();
+        ArrayList<Column> outputHeaders = new ArrayList<>(leftHeaders.size() + rightHeaders.size());
+        List<OutputColSpec> outputSpecs = new ArrayList<>(leftHeaders.size() + rightHeaders.size());
         Set<String> seenOutputNames = new HashSet<>();
+
+        boolean leftNullableByJoin = (joinType == JoinType.RIGHT || joinType == JoinType.OUTER);
+        boolean rightNullableByJoin = (joinType == JoinType.LEFT || joinType == JoinType.OUTER);
 
         // Add left columns
         for (Column col : leftHeaders) {
-            String outName = leftOutMap.get(col.columnName());
+            String lName = col.columnName();
+            String outName = leftOutMap.get(lName);
             if (!seenOutputNames.add(outName)) {
                 throw new IllegalArgumentException("Duplicate column name in joined DataFrame: '" + outName + "'");
             }
             Class<?> colType = col.columnType();
-            if (colType == null && joinType != JoinType.CROSS && leftOn.contains(col.columnName())) {
-                int idx = leftOn.indexOf(col.columnName());
-                Column rCol = right.getColumnHeader(rightOn.get(idx));
-                if (rCol != null && rCol.columnType() != null) {
-                    colType = rCol.columnType();
+            ColumnVector fallbackRightVec = null;
+            if (joinType != JoinType.CROSS) {
+                int idx = leftOn.indexOf(lName);
+                if (idx >= 0) {
+                    String rKeyName = rightOn.get(idx);
+                    if (colType == null) {
+                        Column rCol = right.getColumnHeader(rKeyName);
+                        if (rCol != null && rCol.columnType() != null) {
+                            colType = rCol.columnType();
+                        }
+                    }
+                    if (rKeyName.equals(lName) && leftNullableByJoin) {
+                        fallbackRightVec = right.getColumnVector(rKeyName);
+                    }
                 }
             }
-            boolean nullable = col.nullable() || joinType == JoinType.RIGHT || joinType == JoinType.OUTER;
+            boolean nullable = col.nullable() || leftNullableByJoin;
             outputHeaders.add(new Column(outName, colType, nullable));
+            outputSpecs.add(new OutputColSpec(
+                outName,
+                colType,
+                nullable,
+                left.getColumnVector(lName),
+                fallbackRightVec,
+                true,
+                leftNullableByJoin
+            ));
         }
 
         // Add right columns (skip shared keys)
         for (Column col : rightHeaders) {
-            if (sharedRightKeys.contains(col.columnName())) {
+            String rName = col.columnName();
+            if (sharedRightKeys.contains(rName)) {
                 continue;
             }
-            String outName = rightOutMap.get(col.columnName());
+            String outName = rightOutMap.get(rName);
             if (!seenOutputNames.add(outName)) {
                 throw new IllegalArgumentException("Duplicate column name in joined DataFrame: '" + outName + "'");
             }
-            boolean nullable = col.nullable() || joinType == JoinType.LEFT || joinType == JoinType.OUTER;
+            boolean nullable = col.nullable() || rightNullableByJoin;
             outputHeaders.add(new Column(outName, col.columnType(), nullable));
+            outputSpecs.add(new OutputColSpec(
+                outName,
+                col.columnType(),
+                nullable,
+                right.getColumnVector(rName),
+                null,
+                false,
+                rightNullableByJoin
+            ));
         }
 
-        DataFrame result = new DataFrame();
-        result.setHeaders(outputHeaders);
+        // Fast-path for empty result joins
+        if ((joinType == JoinType.INNER && (leftSize == 0 || rightSize == 0))
+                || (joinType == JoinType.CROSS && (leftSize == 0 || rightSize == 0))
+                || (joinType == JoinType.LEFT && leftSize == 0)
+                || (joinType == JoinType.RIGHT && rightSize == 0)
+                || (joinType == JoinType.OUTER && leftSize == 0 && rightSize == 0)) {
+            return createEmptyResult(left, outputHeaders, outputSpecs, leftOutMap);
+        }
 
-        int outputSize = outputHeaders.size();
+        boolean parallel = left.isParallel() || right.isParallel();
+        ExecutorService executor = left.isParallel() ? left.getExecutor() : right.getExecutor();
+        int threshold = Math.min(left.getParallelThreshold(), right.getParallelThreshold());
+
+        List<ColumnVector> resultVectors;
 
         if (joinType == JoinType.CROSS) {
-            for (Row leftRow : left.getRows()) {
-                for (Row rightRow : right.getRows()) {
-                    HashMap<String, Object> merged = mergeRows(
-                        leftRow, rightRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize);
-                    result.addRow(merged);
-                }
-            }
+            resultVectors = executeCrossJoin(leftSize, rightSize, outputSpecs, parallel, executor, threshold);
+        } else if (joinType == JoinType.RIGHT) {
+            ColumnVector[] leftKeyVecs = extractKeyVectors(left, leftOn);
+            ColumnVector[] rightKeyVecs = extractKeyVectors(right, rightOn);
+            HashJoinIndex leftIndex = buildHashIndex(leftKeyVecs, rightKeyVecs, leftSize, parallel, executor, threshold);
+            resultVectors = executeRightJoin(
+                leftIndex, leftSize, rightSize, outputSpecs, parallel, executor, threshold);
         } else {
-            JoinKeyExtractor keyExtractor = new JoinKeyExtractor(left, right, leftOn, rightOn);
+            // INNER, LEFT, OUTER build on right and probe with left
+            ColumnVector[] leftKeyVecs = extractKeyVectors(left, leftOn);
+            ColumnVector[] rightKeyVecs = extractKeyVectors(right, rightOn);
+            HashJoinIndex rightIndex = buildHashIndex(rightKeyVecs, leftKeyVecs, rightSize, parallel, executor, threshold);
 
-            if (joinType == JoinType.INNER) {
-                Map<JoinKey, List<Row>> rightIndex = new HashMap<>(right.size());
-                List<Row> rightRows = right.getRows();
-                for (int r = 0; r < rightRows.size(); r++) {
-                    Row rightRow = rightRows.get(r);
-                    JoinKey key = keyExtractor.extractRightKey(rightRow, r);
-                    if (!key.hasNA()) {
-                        rightIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(rightRow);
-                    }
-                }
-
-                List<Row> leftRows = left.getRows();
-                for (int l = 0; l < leftRows.size(); l++) {
-                    Row leftRow = leftRows.get(l);
-                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
-                    if (key.hasNA()) {
-                        continue;
-                    }
-                    List<Row> matches = rightIndex.get(key);
-                    if (matches != null) {
-                        for (Row match : matches) {
-                            result.addRow(mergeRows(
-                                leftRow, match, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
-                        }
-                    }
-                }
+            if (joinType == JoinType.LEFT && rightIndex.uniqueBuildKeys) {
+                resultVectors = executeLeftJoinUniqueRight(
+                    rightIndex, leftSize, outputSpecs, parallel, executor, threshold);
+            } else if (joinType == JoinType.INNER) {
+                resultVectors = executeInnerJoin(
+                    rightIndex, leftSize, outputSpecs, parallel, executor, threshold);
             } else if (joinType == JoinType.LEFT) {
-                Map<JoinKey, List<Row>> rightIndex = new HashMap<>(right.size());
-                List<Row> rightRows = right.getRows();
-                for (int r = 0; r < rightRows.size(); r++) {
-                    Row rightRow = rightRows.get(r);
-                    JoinKey key = keyExtractor.extractRightKey(rightRow, r);
-                    if (!key.hasNA()) {
-                        rightIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(rightRow);
-                    }
-                }
-
-                List<Row> leftRows = left.getRows();
-                for (int l = 0; l < leftRows.size(); l++) {
-                    Row leftRow = leftRows.get(l);
-                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
-                    List<Row> matches = !key.hasNA() ? rightIndex.get(key) : null;
-                    if (matches != null && !matches.isEmpty()) {
-                        for (Row match : matches) {
-                            result.addRow(mergeRows(
-                                leftRow, match, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
-                        }
-                    } else {
-                        result.addRow(mergeLeftWithNullRight(
-                            leftRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
-                    }
-                }
-            } else if (joinType == JoinType.RIGHT) {
-                Map<JoinKey, List<Row>> leftIndex = new HashMap<>(left.size());
-                List<Row> leftRows = left.getRows();
-                for (int l = 0; l < leftRows.size(); l++) {
-                    Row leftRow = leftRows.get(l);
-                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
-                    if (!key.hasNA()) {
-                        leftIndex.computeIfAbsent(key, k -> new ArrayList<>()).add(leftRow);
-                    }
-                }
-
-                List<Row> rightRows = right.getRows();
-                for (int r = 0; r < rightRows.size(); r++) {
-                    Row rightRow = rightRows.get(r);
-                    JoinKey key = keyExtractor.extractRightKey(rightRow, r);
-                    List<Row> matches = !key.hasNA() ? leftIndex.get(key) : null;
-                    if (matches != null && !matches.isEmpty()) {
-                        for (Row match : matches) {
-                            result.addRow(mergeRows(
-                                match, rightRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
-                        }
-                    } else {
-                        result.addRow(mergeNullLeftWithRight(
-                            rightRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, leftOn, rightOn, outputSize));
-                    }
-                }
-            } else if (joinType == JoinType.OUTER) {
-                Set<Integer> matchedRightRowIndices = new HashSet<>();
-                Map<JoinKey, List<IndexedRow>> rightIndexedMap = new HashMap<>(right.size());
-                for (int i = 0; i < right.size(); i++) {
-                    Row rightRow = right.getRow(i);
-                    JoinKey key = keyExtractor.extractRightKey(rightRow, i);
-                    if (!key.hasNA()) {
-                        rightIndexedMap.computeIfAbsent(key, k -> new ArrayList<>()).add(new IndexedRow(i, rightRow));
-                    }
-                }
-
-                List<Row> leftRows = left.getRows();
-                for (int l = 0; l < leftRows.size(); l++) {
-                    Row leftRow = leftRows.get(l);
-                    JoinKey key = keyExtractor.extractLeftKey(leftRow, l);
-                    List<IndexedRow> matches = !key.hasNA() ? rightIndexedMap.get(key) : null;
-                    if (matches != null && !matches.isEmpty()) {
-                        for (IndexedRow match : matches) {
-                            matchedRightRowIndices.add(match.index);
-                            result.addRow(mergeRows(
-                                leftRow, match.row, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
-                        }
-                    } else {
-                        result.addRow(mergeLeftWithNullRight(
-                            leftRow, leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, outputSize));
-                    }
-                }
-
-                for (int i = 0; i < right.size(); i++) {
-                    if (!matchedRightRowIndices.contains(i)) {
-                        result.addRow(mergeNullLeftWithRight(
-                            right.getRow(i), leftHeaders, rightHeaders, leftOutMap, rightOutMap, sharedRightKeys, leftOn, rightOn, outputSize));
-                    }
-                }
+                resultVectors = executeLeftJoinGeneral(
+                    rightIndex, leftSize, outputSpecs, parallel, executor, threshold);
+            } else {
+                resultVectors = executeOuterJoin(
+                    rightIndex, leftSize, rightSize, outputSpecs, parallel, executor, threshold);
             }
         }
 
+        DataFrame result = DataFrame.fromHeadersAndVectors(outputHeaders, resultVectors);
         if (left.getIndex() != null && leftOutMap.containsKey(left.getIndex())) {
             result.setIndex(leftOutMap.get(left.getIndex()));
         }
-
         return result;
     }
 
-    private static HashMap<String, Object> mergeRows(
-            Row leftRow,
-            Row rightRow,
-            List<Column> leftHeaders,
-            List<Column> rightHeaders,
-            Map<String, String> leftOutMap,
-            Map<String, String> rightOutMap,
-            Set<String> sharedRightKeys,
-            int outputSize) {
-
-        HashMap<String, Object> merged = new HashMap<>(outputSize);
-        for (Column col : leftHeaders) {
-            merged.put(leftOutMap.get(col.columnName()), leftRow.get(col.columnName()));
+    private static DataFrame createEmptyResult(
+            IDataFrame left,
+            ArrayList<Column> outputHeaders,
+            List<OutputColSpec> outputSpecs,
+            Map<String, String> leftOutMap) {
+        List<ColumnVector> emptyVectors = new ArrayList<>(outputSpecs.size());
+        for (OutputColSpec spec : outputSpecs) {
+            emptyVectors.add(createOutputVector(spec, 0));
         }
-        for (Column col : rightHeaders) {
-            if (!sharedRightKeys.contains(col.columnName())) {
-                merged.put(rightOutMap.get(col.columnName()), rightRow.get(col.columnName()));
-            }
+        DataFrame result = DataFrame.fromHeadersAndVectors(outputHeaders, emptyVectors);
+        if (left.getIndex() != null && leftOutMap.containsKey(left.getIndex())) {
+            result.setIndex(leftOutMap.get(left.getIndex()));
         }
-        return merged;
+        return result;
     }
 
-    private static HashMap<String, Object> mergeLeftWithNullRight(
-            Row leftRow,
-            List<Column> leftHeaders,
-            List<Column> rightHeaders,
-            Map<String, String> leftOutMap,
-            Map<String, String> rightOutMap,
-            Set<String> sharedRightKeys,
-            int outputSize) {
-
-        HashMap<String, Object> merged = new HashMap<>(outputSize);
-        for (Column col : leftHeaders) {
-            merged.put(leftOutMap.get(col.columnName()), leftRow.get(col.columnName()));
+    private static ColumnVector createOutputVector(OutputColSpec spec, int exactCapacity) {
+        int cap = Math.max(16, exactCapacity);
+        ColumnVector src = spec.primaryVec;
+        if (src instanceof DictionaryColumnVector dictSrc && spec.fallbackRightKeyVec == null) {
+            ColumnVector out = dictSrc.createEmptyWithSameEncoding(cap);
+            out.setName(spec.outName);
+            out.setNullable(spec.nullable);
+            return out;
         }
-        for (Column col : rightHeaders) {
-            if (!sharedRightKeys.contains(col.columnName())) {
-                merged.put(rightOutMap.get(col.columnName()), null);
-            }
-        }
-        return merged;
+        Class<?> type = spec.outType != null ? spec.outType : (src != null ? src.getType() : Object.class);
+        return ColumnVector.create(spec.outName, type, cap, spec.nullable);
     }
 
-    private static HashMap<String, Object> mergeNullLeftWithRight(
-            Row rightRow,
-            List<Column> leftHeaders,
-            List<Column> rightHeaders,
-            Map<String, String> leftOutMap,
-            Map<String, String> rightOutMap,
-            Set<String> sharedRightKeys,
-            List<String> leftOn,
-            List<String> rightOn,
-            int outputSize) {
+    private static ColumnVector[] extractKeyVectors(IDataFrame df, List<String> keyCols) {
+        int n = keyCols.size();
+        ColumnVector[] vecs = new ColumnVector[n];
+        for (int i = 0; i < n; i++) {
+            vecs[i] = df.getColumnVector(keyCols.get(i));
+        }
+        return vecs;
+    }
 
-        HashMap<String, Object> merged = new HashMap<>(outputSize);
-        for (Column col : leftHeaders) {
-            String lName = col.columnName();
-            String outName = leftOutMap.get(lName);
-            int keyIdx = leftOn.indexOf(lName);
-            if (keyIdx >= 0 && rightOn.get(keyIdx).equals(lName)) {
-                String rKeyName = rightOn.get(keyIdx);
-                merged.put(outName, rightRow.get(rKeyName));
+    // =========================================================================
+    // Join Execution Paths (Probe + Vectorized Gather)
+    // =========================================================================
+
+    /**
+     * Specialized 1:1 / 1:N Left Join fast-path when the right (build) side has unique keys.
+     * Every left row emits exactly 1 output row at its original index {@code l}, so left columns
+     * are copied via flat {@code System.arraycopy} ({@link ColumnVector#copy()}) and only right columns
+     * require index gathering.
+     */
+    private static List<ColumnVector> executeLeftJoinUniqueRight(
+            HashJoinIndex rightIndex,
+            int leftSize,
+            List<OutputColSpec> outputSpecs,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        int numCols = outputSpecs.size();
+        ColumnVector[] resultVectors = new ColumnVector[numCols];
+
+        // Identify right-side columns to gather
+        List<Integer> rightPrimCols = new ArrayList<>(numCols);
+        List<Integer> rightStrCols = new ArrayList<>(numCols);
+
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (spec.fromLeft) {
+                ColumnVector copied = spec.primaryVec.copy();
+                copied.setName(spec.outName);
+                copied.setNullable(spec.nullable);
+                resultVectors[c] = copied;
+            } else if (spec.primaryVec instanceof StringColumnVector) {
+                rightStrCols.add(c);
             } else {
-                merged.put(outName, null);
+                ColumnVector outVec = createOutputVector(spec, leftSize);
+                outVec.setSizeUnchecked(leftSize);
+                resultVectors[c] = outVec;
+                rightPrimCols.add(c);
             }
         }
-        for (Column col : rightHeaders) {
-            if (!sharedRightKeys.contains(col.columnName())) {
-                merged.put(rightOutMap.get(col.columnName()), rightRow.get(col.columnName()));
+
+        boolean runParallel = parallel && leftSize >= threshold && leftSize > 1;
+        ExecutorService pool = ParallelVectorEngine.resolveExecutor(executor);
+        int numChunks = runParallel ? ParallelVectorEngine.computeChunkCount(leftSize, pool) : 1;
+        int[][] ranges = ParallelVectorEngine.partitionRanges(leftSize, numChunks);
+
+        int numRightStr = rightStrCols.size();
+        int[][] strChunkByteCounts = numRightStr > 0 ? new int[numRightStr][ranges.length] : null;
+
+        // Barrier 1: Probe right index per chunk, gather primitive right columns immediately, and count UTF-8 bytes
+        List<int[]> rightIndexChunks = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            int len = end - start;
+            int[] rightIdx = new int[len];
+            rightIndex.probeUniqueLeft(start, end, rightIdx);
+
+            for (int i = 0; i < rightPrimCols.size(); i++) {
+                int colIdx = rightPrimCols.get(i);
+                OutputColSpec spec = outputSpecs.get(colIdx);
+                resultVectors[colIdx].copyNullableIndexedValuesOnly(spec.primaryVec, rightIdx, len, start);
+            }
+
+            for (int s = 0; s < numRightStr; s++) {
+                int colIdx = rightStrCols.get(s);
+                StringColumnVector strSrc = (StringColumnVector) outputSpecs.get(colIdx).primaryVec;
+                strChunkByteCounts[s][chunkIdx] = strSrc.computeNullableIndexedByteCount(rightIdx, len);
+            }
+            return rightIdx;
+        });
+
+        // Barrier 2 (only if right side has StringColumnVectors): lock-free UTF-8 byte gather
+        if (numRightStr > 0) {
+            int[][] strByteOffsets = new int[numRightStr][ranges.length];
+            for (int s = 0; s < numRightStr; s++) {
+                int colIdx = rightStrCols.get(s);
+                OutputColSpec spec = outputSpecs.get(colIdx);
+                int totalBytes = ParallelVectorEngine.computePrefixSums(strChunkByteCounts[s], strByteOffsets[s]);
+                resultVectors[colIdx] = StringColumnVector.allocateForCompaction(
+                    spec.outName, spec.nullable, leftSize, totalBytes);
+            }
+
+            ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+                int len = end - start;
+                int[] rightIdx = rightIndexChunks.get(chunkIdx);
+                for (int s = 0; s < numRightStr; s++) {
+                    int colIdx = rightStrCols.get(s);
+                    StringColumnVector srcStr = (StringColumnVector) outputSpecs.get(colIdx).primaryVec;
+                    StringColumnVector dstStr = (StringColumnVector) resultVectors[colIdx];
+                    dstStr.copyNullableIndexedBytesLockFree(
+                        srcStr, rightIdx, len, start, strByteOffsets[s][chunkIdx]);
+                }
+                return null;
+            });
+        }
+
+        // Apply null BitSets for right columns
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (!spec.fromLeft) {
+                ColumnVector dstVec = resultVectors[c];
+                for (int chunkIdx = 0; chunkIdx < ranges.length; chunkIdx++) {
+                    int start = ranges[chunkIdx][0];
+                    int len = ranges[chunkIdx][1] - start;
+                    dstVec.applyNullsFromNullableIndexed(
+                        spec.primaryVec, rightIndexChunks.get(chunkIdx), len, start);
+                }
             }
         }
-        return merged;
+
+        return Arrays.asList(resultVectors);
+    }
+
+    private static List<ColumnVector> executeInnerJoin(
+            HashJoinIndex rightIndex,
+            int leftSize,
+            List<OutputColSpec> outputSpecs,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        boolean runParallel = parallel && leftSize >= threshold && leftSize > 1;
+        ExecutorService pool = ParallelVectorEngine.resolveExecutor(executor);
+        int numChunks = runParallel ? ParallelVectorEngine.computeChunkCount(leftSize, pool) : 1;
+        int[][] ranges = ParallelVectorEngine.partitionRanges(leftSize, numChunks);
+
+        int numCols = outputSpecs.size();
+        int[][] strChunkByteCounts = new int[numCols][];
+        for (int c = 0; c < numCols; c++) {
+            if (outputSpecs.get(c).primaryVec instanceof StringColumnVector) {
+                strChunkByteCounts[c] = new int[ranges.length];
+            }
+        }
+
+        int[] chunkCounts = new int[ranges.length];
+
+        // Barrier 1: Parallel Probe + UTF-8 byte counting per chunk
+        List<ProbeChunk> chunks = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            ProbeChunk chunk = rightIndex.probeInner(start, end);
+            int count = chunk.count;
+            chunkCounts[chunkIdx] = count;
+            if (count > 0) {
+                for (int c = 0; c < numCols; c++) {
+                    if (strChunkByteCounts[c] != null) {
+                        OutputColSpec spec = outputSpecs.get(c);
+                        StringColumnVector strSrc = (StringColumnVector) spec.primaryVec;
+                        int[] idx = spec.fromLeft ? chunk.leftIndices : chunk.rightIndices;
+                        strChunkByteCounts[c][chunkIdx] = strSrc.computeIndexedByteCount(idx, count);
+                    }
+                }
+            }
+            return chunk;
+        });
+
+        return gatherFromProbeChunks(chunks, chunkCounts, strChunkByteCounts, outputSpecs, ranges, pool);
+    }
+
+    private static List<ColumnVector> executeLeftJoinGeneral(
+            HashJoinIndex rightIndex,
+            int leftSize,
+            List<OutputColSpec> outputSpecs,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        boolean runParallel = parallel && leftSize >= threshold && leftSize > 1;
+        ExecutorService pool = ParallelVectorEngine.resolveExecutor(executor);
+        int numChunks = runParallel ? ParallelVectorEngine.computeChunkCount(leftSize, pool) : 1;
+        int[][] ranges = ParallelVectorEngine.partitionRanges(leftSize, numChunks);
+
+        int numCols = outputSpecs.size();
+        int[][] strChunkByteCounts = new int[numCols][];
+        for (int c = 0; c < numCols; c++) {
+            if (outputSpecs.get(c).primaryVec instanceof StringColumnVector) {
+                strChunkByteCounts[c] = new int[ranges.length];
+            }
+        }
+
+        int[] chunkCounts = new int[ranges.length];
+
+        List<ProbeChunk> chunks = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            ProbeChunk chunk = rightIndex.probeOuter(start, end, true, null);
+            int count = chunk.count;
+            chunkCounts[chunkIdx] = count;
+            if (count > 0) {
+                for (int c = 0; c < numCols; c++) {
+                    if (strChunkByteCounts[c] != null) {
+                        OutputColSpec spec = outputSpecs.get(c);
+                        StringColumnVector strSrc = (StringColumnVector) spec.primaryVec;
+                        if (spec.fromLeft) {
+                            strChunkByteCounts[c][chunkIdx] = strSrc.computeIndexedByteCount(chunk.leftIndices, count);
+                        } else {
+                            strChunkByteCounts[c][chunkIdx] = strSrc.computeNullableIndexedByteCount(chunk.rightIndices, count);
+                        }
+                    }
+                }
+            }
+            return chunk;
+        });
+
+        return gatherFromProbeChunks(chunks, chunkCounts, strChunkByteCounts, outputSpecs, ranges, pool);
+    }
+
+    private static List<ColumnVector> executeRightJoin(
+            HashJoinIndex leftIndex,
+            int leftSize,
+            int rightSize,
+            List<OutputColSpec> outputSpecs,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        boolean runParallel = parallel && rightSize >= threshold && rightSize > 1;
+        ExecutorService pool = ParallelVectorEngine.resolveExecutor(executor);
+        int numChunks = runParallel ? ParallelVectorEngine.computeChunkCount(rightSize, pool) : 1;
+        int[][] ranges = ParallelVectorEngine.partitionRanges(rightSize, numChunks);
+
+        int numCols = outputSpecs.size();
+        int[][] strChunkByteCounts = new int[numCols][];
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (spec.primaryVec instanceof StringColumnVector && spec.fallbackRightKeyVec == null) {
+                strChunkByteCounts[c] = new int[ranges.length];
+            }
+        }
+
+        int[] chunkCounts = new int[ranges.length];
+
+        List<ProbeChunk> chunks = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            // Probe leftIndex using right rows [start, end); swap so leftIndices has left row (or -1) and rightIndices has right row
+            ProbeChunk raw = leftIndex.probeOuter(start, end, true, null);
+            ProbeChunk chunk = new ProbeChunk(raw.rightIndices, raw.leftIndices, raw.count);
+            int count = chunk.count;
+            chunkCounts[chunkIdx] = count;
+            if (count > 0) {
+                for (int c = 0; c < numCols; c++) {
+                    if (strChunkByteCounts[c] != null) {
+                        OutputColSpec spec = outputSpecs.get(c);
+                        StringColumnVector strSrc = (StringColumnVector) spec.primaryVec;
+                        if (spec.fromLeft) {
+                            strChunkByteCounts[c][chunkIdx] = strSrc.computeNullableIndexedByteCount(chunk.leftIndices, count);
+                        } else {
+                            strChunkByteCounts[c][chunkIdx] = strSrc.computeIndexedByteCount(chunk.rightIndices, count);
+                        }
+                    }
+                }
+            }
+            return chunk;
+        });
+
+        return gatherFromProbeChunks(chunks, chunkCounts, strChunkByteCounts, outputSpecs, ranges, pool);
+    }
+
+    private static List<ColumnVector> executeOuterJoin(
+            HashJoinIndex rightIndex,
+            int leftSize,
+            int rightSize,
+            List<OutputColSpec> outputSpecs,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        boolean runParallel = parallel && leftSize >= threshold && leftSize > 1;
+        ExecutorService pool = ParallelVectorEngine.resolveExecutor(executor);
+        int numLeftChunks = leftSize > 0
+                ? (runParallel ? ParallelVectorEngine.computeChunkCount(leftSize, pool) : 1)
+                : 0;
+        int[][] leftRanges = ParallelVectorEngine.partitionRanges(leftSize, numLeftChunks);
+
+        boolean[] rightMatched = new boolean[rightSize];
+        List<ProbeChunk> allChunks = new ArrayList<>(leftRanges.length + 1);
+
+        if (leftRanges.length > 0) {
+            List<ProbeChunk> leftChunks = ParallelVectorEngine.executeRanges(leftRanges, pool, (chunkIdx, start, end) ->
+                rightIndex.probeOuter(start, end, true, rightMatched)
+            );
+            allChunks.addAll(leftChunks);
+        }
+
+        // Collect unmatched right rows
+        int unmatchedRightCount = 0;
+        for (int r = 0; r < rightSize; r++) {
+            if (!rightMatched[r]) {
+                unmatchedRightCount++;
+            }
+        }
+        if (unmatchedRightCount > 0) {
+            int[] uLeft = new int[unmatchedRightCount];
+            Arrays.fill(uLeft, -1);
+            int[] uRight = new int[unmatchedRightCount];
+            int pos = 0;
+            for (int r = 0; r < rightSize; r++) {
+                if (!rightMatched[r]) {
+                    uRight[pos++] = r;
+                }
+            }
+            allChunks.add(new ProbeChunk(uLeft, uRight, unmatchedRightCount));
+        }
+
+        int totalChunks = allChunks.size();
+        int[][] allRanges = new int[totalChunks][2];
+        int[] chunkCounts = new int[totalChunks];
+        for (int i = 0; i < totalChunks; i++) {
+            allRanges[i][0] = i;
+            allRanges[i][1] = i + 1;
+            chunkCounts[i] = allChunks.get(i).count;
+        }
+
+        int numCols = outputSpecs.size();
+        int[][] strChunkByteCounts = new int[numCols][];
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (spec.primaryVec instanceof StringColumnVector && spec.fallbackRightKeyVec == null) {
+                strChunkByteCounts[c] = new int[totalChunks];
+                StringColumnVector strSrc = (StringColumnVector) spec.primaryVec;
+                for (int k = 0; k < totalChunks; k++) {
+                    ProbeChunk ch = allChunks.get(k);
+                    if (ch.count > 0) {
+                        int[] idx = spec.fromLeft ? ch.leftIndices : ch.rightIndices;
+                        strChunkByteCounts[c][k] = spec.mayHaveNegativeIndices
+                                ? strSrc.computeNullableIndexedByteCount(idx, ch.count)
+                                : strSrc.computeIndexedByteCount(idx, ch.count);
+                    }
+                }
+            }
+        }
+
+        return gatherFromProbeChunks(allChunks, chunkCounts, strChunkByteCounts, outputSpecs, allRanges, pool);
+    }
+
+    private static List<ColumnVector> executeCrossJoin(
+            int leftSize,
+            int rightSize,
+            List<OutputColSpec> outputSpecs,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        int totalRows = Math.multiplyExact(leftSize, rightSize);
+        int[] leftIdx = new int[totalRows];
+        int[] rightIdx = new int[totalRows];
+        int pos = 0;
+        for (int l = 0; l < leftSize; l++) {
+            Arrays.fill(leftIdx, pos, pos + rightSize, l);
+            for (int r = 0; r < rightSize; r++) {
+                rightIdx[pos + r] = r;
+            }
+            pos += rightSize;
+        }
+
+        ProbeChunk singleChunk = new ProbeChunk(leftIdx, rightIdx, totalRows);
+        List<ProbeChunk> chunks = Collections.singletonList(singleChunk);
+        int[] chunkCounts = new int[]{totalRows};
+        int[][] ranges = new int[][]{{0, totalRows}};
+
+        int numCols = outputSpecs.size();
+        int[][] strChunkByteCounts = new int[numCols][];
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (spec.primaryVec instanceof StringColumnVector strSrc) {
+                int[] idx = spec.fromLeft ? leftIdx : rightIdx;
+                strChunkByteCounts[c] = new int[]{strSrc.computeIndexedByteCount(idx, totalRows)};
+            }
+        }
+
+        return gatherFromProbeChunks(
+            chunks, chunkCounts, strChunkByteCounts, outputSpecs, ranges, ParallelVectorEngine.resolveExecutor(executor));
     }
 
     /**
-     * Extracts join keys from left and right rows, accelerating dictionary-encoded columns by mapping
-     * right dictionary codes into left dictionary code space so join probes compare primitive integer codes
-     * instead of hashing and comparing strings.
+     * Materializes all output {@link ColumnVector}s from chunked gather index arrays in a single parallel barrier.
      */
-    private static final class JoinKeyExtractor {
-        private final List<String> leftOn;
-        private final List<String> rightOn;
-        private final DictionaryColumnVector[] leftDicts;
-        private final DictionaryColumnVector[] rightDicts;
-        private final int[][] rightToUnifiedCode;
+    private static List<ColumnVector> gatherFromProbeChunks(
+            List<ProbeChunk> chunks,
+            int[] chunkCounts,
+            int[][] strChunkByteCounts,
+            List<OutputColSpec> outputSpecs,
+            int[][] ranges,
+            ExecutorService pool) {
 
-        JoinKeyExtractor(IDataFrame left, IDataFrame right, List<String> leftOn, List<String> rightOn) {
-            this.leftOn = leftOn;
-            this.rightOn = rightOn;
-            int n = leftOn.size();
-            this.leftDicts = new DictionaryColumnVector[n];
-            this.rightDicts = new DictionaryColumnVector[n];
-            this.rightToUnifiedCode = new int[n][];
+        int numChunks = chunks.size();
+        int[] rowOffsets = new int[numChunks];
+        int totalRows = ParallelVectorEngine.computePrefixSums(chunkCounts, rowOffsets);
 
-            for (int i = 0; i < n; i++) {
-                ColumnVector lVec = left.getColumnVector(leftOn.get(i));
-                ColumnVector rVec = right.getColumnVector(rightOn.get(i));
-                if (lVec instanceof DictionaryColumnVector lDict && rVec instanceof DictionaryColumnVector rDict) {
-                    this.leftDicts[i] = lDict;
-                    this.rightDicts[i] = rDict;
-                    int lDictSize = lDict.getDictionarySize();
-                    int rDictSize = rDict.getDictionarySize();
-                    int[] codeMap = new int[rDictSize];
-                    for (int rCode = 0; rCode < rDictSize; rCode++) {
-                        String cat = rDict.getCategory(rCode);
-                        int lCode = lDict.indexOfCategory(cat);
-                        codeMap[rCode] = (lCode >= 0) ? lCode : (lDictSize + rCode);
+        int numCols = outputSpecs.size();
+        if (totalRows == 0) {
+            List<ColumnVector> empty = new ArrayList<>(numCols);
+            for (OutputColSpec spec : outputSpecs) {
+                empty.add(createOutputVector(spec, 0));
+            }
+            return empty;
+        }
+
+        ColumnVector[] outVectors = new ColumnVector[numCols];
+        int[][] strByteOffsets = new int[numCols][];
+
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (strChunkByteCounts[c] != null) {
+                strByteOffsets[c] = new int[numChunks];
+                int totalBytes = ParallelVectorEngine.computePrefixSums(strChunkByteCounts[c], strByteOffsets[c]);
+                outVectors[c] = StringColumnVector.allocateForCompaction(
+                    spec.outName, spec.nullable, totalRows, totalBytes);
+            } else {
+                ColumnVector vec = createOutputVector(spec, totalRows);
+                vec.setSizeUnchecked(totalRows);
+                outVectors[c] = vec;
+            }
+        }
+
+        // Barrier 2: Parallel lock-free value gather across all chunks and columns
+        ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            ProbeChunk chunk = chunks.get(chunkIdx);
+            int count = chunk.count;
+            if (count <= 0) {
+                return null;
+            }
+            int dstRowOffset = rowOffsets[chunkIdx];
+            int[] lIdx = chunk.leftIndices;
+            int[] rIdx = chunk.rightIndices;
+
+            for (int c = 0; c < numCols; c++) {
+                OutputColSpec spec = outputSpecs.get(c);
+                ColumnVector dstVec = outVectors[c];
+
+                if (spec.fallbackRightKeyVec != null) {
+                    gatherSharedKeyWithFallback(dstVec, spec.primaryVec, spec.fallbackRightKeyVec, lIdx, rIdx, count, dstRowOffset);
+                } else if (strChunkByteCounts[c] != null) {
+                    StringColumnVector srcStr = (StringColumnVector) spec.primaryVec;
+                    StringColumnVector dstStr = (StringColumnVector) dstVec;
+                    int[] idx = spec.fromLeft ? lIdx : rIdx;
+                    int dstByteOffset = strByteOffsets[c][chunkIdx];
+                    if (spec.mayHaveNegativeIndices) {
+                        dstStr.copyNullableIndexedBytesLockFree(srcStr, idx, count, dstRowOffset, dstByteOffset);
+                    } else {
+                        dstStr.copyIndexedBytesLockFree(srcStr, idx, count, dstRowOffset, dstByteOffset);
                     }
-                    this.rightToUnifiedCode[i] = codeMap;
+                } else {
+                    int[] idx = spec.fromLeft ? lIdx : rIdx;
+                    if (spec.mayHaveNegativeIndices) {
+                        dstVec.copyNullableIndexedValuesOnly(spec.primaryVec, idx, count, dstRowOffset);
+                    } else {
+                        dstVec.copyIndexedValuesOnly(spec.primaryVec, idx, count, dstRowOffset);
+                    }
+                }
+            }
+            return null;
+        });
+
+        // Apply null bitmaps sequentially across chunks (fast BitSet word updates, zero thread contention)
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (spec.fallbackRightKeyVec != null) {
+                continue; // handled inside gatherSharedKeyWithFallback
+            }
+            ColumnVector dstVec = outVectors[c];
+            ColumnVector srcVec = spec.primaryVec;
+            if (spec.mayHaveNegativeIndices) {
+                for (int chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
+                    ProbeChunk chunk = chunks.get(chunkIdx);
+                    if (chunk.count > 0) {
+                        int[] idx = spec.fromLeft ? chunk.leftIndices : chunk.rightIndices;
+                        dstVec.applyNullsFromNullableIndexed(srcVec, idx, chunk.count, rowOffsets[chunkIdx]);
+                    }
+                }
+            } else if (srcVec.hasNulls()) {
+                for (int chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
+                    ProbeChunk chunk = chunks.get(chunkIdx);
+                    if (chunk.count > 0) {
+                        int[] idx = spec.fromLeft ? chunk.leftIndices : chunk.rightIndices;
+                        dstVec.applyNullsFromIndexed(srcVec, idx, chunk.count, rowOffsets[chunkIdx]);
+                    }
                 }
             }
         }
 
-        JoinKey extractLeftKey(Row leftRow, int rowIndex) {
-            int n = leftOn.size();
-            Object[] values = new Object[n];
-            for (int i = 0; i < n; i++) {
-                DictionaryColumnVector lDict = leftDicts[i];
-                if (lDict != null && rowIndex < lDict.size()) {
-                    int code = lDict.getCode(rowIndex);
-                    values[i] = code < 0 ? null : Integer.valueOf(code);
+        return Arrays.asList(outVectors);
+    }
+
+    private static void gatherSharedKeyWithFallback(
+            ColumnVector dstVec,
+            ColumnVector leftKeyVec,
+            ColumnVector rightKeyVec,
+            int[] leftIdx,
+            int[] rightIdx,
+            int count,
+            int dstOffset) {
+        synchronized (dstVec) {
+            for (int i = 0; i < count; i++) {
+                int l = leftIdx[i];
+                Object val;
+                if (l >= 0) {
+                    val = leftKeyVec.isNull(l) ? null : leftKeyVec.getObject(l);
                 } else {
-                    values[i] = leftRow.get(leftOn.get(i));
+                    int r = rightIdx[i];
+                    val = (r >= 0 && !rightKeyVec.isNull(r)) ? rightKeyVec.getObject(r) : null;
                 }
+                dstVec.setObject(dstOffset + i, val);
             }
-            return new JoinKey(values);
+        }
+    }
+
+    // =========================================================================
+    // Primitive Hash Join Index Hierarchy (Zero-Boxing Build & Probe)
+    // =========================================================================
+
+    private static HashJoinIndex buildHashIndex(
+            ColumnVector[] buildKeyVecs,
+            ColumnVector[] probeKeyVecs,
+            int buildSize,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        if (buildKeyVecs.length == 1) {
+            ColumnVector bVec = buildKeyVecs[0];
+            ColumnVector pVec = probeKeyVecs[0];
+
+            if (bVec instanceof IntColumnVector bInt && pVec instanceof IntColumnVector pInt) {
+                return new IntHashJoinIndex(bInt, pInt, buildSize);
+            }
+            if (bVec instanceof LongColumnVector bLong && pVec instanceof LongColumnVector pLong) {
+                return new LongHashJoinIndex(bLong, pLong, buildSize);
+            }
+            if (bVec instanceof StringColumnVector bStr && pVec instanceof StringColumnVector pStr) {
+                return new StringHashJoinIndex(bStr, pStr, buildSize, parallel, executor, threshold);
+            }
+            if (bVec instanceof DictionaryColumnVector bDict && pVec instanceof DictionaryColumnVector pDict) {
+                return new DictionaryHashJoinIndex(bDict, pDict, buildSize);
+            }
+        }
+        return new GeneralColumnarHashJoinIndex(buildKeyVecs, probeKeyVecs, buildSize);
+    }
+
+    private abstract static class HashJoinIndex {
+        final int buildSize;
+        boolean uniqueBuildKeys;
+
+        HashJoinIndex(int buildSize) {
+            this.buildSize = buildSize;
         }
 
-        JoinKey extractRightKey(Row rightRow, int rowIndex) {
-            int n = rightOn.size();
-            Object[] values = new Object[n];
-            for (int i = 0; i < n; i++) {
-                DictionaryColumnVector rDict = rightDicts[i];
-                if (rDict != null && rowIndex < rDict.size()) {
-                    int rCode = rDict.getCode(rowIndex);
-                    values[i] = rCode < 0 ? null : Integer.valueOf(rightToUnifiedCode[i][rCode]);
-                } else {
-                    values[i] = rightRow.get(rightOn.get(i));
+        abstract void probeUniqueLeft(int start, int end, int[] outRightIdx);
+
+        abstract ProbeChunk probeInner(int start, int end);
+
+        abstract ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched);
+    }
+
+    // -------------------------------------------------------------------------
+    // 1. IntColumnVector Specialized Hash Join Index
+    // -------------------------------------------------------------------------
+
+    private static final class IntHashJoinIndex extends HashJoinIndex {
+        private final int[] buildData;
+        private final int[] probeData;
+        private final BitSet probeNulls;
+        private final boolean probeHasNulls;
+        private final int mask;
+        private final int[] bucketHead;
+        private final int[] nextRowIdx;
+
+        IntHashJoinIndex(IntColumnVector buildVec, IntColumnVector probeVec, int buildSize) {
+            super(buildSize);
+            int[] bData = buildVec.getRawData();
+            boolean bHasNulls = buildVec.hasNulls();
+            BitSet bNulls = buildVec.getNulls();
+
+            int cap = nextPowerOfTwo(Math.max(16, buildSize));
+            int m = cap - 1;
+            int[] heads = new int[cap];
+            Arrays.fill(heads, -1);
+            int[] next = new int[buildSize];
+            boolean unique = true;
+
+            if (!bHasNulls) {
+                for (int r = buildSize - 1; r >= 0; r--) {
+                    int k = bData[r];
+                    int b = mixInt(k) & m;
+                    int head = heads[b];
+                    if (unique && head != -1) {
+                        for (int c = head; c != -1; c = next[c]) {
+                            if (bData[c] == k) {
+                                unique = false;
+                                break;
+                            }
+                        }
+                    }
+                    next[r] = head;
+                    heads[b] = r;
+                }
+            } else {
+                for (int r = buildSize - 1; r >= 0; r--) {
+                    if (bNulls.get(r)) {
+                        next[r] = -1;
+                        continue;
+                    }
+                    int k = bData[r];
+                    int b = mixInt(k) & m;
+                    int head = heads[b];
+                    if (unique && head != -1) {
+                        for (int c = head; c != -1; c = next[c]) {
+                            if (bData[c] == k) {
+                                unique = false;
+                                break;
+                            }
+                        }
+                    }
+                    next[r] = head;
+                    heads[b] = r;
                 }
             }
-            return new JoinKey(values);
+
+            this.uniqueBuildKeys = unique;
+            this.buildData = bData;
+            this.probeData = probeVec.getRawData();
+            this.probeHasNulls = probeVec.hasNulls();
+            this.probeNulls = probeVec.getNulls();
+            this.mask = m;
+            this.bucketHead = heads;
+            this.nextRowIdx = next;
         }
+
+        @Override
+        void probeUniqueLeft(int start, int end, int[] outRightIdx) {
+            int[] pData = this.probeData;
+            int[] bData = this.buildData;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+
+            if (!this.probeHasNulls) {
+                for (int l = start; l < end; l++) {
+                    int k = pData[l];
+                    int matched = -1;
+                    for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            matched = r;
+                            break;
+                        }
+                    }
+                    outRightIdx[l - start] = matched;
+                }
+            } else {
+                BitSet pNulls = this.probeNulls;
+                for (int l = start; l < end; l++) {
+                    if (pNulls.get(l)) {
+                        outRightIdx[l - start] = -1;
+                        continue;
+                    }
+                    int k = pData[l];
+                    int matched = -1;
+                    for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            matched = r;
+                            break;
+                        }
+                    }
+                    outRightIdx[l - start] = matched;
+                }
+            }
+        }
+
+        @Override
+        ProbeChunk probeInner(int start, int end) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            int[] pData = this.probeData;
+            int[] bData = this.buildData;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+
+            if (this.uniqueBuildKeys && !this.probeHasNulls) {
+                for (int l = start; l < end; l++) {
+                    int k = pData[l];
+                    for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                boolean pHasNulls = this.probeHasNulls;
+                BitSet pNulls = this.probeNulls;
+                for (int l = start; l < end; l++) {
+                    if (pHasNulls && pNulls.get(l)) {
+                        continue;
+                    }
+                    int k = pData[l];
+                    for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            if (count == leftIdx.length) {
+                                int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                rightIdx = Arrays.copyOf(rightIdx, newCap);
+                            }
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                        }
+                    }
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+
+        @Override
+        ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            int[] pData = this.probeData;
+            int[] bData = this.buildData;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+            boolean pHasNulls = this.probeHasNulls;
+            BitSet pNulls = this.probeNulls;
+
+            for (int l = start; l < end; l++) {
+                boolean matchedAny = false;
+                if (!pHasNulls || !pNulls.get(l)) {
+                    int k = pData[l];
+                    for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            if (count == leftIdx.length) {
+                                int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                rightIdx = Arrays.copyOf(rightIdx, newCap);
+                            }
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                            matchedAny = true;
+                            if (buildMatched != null) {
+                                buildMatched[r] = true;
+                            }
+                        }
+                    }
+                }
+                if (!matchedAny && emitUnmatchedProbe) {
+                    if (count == leftIdx.length) {
+                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                    }
+                    leftIdx[count] = l;
+                    rightIdx[count] = -1;
+                    count++;
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. LongColumnVector Specialized Hash Join Index
+    // -------------------------------------------------------------------------
+
+    private static final class LongHashJoinIndex extends HashJoinIndex {
+        private final long[] buildData;
+        private final long[] probeData;
+        private final BitSet probeNulls;
+        private final boolean probeHasNulls;
+        private final int mask;
+        private final int[] bucketHead;
+        private final int[] nextRowIdx;
+
+        LongHashJoinIndex(LongColumnVector buildVec, LongColumnVector probeVec, int buildSize) {
+            super(buildSize);
+            long[] bData = buildVec.getRawData();
+            boolean bHasNulls = buildVec.hasNulls();
+            BitSet bNulls = buildVec.getNulls();
+
+            int cap = nextPowerOfTwo(Math.max(16, buildSize));
+            int m = cap - 1;
+            int[] heads = new int[cap];
+            Arrays.fill(heads, -1);
+            int[] next = new int[buildSize];
+            boolean unique = true;
+
+            for (int r = buildSize - 1; r >= 0; r--) {
+                if (bHasNulls && bNulls.get(r)) {
+                    next[r] = -1;
+                    continue;
+                }
+                long k = bData[r];
+                int b = mixLong(k) & m;
+                int head = heads[b];
+                if (unique && head != -1) {
+                    for (int c = head; c != -1; c = next[c]) {
+                        if (bData[c] == k) {
+                            unique = false;
+                            break;
+                        }
+                    }
+                }
+                next[r] = head;
+                heads[b] = r;
+            }
+
+            this.uniqueBuildKeys = unique;
+            this.buildData = bData;
+            this.probeData = probeVec.getRawData();
+            this.probeHasNulls = probeVec.hasNulls();
+            this.probeNulls = probeVec.getNulls();
+            this.mask = m;
+            this.bucketHead = heads;
+            this.nextRowIdx = next;
+        }
+
+        @Override
+        void probeUniqueLeft(int start, int end, int[] outRightIdx) {
+            long[] pData = this.probeData;
+            long[] bData = this.buildData;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+            boolean pHasNulls = this.probeHasNulls;
+            BitSet pNulls = this.probeNulls;
+
+            for (int l = start; l < end; l++) {
+                if (pHasNulls && pNulls.get(l)) {
+                    outRightIdx[l - start] = -1;
+                    continue;
+                }
+                long k = pData[l];
+                int matched = -1;
+                for (int r = heads[mixLong(k) & m]; r != -1; r = next[r]) {
+                    if (bData[r] == k) {
+                        matched = r;
+                        break;
+                    }
+                }
+                outRightIdx[l - start] = matched;
+            }
+        }
+
+        @Override
+        ProbeChunk probeInner(int start, int end) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            long[] pData = this.probeData;
+            long[] bData = this.buildData;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+            boolean pHasNulls = this.probeHasNulls;
+            BitSet pNulls = this.probeNulls;
+            boolean unique = this.uniqueBuildKeys;
+
+            for (int l = start; l < end; l++) {
+                if (pHasNulls && pNulls.get(l)) {
+                    continue;
+                }
+                long k = pData[l];
+                for (int r = heads[mixLong(k) & m]; r != -1; r = next[r]) {
+                    if (bData[r] == k) {
+                        if (count == leftIdx.length) {
+                            int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                            leftIdx = Arrays.copyOf(leftIdx, newCap);
+                            rightIdx = Arrays.copyOf(rightIdx, newCap);
+                        }
+                        leftIdx[count] = l;
+                        rightIdx[count] = r;
+                        count++;
+                        if (unique) {
+                            break;
+                        }
+                    }
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+
+        @Override
+        ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            long[] pData = this.probeData;
+            long[] bData = this.buildData;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+            boolean pHasNulls = this.probeHasNulls;
+            BitSet pNulls = this.probeNulls;
+
+            for (int l = start; l < end; l++) {
+                boolean matchedAny = false;
+                if (!pHasNulls || !pNulls.get(l)) {
+                    long k = pData[l];
+                    for (int r = heads[mixLong(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            if (count == leftIdx.length) {
+                                int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                rightIdx = Arrays.copyOf(rightIdx, newCap);
+                            }
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                            matchedAny = true;
+                            if (buildMatched != null) {
+                                buildMatched[r] = true;
+                            }
+                        }
+                    }
+                }
+                if (!matchedAny && emitUnmatchedProbe) {
+                    if (count == leftIdx.length) {
+                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                    }
+                    leftIdx[count] = l;
+                    rightIdx[count] = -1;
+                    count++;
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. StringColumnVector UTF-8 Byte Slice Specialized Hash Join Index
+    // -------------------------------------------------------------------------
+
+    private static final class StringHashJoinIndex extends HashJoinIndex {
+        private final byte[] buildValues;
+        private final int[] buildOffsets;
+        private final int[] buildHashes;
+        private final byte[] probeValues;
+        private final int[] probeOffsets;
+        private final BitSet probeNulls;
+        private final boolean probeHasNulls;
+        private final int mask;
+        private final int[] bucketHead;
+        private final int[] nextRowIdx;
+
+        StringHashJoinIndex(
+                StringColumnVector buildVec,
+                StringColumnVector probeVec,
+                int buildSize,
+                boolean parallel,
+                ExecutorService executor,
+                int threshold) {
+            super(buildSize);
+            byte[] bValues = buildVec.getValues();
+            int[] bOffsets = buildVec.getOffsets();
+            boolean bHasNulls = buildVec.hasNulls();
+            BitSet bNulls = buildVec.getNulls();
+
+            int[] bHashes = new int[buildSize];
+            if (parallel && buildSize >= threshold && buildSize > 1) {
+                ParallelVectorEngine.executeChunks(buildSize, executor, (chunkIdx, start, end) -> {
+                    if (!bHasNulls) {
+                        for (int r = start; r < end; r++) {
+                            int s = bOffsets[r];
+                            bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
+                        }
+                    } else {
+                        for (int r = start; r < end; r++) {
+                            if (!bNulls.get(r)) {
+                                int s = bOffsets[r];
+                                bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
+                            }
+                        }
+                    }
+                    return null;
+                });
+            } else {
+                if (!bHasNulls) {
+                    for (int r = 0; r < buildSize; r++) {
+                        int s = bOffsets[r];
+                        bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
+                    }
+                } else {
+                    for (int r = 0; r < buildSize; r++) {
+                        if (!bNulls.get(r)) {
+                            int s = bOffsets[r];
+                            bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
+                        }
+                    }
+                }
+            }
+
+            int cap = nextPowerOfTwo(Math.max(16, buildSize));
+            int m = cap - 1;
+            int[] heads = new int[cap];
+            Arrays.fill(heads, -1);
+            int[] next = new int[buildSize];
+            boolean unique = true;
+
+            for (int r = buildSize - 1; r >= 0; r--) {
+                if (bHasNulls && bNulls.get(r)) {
+                    next[r] = -1;
+                    continue;
+                }
+                int h = bHashes[r];
+                int b = h & m;
+                int head = heads[b];
+                if (unique && head != -1) {
+                    int rStart = bOffsets[r];
+                    int rLen = bOffsets[r + 1] - rStart;
+                    for (int c = head; c != -1; c = next[c]) {
+                        if (bHashes[c] == h) {
+                            int cStart = bOffsets[c];
+                            int cLen = bOffsets[c + 1] - cStart;
+                            if (cLen == rLen && Arrays.equals(bValues, rStart, rStart + rLen, bValues, cStart, cStart + cLen)) {
+                                unique = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                next[r] = head;
+                heads[b] = r;
+            }
+
+            this.uniqueBuildKeys = unique;
+            this.buildValues = bValues;
+            this.buildOffsets = bOffsets;
+            this.buildHashes = bHashes;
+            this.probeValues = probeVec.getValues();
+            this.probeOffsets = probeVec.getOffsets();
+            this.probeHasNulls = probeVec.hasNulls();
+            this.probeNulls = probeVec.getNulls();
+            this.mask = m;
+            this.bucketHead = heads;
+            this.nextRowIdx = next;
+        }
+
+        @Override
+        void probeUniqueLeft(int start, int end, int[] outRightIdx) {
+            byte[] pValues = this.probeValues;
+            int[] pOffsets = this.probeOffsets;
+            byte[] bValues = this.buildValues;
+            int[] bOffsets = this.buildOffsets;
+            int[] bHashes = this.buildHashes;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+
+            if (!this.probeHasNulls) {
+                for (int l = start; l < end; l++) {
+                    int pStart = pOffsets[l];
+                    int pLen = pOffsets[l + 1] - pStart;
+                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    int matched = -1;
+                    for (int r = heads[h & m]; r != -1; r = next[r]) {
+                        if (bHashes[r] == h) {
+                            int bStart = bOffsets[r];
+                            int bLen = bOffsets[r + 1] - bStart;
+                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                                matched = r;
+                                break;
+                            }
+                        }
+                    }
+                    outRightIdx[l - start] = matched;
+                }
+            } else {
+                BitSet pNulls = this.probeNulls;
+                for (int l = start; l < end; l++) {
+                    if (pNulls.get(l)) {
+                        outRightIdx[l - start] = -1;
+                        continue;
+                    }
+                    int pStart = pOffsets[l];
+                    int pLen = pOffsets[l + 1] - pStart;
+                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    int matched = -1;
+                    for (int r = heads[h & m]; r != -1; r = next[r]) {
+                        if (bHashes[r] == h) {
+                            int bStart = bOffsets[r];
+                            int bLen = bOffsets[r + 1] - bStart;
+                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                                matched = r;
+                                break;
+                            }
+                        }
+                    }
+                    outRightIdx[l - start] = matched;
+                }
+            }
+        }
+
+        @Override
+        ProbeChunk probeInner(int start, int end) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            byte[] pValues = this.probeValues;
+            int[] pOffsets = this.probeOffsets;
+            byte[] bValues = this.buildValues;
+            int[] bOffsets = this.buildOffsets;
+            int[] bHashes = this.buildHashes;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+
+            if (this.uniqueBuildKeys && !this.probeHasNulls) {
+                for (int l = start; l < end; l++) {
+                    int pStart = pOffsets[l];
+                    int pLen = pOffsets[l + 1] - pStart;
+                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    for (int r = heads[h & m]; r != -1; r = next[r]) {
+                        if (bHashes[r] == h) {
+                            int bStart = bOffsets[r];
+                            int bLen = bOffsets[r + 1] - bStart;
+                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                                leftIdx[count] = l;
+                                rightIdx[count] = r;
+                                count++;
+                                break;
+                            }
+                        }
+                    }
+                }
+            } else {
+                boolean pHasNulls = this.probeHasNulls;
+                BitSet pNulls = this.probeNulls;
+                for (int l = start; l < end; l++) {
+                    if (pHasNulls && pNulls.get(l)) {
+                        continue;
+                    }
+                    int pStart = pOffsets[l];
+                    int pLen = pOffsets[l + 1] - pStart;
+                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    for (int r = heads[h & m]; r != -1; r = next[r]) {
+                        if (bHashes[r] == h) {
+                            int bStart = bOffsets[r];
+                            int bLen = bOffsets[r + 1] - bStart;
+                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                                if (count == leftIdx.length) {
+                                    int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                    leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                    rightIdx = Arrays.copyOf(rightIdx, newCap);
+                                }
+                                leftIdx[count] = l;
+                                rightIdx[count] = r;
+                                count++;
+                            }
+                        }
+                    }
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+
+        @Override
+        ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            byte[] pValues = this.probeValues;
+            int[] pOffsets = this.probeOffsets;
+            byte[] bValues = this.buildValues;
+            int[] bOffsets = this.buildOffsets;
+            int[] bHashes = this.buildHashes;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+            boolean pHasNulls = this.probeHasNulls;
+            BitSet pNulls = this.probeNulls;
+
+            for (int l = start; l < end; l++) {
+                boolean matchedAny = false;
+                if (!pHasNulls || !pNulls.get(l)) {
+                    int pStart = pOffsets[l];
+                    int pLen = pOffsets[l + 1] - pStart;
+                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    for (int r = heads[h & m]; r != -1; r = next[r]) {
+                        if (bHashes[r] == h) {
+                            int bStart = bOffsets[r];
+                            int bLen = bOffsets[r + 1] - bStart;
+                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                                if (count == leftIdx.length) {
+                                    int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                    leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                    rightIdx = Arrays.copyOf(rightIdx, newCap);
+                                }
+                                leftIdx[count] = l;
+                                rightIdx[count] = r;
+                                count++;
+                                matchedAny = true;
+                                if (buildMatched != null) {
+                                    buildMatched[r] = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (!matchedAny && emitUnmatchedProbe) {
+                    if (count == leftIdx.length) {
+                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                    }
+                    leftIdx[count] = l;
+                    rightIdx[count] = -1;
+                    count++;
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. DictionaryColumnVector Direct-Code Specialized Hash Join Index
+    // -------------------------------------------------------------------------
+
+    private static final class DictionaryHashJoinIndex extends HashJoinIndex {
+        private final DictionaryColumnVector probeVec;
+        private final int probeDictSize;
+        private final int[] codeHead;
+        private final int[] nextRowIdx;
+
+        DictionaryHashJoinIndex(DictionaryColumnVector buildVec, DictionaryColumnVector probeVec, int buildSize) {
+            super(buildSize);
+            int pDictSize = probeVec.getDictionarySize();
+            int bDictSize = buildVec.getDictionarySize();
+            int[] buildCodeToProbeCode = new int[bDictSize];
+            for (int bCode = 0; bCode < bDictSize; bCode++) {
+                String cat = buildVec.getCategory(bCode);
+                buildCodeToProbeCode[bCode] = probeVec.indexOfCategory(cat);
+            }
+
+            int[] heads = new int[Math.max(1, pDictSize)];
+            Arrays.fill(heads, -1);
+            int[] next = new int[buildSize];
+            boolean unique = true;
+
+            for (int r = buildSize - 1; r >= 0; r--) {
+                int bCode = buildVec.getCode(r);
+                if (bCode < 0) {
+                    next[r] = -1;
+                    continue;
+                }
+                int pCode = buildCodeToProbeCode[bCode];
+                if (pCode < 0) {
+                    next[r] = -1;
+                    continue;
+                }
+                int head = heads[pCode];
+                if (head != -1) {
+                    unique = false;
+                }
+                next[r] = head;
+                heads[pCode] = r;
+            }
+
+            this.uniqueBuildKeys = unique;
+            this.probeVec = probeVec;
+            this.probeDictSize = pDictSize;
+            this.codeHead = heads;
+            this.nextRowIdx = next;
+        }
+
+        @Override
+        void probeUniqueLeft(int start, int end, int[] outRightIdx) {
+            DictionaryColumnVector pVec = this.probeVec;
+            int pDictSize = this.probeDictSize;
+            int[] heads = this.codeHead;
+            for (int l = start; l < end; l++) {
+                int pCode = pVec.getCode(l);
+                outRightIdx[l - start] = (pCode >= 0 && pCode < pDictSize) ? heads[pCode] : -1;
+            }
+        }
+
+        @Override
+        ProbeChunk probeInner(int start, int end) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            DictionaryColumnVector pVec = this.probeVec;
+            int pDictSize = this.probeDictSize;
+            int[] heads = this.codeHead;
+            int[] next = this.nextRowIdx;
+
+            for (int l = start; l < end; l++) {
+                int pCode = pVec.getCode(l);
+                if (pCode >= 0 && pCode < pDictSize) {
+                    for (int r = heads[pCode]; r != -1; r = next[r]) {
+                        if (count == leftIdx.length) {
+                            int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                            leftIdx = Arrays.copyOf(leftIdx, newCap);
+                            rightIdx = Arrays.copyOf(rightIdx, newCap);
+                        }
+                        leftIdx[count] = l;
+                        rightIdx[count] = r;
+                        count++;
+                    }
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+
+        @Override
+        ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            DictionaryColumnVector pVec = this.probeVec;
+            int pDictSize = this.probeDictSize;
+            int[] heads = this.codeHead;
+            int[] next = this.nextRowIdx;
+
+            for (int l = start; l < end; l++) {
+                boolean matchedAny = false;
+                int pCode = pVec.getCode(l);
+                if (pCode >= 0 && pCode < pDictSize) {
+                    for (int r = heads[pCode]; r != -1; r = next[r]) {
+                        if (count == leftIdx.length) {
+                            int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                            leftIdx = Arrays.copyOf(leftIdx, newCap);
+                            rightIdx = Arrays.copyOf(rightIdx, newCap);
+                        }
+                        leftIdx[count] = l;
+                        rightIdx[count] = r;
+                        count++;
+                        matchedAny = true;
+                        if (buildMatched != null) {
+                            buildMatched[r] = true;
+                        }
+                    }
+                }
+                if (!matchedAny && emitUnmatchedProbe) {
+                    if (count == leftIdx.length) {
+                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                    }
+                    leftIdx[count] = l;
+                    rightIdx[count] = -1;
+                    count++;
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. General / Multi-Column / Cross-Type Columnar Hash Join Index
+    // -------------------------------------------------------------------------
+
+    private static final class GeneralColumnarHashJoinIndex extends HashJoinIndex {
+        private final ColumnVector[] buildKeyVecs;
+        private final ColumnVector[] probeKeyVecs;
+        private final int[] buildHashes;
+        private final int mask;
+        private final int[] bucketHead;
+        private final int[] nextRowIdx;
+
+        GeneralColumnarHashJoinIndex(ColumnVector[] buildKeyVecs, ColumnVector[] probeKeyVecs, int buildSize) {
+            super(buildSize);
+            int cap = nextPowerOfTwo(Math.max(16, buildSize));
+            int m = cap - 1;
+            int[] heads = new int[cap];
+            Arrays.fill(heads, -1);
+            int[] next = new int[buildSize];
+            int[] bHashes = new int[buildSize];
+            boolean unique = true;
+
+            for (int r = buildSize - 1; r >= 0; r--) {
+                if (hasAnyNull(buildKeyVecs, r)) {
+                    next[r] = -1;
+                    continue;
+                }
+                int h = computeCompositeHash(buildKeyVecs, r);
+                bHashes[r] = h;
+                int b = h & m;
+                int head = heads[b];
+                if (unique && head != -1) {
+                    for (int c = head; c != -1; c = next[c]) {
+                        if (bHashes[c] == h && rowsEqualAcrossVectors(buildKeyVecs, r, buildKeyVecs, c)) {
+                            unique = false;
+                            break;
+                        }
+                    }
+                }
+                next[r] = head;
+                heads[b] = r;
+            }
+
+            this.uniqueBuildKeys = unique;
+            this.buildKeyVecs = buildKeyVecs;
+            this.probeKeyVecs = probeKeyVecs;
+            this.buildHashes = bHashes;
+            this.mask = m;
+            this.bucketHead = heads;
+            this.nextRowIdx = next;
+        }
+
+        @Override
+        void probeUniqueLeft(int start, int end, int[] outRightIdx) {
+            ColumnVector[] pVecs = this.probeKeyVecs;
+            ColumnVector[] bVecs = this.buildKeyVecs;
+            int[] bHashes = this.buildHashes;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+
+            for (int l = start; l < end; l++) {
+                if (hasAnyNull(pVecs, l)) {
+                    outRightIdx[l - start] = -1;
+                    continue;
+                }
+                int h = computeCompositeHash(pVecs, l);
+                int matched = -1;
+                for (int r = heads[h & m]; r != -1; r = next[r]) {
+                    if (bHashes[r] == h && rowsEqualAcrossVectors(pVecs, l, bVecs, r)) {
+                        matched = r;
+                        break;
+                    }
+                }
+                outRightIdx[l - start] = matched;
+            }
+        }
+
+        @Override
+        ProbeChunk probeInner(int start, int end) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            ColumnVector[] pVecs = this.probeKeyVecs;
+            ColumnVector[] bVecs = this.buildKeyVecs;
+            int[] bHashes = this.buildHashes;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+            boolean unique = this.uniqueBuildKeys;
+
+            for (int l = start; l < end; l++) {
+                if (hasAnyNull(pVecs, l)) {
+                    continue;
+                }
+                int h = computeCompositeHash(pVecs, l);
+                for (int r = heads[h & m]; r != -1; r = next[r]) {
+                    if (bHashes[r] == h && rowsEqualAcrossVectors(pVecs, l, bVecs, r)) {
+                        if (count == leftIdx.length) {
+                            int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                            leftIdx = Arrays.copyOf(leftIdx, newCap);
+                            rightIdx = Arrays.copyOf(rightIdx, newCap);
+                        }
+                        leftIdx[count] = l;
+                        rightIdx[count] = r;
+                        count++;
+                        if (unique) {
+                            break;
+                        }
+                    }
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+
+        @Override
+        ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            ColumnVector[] pVecs = this.probeKeyVecs;
+            ColumnVector[] bVecs = this.buildKeyVecs;
+            int[] bHashes = this.buildHashes;
+            int[] heads = this.bucketHead;
+            int[] next = this.nextRowIdx;
+            int m = this.mask;
+
+            for (int l = start; l < end; l++) {
+                boolean matchedAny = false;
+                if (!hasAnyNull(pVecs, l)) {
+                    int h = computeCompositeHash(pVecs, l);
+                    for (int r = heads[h & m]; r != -1; r = next[r]) {
+                        if (bHashes[r] == h && rowsEqualAcrossVectors(pVecs, l, bVecs, r)) {
+                            if (count == leftIdx.length) {
+                                int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                rightIdx = Arrays.copyOf(rightIdx, newCap);
+                            }
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                            matchedAny = true;
+                            if (buildMatched != null) {
+                                buildMatched[r] = true;
+                            }
+                        }
+                    }
+                }
+                if (!matchedAny && emitUnmatchedProbe) {
+                    if (count == leftIdx.length) {
+                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                    }
+                    leftIdx[count] = l;
+                    rightIdx[count] = -1;
+                    count++;
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+    }
+
+    // =========================================================================
+    // Low-Level Columnar Hashing & Key Equality Helpers
+    // =========================================================================
+
+    private static boolean hasAnyNull(ColumnVector[] vecs, int row) {
+        for (int i = 0; i < vecs.length; i++) {
+            ColumnVector v = vecs[i];
+            if (v == null || row >= v.size() || v.isNull(row)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static int computeCompositeHash(ColumnVector[] vecs, int row) {
+        int h = 1;
+        for (int i = 0; i < vecs.length; i++) {
+            h = 31 * h + hashCell(vecs[i], row);
+        }
+        return mixInt(h);
+    }
+
+    private static int hashCell(ColumnVector vec, int row) {
+        if (vec instanceof IntColumnVector icv) {
+            return Long.hashCode(icv.getRawData()[row]);
+        }
+        if (vec instanceof LongColumnVector lcv) {
+            return Long.hashCode(lcv.getRawData()[row]);
+        }
+        if (vec instanceof StringColumnVector scv) {
+            return scv.hashRow(row);
+        }
+        if (vec instanceof DoubleColumnVector dcv) {
+            double d = dcv.getRawData()[row];
+            if (!Double.isNaN(d) && !Double.isInfinite(d) && d == (long) d) {
+                return Long.hashCode((long) d);
+            }
+            return Double.hashCode(d);
+        }
+        if (vec instanceof FloatColumnVector fcv) {
+            double d = fcv.getRawData()[row];
+            if (!Double.isNaN(d) && !Double.isInfinite(d) && d == (long) d) {
+                return Long.hashCode((long) d);
+            }
+            return Double.hashCode(d);
+        }
+        if (vec instanceof BooleanColumnVector bcv) {
+            return bcv.getRawData()[row] ? 1231 : 1237;
+        }
+        if (vec instanceof DictionaryColumnVector dcv) {
+            String s = dcv.getString(row);
+            if (s == null) {
+                return 0;
+            }
+            byte[] utf8 = s.getBytes( java.nio.charset.StandardCharsets.UTF_8);
+            return StringColumnVector.hashBytes(utf8, 0, utf8.length);
+        }
+        Object val = vec.getObject(row);
+        Object canonical = canonicalKey(val);
+        if (canonical instanceof String s) {
+            byte[] utf8 = s.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return StringColumnVector.hashBytes(utf8, 0, utf8.length);
+        }
+        return canonical != null ? canonical.hashCode() : 0;
+    }
+
+    private static boolean rowsEqualAcrossVectors(ColumnVector[] vecsA, int rowA, ColumnVector[] vecsB, int rowB) {
+        for (int i = 0; i < vecsA.length; i++) {
+            if (!cellsEqual(vecsA[i], rowA, vecsB[i], rowB)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean cellsEqual(ColumnVector vecA, int rowA, ColumnVector vecB, int rowB) {
+        if (vecA instanceof IntColumnVector icvA && vecB instanceof IntColumnVector icvB) {
+            return icvA.getRawData()[rowA] == icvB.getRawData()[rowB];
+        }
+        if (vecA instanceof LongColumnVector lcvA && vecB instanceof LongColumnVector lcvB) {
+            return lcvA.getRawData()[rowA] == lcvB.getRawData()[rowB];
+        }
+        if (vecA instanceof StringColumnVector scvA && vecB instanceof StringColumnVector scvB) {
+            int sA = scvA.getOffsets()[rowA];
+            int lenA = scvA.getOffsets()[rowA + 1] - sA;
+            int sB = scvB.getOffsets()[rowB];
+            int lenB = scvB.getOffsets()[rowB + 1] - sB;
+            return lenA == lenB && Arrays.equals(
+                scvA.getValues(), sA, sA + lenA,
+                scvB.getValues(), sB, sB + lenB
+            );
+        }
+        if (vecA instanceof IntColumnVector icvA && vecB instanceof LongColumnVector lcvB) {
+            return (long) icvA.getRawData()[rowA] == lcvB.getRawData()[rowB];
+        }
+        if (vecA instanceof LongColumnVector lcvA && vecB instanceof IntColumnVector icvB) {
+            return lcvA.getRawData()[rowA] == (long) icvB.getRawData()[rowB];
+        }
+        if (vecA instanceof BooleanColumnVector bcvA && vecB instanceof BooleanColumnVector bcvB) {
+            return bcvA.getRawData()[rowA] == bcvB.getRawData()[rowB];
+        }
+        return keysEqual(vecA.getObject(rowA), vecB.getObject(rowB));
     }
 
     private static Object canonicalKey(Object val) {
@@ -512,52 +2035,20 @@ public final class DataFrameJoiner {
         return Objects.equals(ca, cb);
     }
 
-    private static final class JoinKey {
-        private final Object[] values;
-        private final boolean hasNA;
-        private final int hashCode;
-
-        JoinKey(Object[] values) {
-            this.values = values;
-            boolean na = false;
-            int hash = 1;
-            for (Object val : values) {
-                if (NA.isNA(val)) {
-                    na = true;
-                    break;
-                }
-                Object canonical = canonicalKey(val);
-                hash = 31 * hash + (canonical != null ? canonical.hashCode() : 0);
-            }
-            this.hasNA = na;
-            this.hashCode = hash;
-        }
-
-        boolean hasNA() {
-            return hasNA;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            JoinKey other = (JoinKey) o;
-            if (this.hasNA || other.hasNA) return false;
-            if (this.values.length != other.values.length) return false;
-            for (int i = 0; i < values.length; i++) {
-                if (!keysEqual(this.values[i], other.values[i])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        @Override
-        public int hashCode() {
-            return hashCode;
-        }
+    private static int mixInt(int k) {
+        int h = k * 0x9E3779B9;
+        return h ^ (h >>> 16);
     }
 
-    private record IndexedRow(int index, Row row) {
+    private static int mixLong(long k) {
+        long h = (k ^ (k >>> 32)) * 0x9E3779B97F4A7C15L;
+        return (int) (h ^ (h >>> 32));
+    }
+
+    private static int nextPowerOfTwo(int n) {
+        if (n <= 1) {
+            return 1;
+        }
+        return 1 << (32 - Integer.numberOfLeadingZeros(n - 1));
     }
 }

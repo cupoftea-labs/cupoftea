@@ -219,6 +219,19 @@ public abstract class ColumnVector implements Serializable {
         }
     }
 
+    /**
+     * Copies values (without modifying the shared null BitSet) at {@code srcIndices[0 .. count)} from {@code src}
+     * into {@code this} starting at {@code dstOffset}, where negative indices ({@code -1}) represent unmatched/null rows.
+     */
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        for (int i = 0; i < count; i++) {
+            int srcIdx = srcIndices[i];
+            if (srcIdx >= 0 && !src.isNull(srcIdx)) {
+                this.setObjectValueOnly(dstOffset + i, src.getObject(srcIdx));
+            }
+        }
+    }
+
     protected void setObjectValueOnly(int row, Object value) {
         setObject(row, value);
     }
@@ -234,6 +247,28 @@ public abstract class ColumnVector implements Serializable {
         for (int i = 0; i < count; i++) {
             if (srcNulls.get(srcIndices[i])) {
                 this.nulls.set(dstOffset + i);
+            }
+        }
+    }
+
+    /**
+     * Copies null bit flags at {@code srcIndices[0 .. count)} from {@code src} into {@code this.nulls} starting at {@code dstOffset},
+     * marking any row with {@code srcIndices[i] < 0} as null as well.
+     */
+    public void applyNullsFromNullableIndexed(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (!src.hasNulls()) {
+            for (int i = 0; i < count; i++) {
+                if (srcIndices[i] < 0) {
+                    this.nulls.set(dstOffset + i);
+                }
+            }
+        } else {
+            BitSet srcNulls = src.nulls;
+            for (int i = 0; i < count; i++) {
+                int idx = srcIndices[i];
+                if (idx < 0 || srcNulls.get(idx)) {
+                    this.nulls.set(dstOffset + i);
+                }
             }
         }
     }

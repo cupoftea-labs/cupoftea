@@ -252,6 +252,20 @@ public class FloatColumnVector extends ColumnVector {
         }
     }
 
+    @Override
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof FloatColumnVector floatSrc) {
+            float[] srcData = floatSrc.data;
+            float[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                int idx = srcIndices[i];
+                dstData[dstOffset + i] = idx >= 0 ? srcData[idx] : Float.NaN;
+            }
+        } else {
+            super.copyNullableIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
+    }
+
     // --- Primitive Vectorized Map-Reduce Aggregations ---
 
     private double sumSingleBlock(int start, int end) {
