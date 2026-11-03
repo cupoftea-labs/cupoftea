@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.8] - 2026-11-03
+
+### Performance
+
+- Contiguous cache-line interleaved accumulators in `StreamingDirectAggregator` ([#237](https://github.com/cupoftea-labs/cupoftea/issues/237)):
+  - Introduced `InterleavedNumericAccumulator` using the Array-of-Structs (AoS) pattern to store group statistics contiguously as `[min, max, sum, count]` (32 bytes) fitting entirely within a single CPU cache line.
+  - Eliminated virtual method dispatch loops across separate accumulator objects in hot paths (`accumulate1Brc`, `accumulate1BrcScaled`, and `accumulateFieldDouble/Long/Int/Scaled`).
+  - Replaced scattered multi-array heap lookups (`mins[gid]`, `maxs[gid]`, `sums[gid]`, `counts[gid]`) with contiguous single-array updates updating all metrics simultaneously in CPU registers upon cache hit.
+  - Added unit test suite `InterleavedNumericAccumulatorTest` validating interleaved group aggregations, fixed-point accumulation, and partition merging.
+
 ## [0.20.7] - 2026-11-02
 
 ### Performance
