@@ -231,7 +231,7 @@ public class FastCsvReader {
 
         if (needsInference) {
             if (useSimd && fullBytes != null) {
-                inferTypesFromSampleZeroAlloc(fullBytes, bodyStart, length, delim, quote, escape, colCount, colTypes);
+                inferTypesFromSampleZeroAlloc(fullBytes, bodyStart, length, delim, quote, escape, colCount, colTypes, config);
             } else {
                 inferTypesFromSampleScalar(fullBytes, mappedBuf, bodyStart, length, delim, quote, escape, colCount, colTypes, charset);
             }
@@ -450,9 +450,10 @@ public class FastCsvReader {
         return fields;
     }
 
-    private void inferTypesFromSampleZeroAlloc(byte[] buf, int bodyStart, int length,
-                                               byte delim, byte quote, byte escape,
-                                               int colCount, Class<?>[] colTypes) {
+    public static void inferTypesFromSampleZeroAlloc(byte[] buf, int bodyStart, int length,
+                                                      byte delim, byte quote, byte escape,
+                                                      int colCount, Class<?>[] colTypes,
+                                                      CSVImporterConfiguration config) {
         int maxSampleLines = 64;
         boolean[] allBoolean = new boolean[colCount];
         boolean[] allInt = new boolean[colCount];
@@ -471,7 +472,7 @@ public class FastCsvReader {
         Arrays.fill(allLocalDateTime, true);
         Arrays.fill(allInstant, true);
 
-        boolean fullInference = config.isInferTypes();
+        boolean fullInference = config != null && config.isInferTypes();
         boolean hasQuote = (quote != ICSVParser.NULL_CHARACTER);
         boolean hasEscape = (escape != ICSVParser.NULL_CHARACTER && escape != quote);
 
@@ -530,7 +531,7 @@ public class FastCsvReader {
         }
 
         assignInferredColumnTypes(colCount, colTypes, hasValue, allBoolean, allInt, allLong, allDouble,
-                allLocalDate, allLocalDateTime, allInstant);
+                allLocalDate, allLocalDateTime, allInstant, config);
     }
 
     private static void inspectSampleCellBytes(
@@ -741,17 +742,18 @@ public class FastCsvReader {
         }
 
         assignInferredColumnTypes(colCount, colTypes, hasValue, allBoolean, allInt, allLong, allDouble,
-                allLocalDate, allLocalDateTime, allInstant);
+                allLocalDate, allLocalDateTime, allInstant, config);
     }
 
-    private void assignInferredColumnTypes(int colCount, Class<?>[] colTypes,
-                                           boolean[] hasValue, boolean[] allBoolean,
-                                           boolean[] allInt, boolean[] allLong, boolean[] allDouble,
-                                           boolean[] allLocalDate, boolean[] allLocalDateTime, boolean[] allInstant) {
+    private static void assignInferredColumnTypes(int colCount, Class<?>[] colTypes,
+                                                  boolean[] hasValue, boolean[] allBoolean,
+                                                  boolean[] allInt, boolean[] allLong, boolean[] allDouble,
+                                                  boolean[] allLocalDate, boolean[] allLocalDateTime, boolean[] allInstant,
+                                                  CSVImporterConfiguration config) {
         for (int i = 0; i < colCount; i++) {
             if (colTypes[i] != null) continue;
 
-            if (config.isInferTypes()) {
+            if (config != null && config.isInferTypes()) {
                 if (!hasValue[i]) {
                     colTypes[i] = String.class;
                 } else if (allBoolean[i]) {
@@ -771,7 +773,7 @@ public class FastCsvReader {
                 } else {
                     colTypes[i] = String.class;
                 }
-            } else if (config.isInferNumericTypes()) {
+            } else if (config != null && config.isInferNumericTypes()) {
                 if (!hasValue[i]) {
                     colTypes[i] = String.class;
                 } else if (allInt[i]) {

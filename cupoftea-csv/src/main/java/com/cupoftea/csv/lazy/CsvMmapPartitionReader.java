@@ -32,6 +32,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
     private final Class<?>[] colTypes;
     private final byte[] colTypeIds;
     private final CSVImporterConfiguration config;
+    private final long projectedColumnsMask;
 
     private final long staticStart;
     private final long staticEnd;
@@ -50,7 +51,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
             byte[] colTypeIds,
             CSVImporterConfiguration config) {
         this(channel, null, 0, startOffset, (int) Math.max(0, endOffset - startOffset), null,
-                colNames, colTypes, colTypeIds, config, startOffset, endOffset);
+                colNames, colTypes, colTypeIds, config, -1L, startOffset, endOffset);
     }
 
     /**
@@ -68,7 +69,23 @@ public class CsvMmapPartitionReader implements PartitionReader {
             byte[] colTypeIds,
             CSVImporterConfiguration config) {
         this(channel, cursor, fileLength, dataStartOffset, segmentSize, activeReaders,
-                colNames, colTypes, colTypeIds, config, -1, -1);
+                colNames, colTypes, colTypeIds, config, -1L, -1, -1);
+    }
+
+    public CsvMmapPartitionReader(
+            FileChannel channel,
+            AtomicLong cursor,
+            long fileLength,
+            long dataStartOffset,
+            int segmentSize,
+            AtomicInteger activeReaders,
+            String[] colNames,
+            Class<?>[] colTypes,
+            byte[] colTypeIds,
+            CSVImporterConfiguration config,
+            long projectedColumnsMask) {
+        this(channel, cursor, fileLength, dataStartOffset, segmentSize, activeReaders,
+                colNames, colTypes, colTypeIds, config, projectedColumnsMask, -1, -1);
     }
 
     private CsvMmapPartitionReader(
@@ -82,6 +99,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
             Class<?>[] colTypes,
             byte[] colTypeIds,
             CSVImporterConfiguration config,
+            long projectedColumnsMask,
             long staticStart,
             long staticEnd) {
         this.channel = channel;
@@ -94,6 +112,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
         this.colTypes = colTypes;
         this.colTypeIds = colTypeIds;
         this.config = config;
+        this.projectedColumnsMask = projectedColumnsMask;
         this.staticStart = staticStart;
         this.staticEnd = staticEnd;
     }

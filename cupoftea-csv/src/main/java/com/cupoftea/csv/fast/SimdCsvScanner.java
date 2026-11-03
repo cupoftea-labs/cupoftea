@@ -1732,6 +1732,10 @@ public final class SimdCsvScanner {
             StreamingDirectAggregator aggregator, DirectRowState rowState,
             boolean isIso88591, boolean customNaStrings, Set<String> naStrings) {
 
+        if (!aggregator.isGroupOrAggColumn(colIdx)) {
+            return;
+        }
+
         boolean isNa = FastByteParser.isNaOrEmpty(buf, start, end)
                 || (customNaStrings && isCustomNa(buf, start, end, naStrings));
 
@@ -1863,6 +1867,10 @@ public final class SimdCsvScanner {
             byte[][] fieldBufHolder, int colIdx, byte typeId,
             StreamingDirectAggregator aggregator, DirectRowState rowState,
             boolean isIso88591, boolean customNaStrings, Set<String> naStrings) {
+
+        if (!aggregator.isGroupOrAggColumn(colIdx)) {
+            return;
+        }
 
         if (quoteCount == 2 && (end - start) >= 2 && buf[start] == quote && buf[end - 1] == quote
                 && (!hasEscape || !containsByte(buf, start + 1, end - 1, escape))) {
