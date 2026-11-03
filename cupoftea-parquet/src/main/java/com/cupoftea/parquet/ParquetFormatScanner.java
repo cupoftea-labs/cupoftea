@@ -2,16 +2,13 @@ package com.cupoftea.parquet;
 
 import java.io.File;
 
-import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.ImportException;
-import com.cupoftea.importers.ParquetImporter;
-import com.cupoftea.lazy.InMemoryLazySource;
 import com.cupoftea.lazy.LazySource;
 import com.cupoftea.spi.FormatScanner;
 import com.cupoftea.spi.ScanOptions;
 
 /**
- * {@link FormatScanner} provider for lazy Parquet scans.
+ * {@link FormatScanner} provider for lazy Parquet scans with projection pushdown.
  */
 public class ParquetFormatScanner implements FormatScanner {
 
@@ -34,9 +31,6 @@ public class ParquetFormatScanner implements FormatScanner {
             throw new ImportException("Parquet file or path must be provided");
         }
 
-        CupOfTea target = new CupOfTea();
-        ParquetImporter importer = new ParquetImporter(target);
-        importer.importFromParquet(file);
-        return new InMemoryLazySource(target);
+        return new ParquetLazySource(file, options);
     }
 }

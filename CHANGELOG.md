@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.4] - 2026-11-03
+
+### Performance
+
+- Native Columnar Parquet Reader and Scanner with JDK 23+ compatibility and Projection Pushdown ([#257](https://github.com/cupoftea-labs/cupoftea/issues/257)):
+  - Replaced `HadoopInputFile` and `HadoopOutputFile` with `LocalInputFile` and `LocalOutputFile` using `PlainParquetConfiguration`, completely bypassing Hadoop's `UserGroupInformation` and `Subject.getSubject()` to ensure full native support across JDK 21, 23, 25, and 27+.
+  - Replaced row-by-row `AvroParquetReader` and `GenericRecord` decoding with direct vectorized columnar ingestion into primitive `ColumnVector` instances (`IntColumnVector`, `LongColumnVector`, `DoubleColumnVector`, `FloatColumnVector`, `BooleanColumnVector`, and `StringColumnVector`).
+  - Added `ParquetLazySource` in `cupoftea-parquet` supporting column projection pushdown directly to `ParquetFileReader` so unneeded column chunks are never read from disk.
+
 ## [0.21.3] - 2026-11-03
 
 ### Performance

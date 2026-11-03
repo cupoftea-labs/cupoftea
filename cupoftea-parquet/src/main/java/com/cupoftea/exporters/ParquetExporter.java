@@ -3,17 +3,15 @@ package com.cupoftea.exporters;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetWriter;
+import org.apache.parquet.conf.PlainParquetConfiguration;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.apache.parquet.hadoop.util.HadoopOutputFile;
+import org.apache.parquet.io.LocalOutputFile;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -23,7 +21,6 @@ import com.cupoftea.exporters.interfaces.IParquetExporter;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.Row;
 
-
 public class ParquetExporter implements IParquetExporter {
 
     private CupOfTea dataFrame;
@@ -31,7 +28,6 @@ public class ParquetExporter implements IParquetExporter {
     public ParquetExporter(CupOfTea dataFrame){
         this.dataFrame = dataFrame;
     }
-
 
     /**
      * Create a PARQUET file from the data frame.
@@ -84,11 +80,10 @@ public class ParquetExporter implements IParquetExporter {
                 ;
 
             Schema schema = new Schema.Parser().parse(schemaJson.toString());
-            
-            Path path = new Path(file.toString());
-            Configuration conf = new Configuration();
 
-            HadoopOutputFile outputFile = HadoopOutputFile.fromPath(path, conf);
+            LocalOutputFile outputFile = new LocalOutputFile(file.toPath());
+            PlainParquetConfiguration conf = new PlainParquetConfiguration();
+
             try (ParquetWriter<GenericRecord> writer = AvroParquetWriter.<GenericRecord>builder(outputFile)
                     .withSchema(schema)
                     .withCompressionCodec(CompressionCodecName.SNAPPY)
