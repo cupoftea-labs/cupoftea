@@ -674,6 +674,36 @@ public class Aggregations {
     private static Aggregate createVarAggregate(String column, String defaultOutputName, boolean isSample) {
         return new BaseAggregate(column, defaultOutputName, Aggregation.VAR) {
             @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createVarianceAccumulator(numGroups, vector, getOutputColumnName(), isSample);
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                double v = vector.variance(isSample);
+                return Double.isNaN(v) ? null : v;
+            }
+
+            @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 double[] vals = extractDoubleArray(rows, column);
                 if (vals.length < (isSample ? 2 : 1)) {
@@ -705,6 +735,36 @@ public class Aggregations {
 
     private static Aggregate createStdAggregate(String column, String defaultOutputName, boolean isSample) {
         return new BaseAggregate(column, defaultOutputName, Aggregation.STD) {
+            @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createStdAccumulator(numGroups, vector, getOutputColumnName(), isSample);
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                double s = vector.standardDeviation(isSample);
+                return Double.isNaN(s) ? null : s;
+            }
+
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 double[] vals = extractDoubleArray(rows, column);

@@ -1438,8 +1438,8 @@ public class CompactRunningGroupBy {
     static class StdAccumulator implements RunningAccumulator {
         private final boolean isStd;
         private long[] counts = new long[16];
-        private double[] sums = new double[16];
-        private double[] sumSqs = new double[16];
+        private double[] means = new double[16];
+        private double[] m2s = new double[16];
 
         StdAccumulator(boolean isStd) {
             this.isStd = isStd;
@@ -1450,26 +1450,28 @@ public class CompactRunningGroupBy {
             if (minCapacity > counts.length) {
                 int newCap = Math.max(counts.length * 2, minCapacity);
                 counts = Arrays.copyOf(counts, newCap);
-                sums = Arrays.copyOf(sums, newCap);
-                sumSqs = Arrays.copyOf(sumSqs, newCap);
+                means = Arrays.copyOf(means, newCap);
+                m2s = Arrays.copyOf(m2s, newCap);
             }
         }
 
         @Override
         public void accumulate(int gid, ColumnVector vector, int row) {
             if (vector != null && !vector.isNull(row)) {
-                double v = vector.getDouble(row);
-                counts[gid]++;
-                sums[gid] += v;
-                sumSqs[gid] += v * v;
+                accumulateDouble(gid, vector.getDouble(row));
             }
         }
 
         @Override
         public void accumulateDouble(int gid, double value) {
-            counts[gid]++;
-            sums[gid] += value;
-            sumSqs[gid] += value * value;
+            if (Double.isNaN(value)) return;
+            long n = counts[gid] + 1;
+            counts[gid] = n;
+            double delta = value - means[gid];
+            double mean = means[gid] + delta / n;
+            means[gid] = mean;
+            double delta2 = value - mean;
+            m2s[gid] += delta * delta2;
         }
 
         @Override
@@ -1485,9 +1487,20 @@ public class CompactRunningGroupBy {
         @Override
         public void merge(RunningAccumulator other, int thisGid, int otherGid) {
             StdAccumulator o = (StdAccumulator) other;
-            this.counts[thisGid] += o.counts[otherGid];
-            this.sums[thisGid] += o.sums[otherGid];
-            this.sumSqs[thisGid] += o.sumSqs[otherGid];
+            long nB = o.counts[otherGid];
+            if (nB == 0) return;
+            long nA = this.counts[thisGid];
+            if (nA == 0) {
+                this.counts[thisGid] = nB;
+                this.means[thisGid] = o.means[otherGid];
+                this.m2s[thisGid] = o.m2s[otherGid];
+            } else {
+                long nAB = nA + nB;
+                double delta = o.means[otherGid] - this.means[thisGid];
+                this.means[thisGid] = (nA * this.means[thisGid] + nB * o.means[otherGid]) / nAB;
+                this.m2s[thisGid] += o.m2s[otherGid] + delta * delta * ((double) nA * nB / (double) nAB);
+                this.counts[thisGid] = nAB;
+            }
         }
 
         @Override
@@ -1499,10 +1512,8 @@ public class CompactRunningGroupBy {
                 if (n <= 1) {
                     nulls.set(g);
                 } else {
-                    double s = sums[g];
-                    double sq = sumSqs[g];
-                    double variance = (sq - (s * s) / n) / (n - 1);
-                    if (variance < 0) variance = 0;
+                    double variance = m2s[g] / (double) (n - 1);
+                    if (variance < 0) variance = 0.0;
                     data[g] = isStd ? Math.sqrt(variance) : variance;
                 }
             }

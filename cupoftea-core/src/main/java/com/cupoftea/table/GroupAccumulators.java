@@ -106,6 +106,22 @@ public final class GroupAccumulators {
         return new ListAggAccumulator(numGroups, vector, separator, outputName);
     }
 
+    public static GroupAccumulator createVarianceAccumulator(
+            int numGroups, ColumnVector vector, String outputName, boolean isSample) {
+        if (vector == null) {
+            return new NullAccumulator(outputName, Double.class);
+        }
+        return new WelfordVarianceAccumulator(numGroups, vector, outputName, isSample, false);
+    }
+
+    public static GroupAccumulator createStdAccumulator(
+            int numGroups, ColumnVector vector, String outputName, boolean isSample) {
+        if (vector == null) {
+            return new NullAccumulator(outputName, Double.class);
+        }
+        return new WelfordVarianceAccumulator(numGroups, vector, outputName, isSample, true);
+    }
+
     // --- Concrete Accumulator Classes ---
 
     private static class NullAccumulator implements GroupAccumulator {
@@ -1239,5 +1255,96 @@ public final class GroupAccumulators {
             return ((Comparable) a).compareTo(b);
         }
         return 0;
+    }
+
+    public static class WelfordVarianceAccumulator implements GroupAccumulator {
+        private final long[] counts;
+        private final double[] means;
+        private final double[] m2s;
+        private final ColumnVector vec;
+        private final String outputName;
+        private final boolean isSample;
+        private final boolean isStd;
+
+        public WelfordVarianceAccumulator(int numGroups, ColumnVector vec, String outputName, boolean isSample, boolean isStd) {
+            this.counts = new long[numGroups];
+            this.means = new double[numGroups];
+            this.m2s = new double[numGroups];
+            this.vec = vec;
+            this.outputName = outputName;
+            this.isSample = isSample;
+            this.isStd = isStd;
+        }
+
+        @Override
+        public void accumulate(int groupId, int row) {
+            if (vec == null || vec.isNull(row)) return;
+            double val;
+            if (vec instanceof DoubleColumnVector dcv) {
+                val = dcv.getDouble(row);
+                if (Double.isNaN(val)) return;
+            } else if (vec instanceof IntColumnVector icv) {
+                val = icv.getInt(row);
+            } else if (vec instanceof LongColumnVector lcv) {
+                val = lcv.getLong(row);
+            } else if (vec instanceof FloatColumnVector fcv) {
+                val = fcv.getFloat(row);
+            } else {
+                Object obj = vec.getObject(row);
+                if (obj == null || NA.isNA(obj)) return;
+                BigDecimal bd = Aggregations.toBigDecimal(obj);
+                if (bd == null) return;
+                val = bd.doubleValue();
+            }
+
+            long n = counts[groupId] + 1;
+            counts[groupId] = n;
+            double delta = val - means[groupId];
+            double mean = means[groupId] + delta / n;
+            means[groupId] = mean;
+            double delta2 = val - mean;
+            m2s[groupId] += delta * delta2;
+        }
+
+        @Override
+        public void merge(GroupAccumulator other) {
+            if (other instanceof WelfordVarianceAccumulator o) {
+                for (int i = 0; i < counts.length; i++) {
+                    long nB = o.counts[i];
+                    if (nB == 0) continue;
+                    long nA = counts[i];
+                    if (nA == 0) {
+                        counts[i] = nB;
+                        means[i] = o.means[i];
+                        m2s[i] = o.m2s[i];
+                    } else {
+                        long nAB = nA + nB;
+                        double delta = o.means[i] - means[i];
+                        means[i] = (nA * means[i] + nB * o.means[i]) / nAB;
+                        m2s[i] += o.m2s[i] + delta * delta * ((double) nA * nB / (double) nAB);
+                        counts[i] = nAB;
+                    }
+                }
+            }
+        }
+
+        @Override
+        public ColumnVector finish(int numGroups) {
+            DoubleColumnVector out = new DoubleColumnVector(outputName, Math.max(16, numGroups), true);
+            out.setSizeUnchecked(numGroups);
+            int minCount = isSample ? 2 : 1;
+            for (int i = 0; i < numGroups; i++) {
+                long n = counts[i];
+                if (n < minCount) {
+                    out.setDouble(i, Double.NaN);
+                    out.setNull(i);
+                } else {
+                    double variance = m2s[i] / (double) (isSample ? (n - 1) : n);
+                    if (variance < 0) variance = 0.0;
+                    out.setDouble(i, isStd ? Math.sqrt(variance) : variance);
+                }
+            }
+            return out;
+        }
     }
 }
