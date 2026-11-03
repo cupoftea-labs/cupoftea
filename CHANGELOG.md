@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.3] - 2026-11-03
+
+### Performance
+
+- Single-pass vectorized multivariate aggregations and online Welford standard deviation / variance ([#255](https://github.com/cupoftea-labs/cupoftea/issues/255)):
+  - Implemented primitive online Welford accumulation (`WelfordVarianceAccumulator`) for sample/population `STD` and `VAR` maintaining `long count`, `double mean`, and `double m2` per group in a single pass.
+  - Implemented parallel chunk reduction using Chan et al.'s exact combination formula ($\delta = \mu_B - \mu_A$, $M_{2,AB} = M_{2,A} + M_{2,B} + \delta^2 \frac{n_A n_B}{n_A + n_B}$) across thread partitions.
+  - Enabled native vectorized single-pass evaluation for `Aggregations.std(...)` and `Aggregations.var(...)` in `GroupBy`, preventing degradation into object-oriented row materialization fallback during complex multivariate group operations.
+  - Updated `CompactRunningGroupBy.StdAccumulator` to use online Welford mean and $M_2$ updating with Chan merging, eliminating catastrophic numerical cancellation.
+  - Reduced `PolarsGroupByBenchmark.groupByMultivariateSinglePassParallel` (100,000 rows) execution time from ~50.28 ms to ~1.75 ms (~28.6x speedup) and reduced memory allocation from ~996 B/row to ~47.6 B/row (>20x reduction).
+
 ## [0.21.2] - 2026-11-03
 
 ### Performance

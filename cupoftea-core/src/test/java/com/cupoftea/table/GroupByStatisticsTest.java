@@ -129,4 +129,69 @@ public class GroupByStatisticsTest {
         CupOfTea res3 = df.groupBy("department").agg(Aggregation.QUANTILE, "salary", 0.75, "q75");
         assertThat(res3.getColumnHeader("q75")).isNotNull();
     }
+
+    @Test
+    @DisplayName("Single-pass multivariate parallel GroupBy with Welford std and var matches exact sequential results")
+    void test_groupBy_multivariate_single_pass_parallel_welford() {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("group", String.class)
+          .addColumn("val1", Double.class)
+          .addColumn("val2", Long.class);
+
+        // Generate synthetic rows split across multiple groups
+        int rows = 20_000;
+        for (int i = 0; i < rows; i++) {
+            String grp = "grp_" + (i % 8);
+            double v1 = (i * 1.5) % 100.0;
+            long v2 = (i * 7L) % 250L;
+            df.addRow(Map.of("group", grp, "val1", v1, "val2", v2));
+        }
+
+        CupOfTea seq = df.asSequential().groupBy("group").agg(
+            Aggregations.sum("val1").as("sum_v1"),
+            Aggregations.mean("val1").as("mean_v1"),
+            Aggregations.var("val1").as("var_v1"),
+            Aggregations.std("val1").as("std_v1"),
+            Aggregations.min("val2").as("min_v2"),
+            Aggregations.max("val2").as("max_v2"),
+            Aggregations.sum("val2").as("sum_v2"),
+            Aggregations.mean("val2").as("mean_v2"),
+            Aggregations.var("val2").as("var_v2"),
+            Aggregations.std("val2").as("std_v2")
+        );
+
+        CupOfTea par = df.asParallel().groupBy("group").agg(
+            Aggregations.sum("val1").as("sum_v1"),
+            Aggregations.mean("val1").as("mean_v1"),
+            Aggregations.var("val1").as("var_v1"),
+            Aggregations.std("val1").as("std_v1"),
+            Aggregations.min("val2").as("min_v2"),
+            Aggregations.max("val2").as("max_v2"),
+            Aggregations.sum("val2").as("sum_v2"),
+            Aggregations.mean("val2").as("mean_v2"),
+            Aggregations.var("val2").as("var_v2"),
+            Aggregations.std("val2").as("std_v2")
+        );
+
+        assertThat(seq.size()).isEqualTo(8);
+        assertThat(par.size()).isEqualTo(8);
+
+        for (int g = 0; g < 8; g++) {
+            String grp = "grp_" + g;
+            Row rSeq = seq.filter(r -> grp.equals(r.get("group"))).getRow(0);
+            Row rPar = par.filter(r -> grp.equals(r.get("group"))).getRow(0);
+
+            assertThat(rPar.getDouble("sum_v1")).isCloseTo(rSeq.getDouble("sum_v1"), offset(1e-6));
+            assertThat(rPar.getDouble("mean_v1")).isCloseTo(rSeq.getDouble("mean_v1"), offset(1e-6));
+            assertThat(rPar.getDouble("var_v1")).isCloseTo(rSeq.getDouble("var_v1"), offset(1e-6));
+            assertThat(rPar.getDouble("std_v1")).isCloseTo(rSeq.getDouble("std_v1"), offset(1e-6));
+
+            assertThat(rPar.getLong("min_v2")).isEqualTo(rSeq.getLong("min_v2"));
+            assertThat(rPar.getLong("max_v2")).isEqualTo(rSeq.getLong("max_v2"));
+            assertThat(rPar.getLong("sum_v2")).isEqualTo(rSeq.getLong("sum_v2"));
+            assertThat(rPar.getDouble("mean_v2")).isCloseTo(rSeq.getDouble("mean_v2"), offset(1e-6));
+            assertThat(rPar.getDouble("var_v2")).isCloseTo(rSeq.getDouble("var_v2"), offset(1e-6));
+            assertThat(rPar.getDouble("std_v2")).isCloseTo(rSeq.getDouble("std_v2"), offset(1e-6));
+        }
+    }
 }
