@@ -23,6 +23,13 @@ public final class FastByteParser {
     private static final long LO_BITS = 0x0101010101010101L;
     private static final long HI_BITS = 0x8080808080808080L;
 
+    /**
+     * Magic multiplier constant for SWAR fixed-point decimal parsing.
+     * Derived by Quan Anh Mai (merykitty) for 1BRC: packs units, tens, and hundreds
+     * digits into a 64-bit word and extracts the absolute integer value in tenths or hundredths.
+     */
+    private static final long MAGIC_DECIMAL_10 = 0x640a0001L;
+
     private FastByteParser() {
     }
 
@@ -157,10 +164,10 @@ public final class FastByteParser {
      * Throws NumberFormatException if invalid.
      */
     public static int parseInt(byte[] buf, int start, int end) {
-        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r' || buf[start] == '\n')) {
             start++;
         }
-        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r' || buf[end - 1] == '\n')) {
             end--;
         }
         if (start >= end) {
@@ -177,6 +184,20 @@ public final class FastByteParser {
         int digitsLen = end - start;
         if (digitsLen <= 0) {
             throw new NumberFormatException("Invalid integer format");
+        }
+        if (digitsLen <= 8 && start + 8 <= buf.length) {
+            long word = (long) LONG_LE.get(buf, start);
+            long mask = (~0L >>> ((8 - digitsLen) << 3));
+            long val = word & mask;
+            if (((val & 0xF0F0F0F0F0F0F0F0L & mask) == (0x3030303030303030L & mask))
+                    && (((val + 0x0606060606060606L) & 0xF0F0F0F0F0F0F0F0L & mask) == (0x3030303030303030L & mask))) {
+                long shifted = val << ((8 - digitsLen) << 3);
+                long v = (shifted & 0x0F0F0F0F0F0F0F0FL) * 2561L >>> 8;
+                v = (v & 0x00FF00FF00FF00FFL) * 6553601L >>> 16;
+                v = (v & 0x0000FFFF0000FFFFL) * 42949672960001L >>> 32;
+                int result = (int) v;
+                return negative ? -result : result;
+            }
         }
         if (digitsLen <= 9) {
             int result = 0;
@@ -356,6 +377,137 @@ public final class FastByteParser {
             return Double.parseDouble(new String(buf, origStart, end - origStart, StandardCharsets.ISO_8859_1));
         }
 
+        return negative ? -val : val;
+    }
+
+    /**
+     * Parses a 1-decimal fixed-point number (e.g., -12.3, 4.5, -99.9, 105.2) into a scaled long
+     * representing tenths (value * 10). Uses Quan Anh Mai's SWAR bitshift digit unpacking algorithm
+     * for high-speed branchless execution without floating-point operations.
+     *
+     * @param buf byte buffer containing the ASCII digits
+     * @param start start index (inclusive)
+     * @param end end index (exclusive)
+     * @return signed long value scaled by 10 (e.g. "12.3" -> 123L, "-5.6" -> -56L)
+     */
+    public static long parseFixedPoint1(byte[] buf, int start, int end) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+            start++;
+        }
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+            end--;
+        }
+        int len = end - start;
+        if (len <= 0) {
+            throw new NumberFormatException("Empty decimal number");
+        }
+        // Fast path: if 8 bytes are safely readable from buffer, use Quan Anh Mai's branchless SWAR algorithm
+        // Works for 1- or 2-digit integer part + 1 decimal digit (e.g. -99.9 .. 99.9)
+        if (len <= 5 && start + 8 <= buf.length) {
+            long word = (long) LONG_LE.get(buf, start);
+            long mask = (~0L >>> ((8 - len) << 3));
+            long masked = word & mask;
+            int dotPos = Long.numberOfTrailingZeros(~masked & 0x10101000L);
+            long signed = (~masked << 59) >> 63;
+            int intDigitsCount = (dotPos >>> 3) - (signed != 0 ? 1 : 0);
+            if (dotPos < 64 && (dotPos >>> 3) == len - 2 && buf[start + (dotPos >>> 3)] == '.'
+                    && intDigitsCount >= 1 && intDigitsCount <= 2) {
+                long removeSignMask = ~(signed & 0xFFL);
+                long digits = ((masked & removeSignMask) << (28 - dotPos)) & 0x0F000F0F00L;
+                long absValue = ((digits * MAGIC_DECIMAL_10) >>> 32) & 0x3FFL;
+                return (absValue ^ signed) - signed;
+            }
+        }
+        return parseFixedPointGeneral(buf, start, end, 1);
+    }
+
+    /**
+     * Parses a 2-decimal fixed-point number (e.g., -12.34, 1.99, 100.50) into a scaled long
+     * representing hundredths (value * 100).
+     *
+     * @param buf byte buffer containing the ASCII digits
+     * @param start start index (inclusive)
+     * @param end end index (exclusive)
+     * @return signed long value scaled by 100 (e.g. "12.34" -> 1234L, "-0.99" -> -99L)
+     */
+    public static long parseFixedPoint2(byte[] buf, int start, int end) {
+        while (start < end && buf[start] <= ' ' && (buf[start] == ' ' || buf[start] == '\t' || buf[start] == '\r')) {
+            start++;
+        }
+        while (end > start && buf[end - 1] <= ' ' && (buf[end - 1] == ' ' || buf[end - 1] == '\t' || buf[end - 1] == '\r')) {
+            end--;
+        }
+        int len = end - start;
+        if (len <= 0) {
+            throw new NumberFormatException("Empty decimal number");
+        }
+        // Fast path: if 8 bytes are safely readable from buffer, use SWAR bitshift unpacking
+        if (len <= 6 && start + 8 <= buf.length) {
+            long word = (long) LONG_LE.get(buf, start);
+            long mask = (~0L >>> ((8 - len) << 3));
+            long masked = word & mask;
+            int dotPos = Long.numberOfTrailingZeros(~masked & 0x10101000L);
+            long signed = (~masked << 59) >> 63;
+            int intDigitsCount = (dotPos >>> 3) - (signed != 0 ? 1 : 0);
+            if (dotPos < 64 && (dotPos >>> 3) == len - 3 && buf[start + (dotPos >>> 3)] == '.'
+                    && intDigitsCount >= 1 && intDigitsCount <= 2) {
+                long removeSignMask = ~(signed & 0xFFL);
+                int shift = 32 - (dotPos & ~7);
+                long aligned = (masked & removeSignMask) << shift;
+                long intPart = (((aligned >>> 16) & 0x0F0FL) * 0x0A01L) >>> 8;
+                long fracPart = (((aligned >>> 40) & 0x0F0FL) * 0x0A01L) >>> 8;
+                long absVal = (intPart & 0xFFL) * 100L + (fracPart & 0xFFL);
+                return (absVal ^ signed) - signed;
+            }
+        }
+        return parseFixedPointGeneral(buf, start, end, 2);
+    }
+
+    /**
+     * General fallback parser for fixed-point decimal values with arbitrary scale without floating-point division.
+     */
+    public static long parseFixedPointGeneral(byte[] buf, int start, int end, int targetScale) {
+        boolean negative = false;
+        if (buf[start] == '-') {
+            negative = true;
+            start++;
+        } else if (buf[start] == '+') {
+            start++;
+        }
+        if (start >= end) {
+            throw new NumberFormatException("Invalid fixed-point decimal format");
+        }
+        long integerPart = 0L;
+        int i = start;
+        boolean hasDigits = false;
+        while (i < end && buf[i] >= '0' && buf[i] <= '9') {
+            integerPart = integerPart * 10L + (buf[i] - '0');
+            hasDigits = true;
+            i++;
+        }
+        long fracPart = 0L;
+        int fracDigits = 0;
+        if (i < end && buf[i] == '.') {
+            i++;
+            while (i < end && buf[i] >= '0' && buf[i] <= '9') {
+                if (fracDigits < targetScale) {
+                    fracPart = fracPart * 10L + (buf[i] - '0');
+                    fracDigits++;
+                }
+                hasDigits = true;
+                i++;
+            }
+        }
+        if (!hasDigits || i < end) {
+            // Not a simple fixed-point decimal, fall back to parseDouble scaled
+            double d = parseDouble(buf, start - (negative ? 1 : 0), end);
+            return Math.round(d * POW10[targetScale]);
+        }
+        while (fracDigits < targetScale) {
+            fracPart *= 10L;
+            fracDigits++;
+        }
+        long val = integerPart * (long) POW10[targetScale] + fracPart;
         return negative ? -val : val;
     }
 

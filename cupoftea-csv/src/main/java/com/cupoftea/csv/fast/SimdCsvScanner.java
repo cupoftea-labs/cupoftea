@@ -1379,8 +1379,19 @@ public final class SimdCsvScanner {
                             lastCrOffset = absoluteOffset;
                         }
                         if (delimPos >= rowStart) {
-                            double val = FastByteParser.parseDouble(buf, delimPos + 1, absoluteOffset);
-                            aggregator.accumulate1Brc(buf, rowStart, delimPos - rowStart, val);
+                            int valStart = delimPos + 1;
+                            int valEnd = absoluteOffset;
+                            int vLen = valEnd - valStart;
+                            if (vLen >= 3 && vLen <= 6 && valStart + 8 <= buf.length && buf[valEnd - 2] == '.') {
+                                long scaled = FastByteParser.parseFixedPoint1(buf, valStart, valEnd);
+                                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 1);
+                            } else if (vLen >= 4 && vLen <= 7 && valStart + 8 <= buf.length && buf[valEnd - 3] == '.') {
+                                long scaled = FastByteParser.parseFixedPoint2(buf, valStart, valEnd);
+                                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 2);
+                            } else {
+                                double val = FastByteParser.parseDouble(buf, valStart, valEnd);
+                                aggregator.accumulate1Brc(buf, rowStart, delimPos - rowStart, val);
+                            }
                         }
                         rowStart = absoluteOffset + 1;
                         delimPos = -1;
@@ -1391,8 +1402,19 @@ public final class SimdCsvScanner {
         }
 
         if (delimPos >= rowStart && delimPos < end) {
-            double val = FastByteParser.parseDouble(buf, delimPos + 1, end);
-            aggregator.accumulate1Brc(buf, rowStart, delimPos - rowStart, val);
+            int valStart = delimPos + 1;
+            int valEnd = end;
+            int vLen = valEnd - valStart;
+            if (vLen >= 3 && vLen <= 6 && valStart + 8 <= buf.length && buf[valEnd - 2] == '.') {
+                long scaled = FastByteParser.parseFixedPoint1(buf, valStart, valEnd);
+                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 1);
+            } else if (vLen >= 4 && vLen <= 7 && valStart + 8 <= buf.length && buf[valEnd - 3] == '.') {
+                long scaled = FastByteParser.parseFixedPoint2(buf, valStart, valEnd);
+                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 2);
+            } else {
+                double val = FastByteParser.parseDouble(buf, valStart, valEnd);
+                aggregator.accumulate1Brc(buf, rowStart, delimPos - rowStart, val);
+            }
         }
     }
 

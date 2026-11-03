@@ -231,6 +231,16 @@ public class CompactRunningGroupBy {
         default void accumulateDouble(int gid, double value) {}
         default void accumulateLong(int gid, long value) { accumulateDouble(gid, (double) value); }
         default void accumulateInt(int gid, int value) { accumulateDouble(gid, (double) value); }
+        default void accumulateScaled(int gid, long scaledValue, int scale) {
+            double divisor = switch (scale) {
+                case 1 -> 10.0;
+                case 2 -> 100.0;
+                case 3 -> 1000.0;
+                case 4 -> 10000.0;
+                default -> Math.pow(10, scale);
+            };
+            accumulateDouble(gid, (double) scaledValue / divisor);
+        }
         default void accumulateObject(int gid, Object value) {
             if (value instanceof Number n) {
                 accumulateDouble(gid, n.doubleValue());
@@ -990,6 +1000,17 @@ public class CompactRunningGroupBy {
         }
 
         @Override
+        public void accumulateScaled(int gid, long scaledValue, int scale) {
+            double divisor = switch (scale) {
+                case 1 -> 10.0;
+                case 2 -> 100.0;
+                default -> Math.pow(10, scale);
+            };
+            sums[gid] += (double) scaledValue / divisor;
+            hasValues[gid] = true;
+        }
+
+        @Override
         public void merge(RunningAccumulator other, int thisGid, int otherGid) {
             SumAccumulator o = (SumAccumulator) other;
             if (o.hasValues[otherGid]) {
@@ -1063,6 +1084,17 @@ public class CompactRunningGroupBy {
         }
 
         @Override
+        public void accumulateScaled(int gid, long scaledValue, int scale) {
+            double divisor = switch (scale) {
+                case 1 -> 10.0;
+                case 2 -> 100.0;
+                default -> Math.pow(10, scale);
+            };
+            sums[gid] += (double) scaledValue / divisor;
+            counts[gid]++;
+        }
+
+        @Override
         public void merge(RunningAccumulator other, int thisGid, int otherGid) {
             MeanAccumulator o = (MeanAccumulator) other;
             this.sums[thisGid] += o.sums[otherGid];
@@ -1132,6 +1164,20 @@ public class CompactRunningGroupBy {
         @Override
         public void accumulateInt(int gid, int value) {
             accumulateDouble(gid, (double) value);
+        }
+
+        @Override
+        public void accumulateScaled(int gid, long scaledValue, int scale) {
+            double divisor = switch (scale) {
+                case 1 -> 10.0;
+                case 2 -> 100.0;
+                default -> Math.pow(10, scale);
+            };
+            double value = (double) scaledValue / divisor;
+            if (value < mins[gid]) {
+                mins[gid] = value;
+            }
+            hasValues[gid] = true;
         }
 
         @Override
@@ -1213,6 +1259,20 @@ public class CompactRunningGroupBy {
         @Override
         public void accumulateInt(int gid, int value) {
             accumulateDouble(gid, (double) value);
+        }
+
+        @Override
+        public void accumulateScaled(int gid, long scaledValue, int scale) {
+            double divisor = switch (scale) {
+                case 1 -> 10.0;
+                case 2 -> 100.0;
+                default -> Math.pow(10, scale);
+            };
+            double value = (double) scaledValue / divisor;
+            if (value > maxs[gid]) {
+                maxs[gid] = value;
+            }
+            hasValues[gid] = true;
         }
 
         @Override
