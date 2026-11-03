@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-11-03
+
+### Added
+
+- Comparative Performance Benchmark Suite & Automated Harness (CupOfTea vs. Polars + 1BRC Standard Suite) ([#251](https://github.com/cupoftea-labs/cupoftea/issues/251)):
+  - Added JMH comparative benchmark suites in `cupoftea-benchmark`: `PolarsIngestBenchmark` (CSV, TSV, Parquet eager & lazy pushdown), `PolarsGroupByBenchmark` (low/high cardinality, skewed Zipf, composite keys, single-pass multivariate), `PolarsJoinBenchmark` (Inner & Left joins across Int & UTF-8 String keys for 1:1, 1:N, N:M), `PolarsFilterVectorBenchmark` (1%, 50%, 90% selectivity, compound predicates, vectorized math), and `OneBrcStandardBenchmark` (1-decimal standard, 2-decimal cents, and hybrid 3-decimal dynamic fallback).
+  - Extended `SyntheticDataGenerator` with deterministic PRNG dataset generation (`DEFAULT_SEED = 0xCAFEBABE12345678L`) and SHA-256 DataFrame result checksum verification (`computeChecksum`).
+  - Added `ParquetFormatScanner` SPI provider in `cupoftea-parquet` enabling `CupOfTea.scan().parquet(...)` lazy pipeline scans.
+  - Added `/benchmarks` automation harness (`run_benchmarks.sh`, `setup_env.sh`, `profile_flamegraph.sh`, `run_perf_stat.sh`, `generate_report.py`, and `polars/run_polars_benchmarks.py`) for cross-engine execution, `async-profiler` FlameGraphs, Linux `perf` PMU counters, and automated Markdown comparison reports.
+
 ## [0.20.8] - 2026-11-03
 
 ### Performance
