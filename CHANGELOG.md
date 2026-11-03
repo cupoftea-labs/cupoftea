@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.5] - 2026-11-03
+
+### Performance
+
+- Multi-column CSV/TSV parser physical projection pushdown and parallel batch collection ([#256](https://github.com/cupoftea-labs/cupoftea/issues/256)):
+  - Extended `ScanContext` and `StreamingDirectAggregator` with bitmask-based physical projection pushdown (`projectedColumnsMask`), allowing `SimdCsvScanner` and `FastCsvReader` to bypass parsing, numeric decoding, and string allocations for unprojected columns during direct streaming aggregations.
+  - Unified `LazyCupOfTea.collectRows` to parallelize partition batch collection across available CPU cores when scanning without row-level filters or limits, bringing `ingestMixedCsvLazyScan` and `ingestMixedTsvLazyScan` execution time in line with eager parallel CSV reading.
+  - Optimized type inference in `CsvLazySource` by reusing zero-allocation sampling from `FastCsvReader` when inferring numeric/general column types.
+
 ## [0.21.4] - 2026-11-03
 
 ### Performance

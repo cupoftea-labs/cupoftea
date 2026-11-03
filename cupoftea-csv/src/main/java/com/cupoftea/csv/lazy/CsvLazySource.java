@@ -139,6 +139,27 @@ public class CsvLazySource implements LazySource {
                 } else if (explicitSchema != null && i < explicitSchema.size() && !config.isHasHeaders()) {
                     colTypes[i] = explicitSchema.getColumn(i).columnType();
                 } else {
+                    colTypes[i] = null;
+                }
+            }
+
+            boolean needsInference = false;
+            if (config.isInferTypes() || config.isInferNumericTypes()) {
+                for (int i = 0; i < colCount; i++) {
+                    if (colTypes[i] == null) {
+                        needsInference = true;
+                        break;
+                    }
+                }
+            }
+
+            if (needsInference) {
+                FastCsvReader.inferTypesFromSampleZeroAlloc(sampleBytes, (int) dataStartOffset, sampleBytes.length,
+                        delim, quote, escape, colCount, colTypes, config);
+            }
+
+            for (int i = 0; i < colCount; i++) {
+                if (colTypes[i] == null) {
                     colTypes[i] = String.class;
                 }
             }
@@ -242,10 +263,11 @@ public class CsvLazySource implements LazySource {
             AtomicInteger activeReaders = new AtomicInteger(numPartitions);
 
             List<PartitionReader> readers = new ArrayList<>(numPartitions);
+            long projectedMask = context != null ? context.getProjectedColumnsMask() : -1L;
             for (int i = 0; i < numPartitions; i++) {
                 readers.add(new CsvMmapPartitionReader(
                         channel, cursor, fileLength, dataStartOffset, segmentSize, activeReaders,
-                        colNames, colTypes, colTypeIds, config
+                        colNames, colTypes, colTypeIds, config, projectedMask
                 ));
             }
             return readers;

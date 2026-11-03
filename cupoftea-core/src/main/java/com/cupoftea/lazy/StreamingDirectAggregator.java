@@ -335,6 +335,15 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         return countAllAggIndices != null;
     }
 
+    public boolean isGroupOrAggColumn(int colIdx) {
+        if (groupColIndices != null) {
+            for (int g : groupColIndices) {
+                if (g == colIdx) return true;
+            }
+        }
+        return hasAggregates(colIdx);
+    }
+
     // --- Direct Key Table Probing ---
 
     public int findOrInsertStringBytes(byte[] buf, int offset, int len) {

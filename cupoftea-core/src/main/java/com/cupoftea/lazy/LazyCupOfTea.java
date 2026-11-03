@@ -325,7 +325,7 @@ public class LazyCupOfTea implements LazyDataFrame {
 
     @Override
     public CupOfTea collect() {
-        ScanContext context = new ScanContext(parallel, executor, batchSize, chunkSizeBytes);
+        ScanContext context = createScanContext();
         List<PartitionReader> partitions = source.getPartitions(context);
 
         boolean hasGroupBy = groupBy != null;
@@ -337,6 +337,46 @@ public class LazyCupOfTea implements LazyDataFrame {
         } else {
             return collectRows(partitions);
         }
+    }
+
+    private ScanContext createScanContext() {
+        List<String> projCols = null;
+        long mask = -1L;
+
+        if (selectColumns != null && !selectColumns.isEmpty() && filters.isEmpty()) {
+            projCols = selectColumns;
+        } else if (canFuseScanAggregate()) {
+            List<String> needed = new ArrayList<>();
+            if (groupBy != null) {
+                for (String g : groupBy.getColumns()) {
+                    if (g != null && !needed.contains(g)) needed.add(g);
+                }
+            }
+            Aggregate[] aggs = (groupBy != null && groupBy.getAggregates() != null) ? groupBy.getAggregates() : aggregates;
+            if (aggs != null) {
+                for (Aggregate agg : aggs) {
+                    String col = agg.getColumn();
+                    if (col != null && !needed.contains(col)) needed.add(col);
+                }
+            }
+            if (!needed.isEmpty()) {
+                projCols = needed;
+            }
+        }
+
+        List<Column> headers = source.getHeaders();
+        if (projCols != null && headers != null && !headers.isEmpty() && headers.size() <= 64) {
+            long m = 0L;
+            for (int i = 0; i < headers.size(); i++) {
+                String h = headers.get(i).columnName();
+                if (projCols.contains(h)) {
+                    m |= (1L << i);
+                }
+            }
+            mask = m;
+        }
+
+        return new ScanContext(parallel, executor, batchSize, chunkSizeBytes, projCols, mask);
     }
 
     private CupOfTea collectAggregates(List<PartitionReader> partitions, ScanContext context) {
@@ -448,36 +488,69 @@ public class LazyCupOfTea implements LazyDataFrame {
         List<CupOfTea> collected = new ArrayList<>();
         long remaining = limit >= 0 ? limit : Long.MAX_VALUE;
 
-        try {
+        if (parallel && partitions.size() > 1 && filters.isEmpty() && limit < 0) {
+            ExecutorService exec = executor != null ? executor : ForkJoinPool.commonPool();
+            List<Future<CupOfTea>> futures = new ArrayList<>(partitions.size());
             for (PartitionReader partition : partitions) {
-                try (partition) {
-                    CupOfTea batch;
-                    while ((batch = partition.nextBatch()) != null && remaining > 0) {
-                        for (IFilter filter : filters) {
-                            batch = batch.filter(filter);
-                            if (batch.size() == 0) break;
-                        }
-                        if (batch.size() > 0) {
-                            if (selectColumns != null && !selectColumns.isEmpty()) {
+                futures.add(exec.submit(() -> {
+                    List<CupOfTea> partCollected = new ArrayList<>();
+                    try (partition) {
+                        CupOfTea batch;
+                        while ((batch = partition.nextBatch()) != null) {
+                            if (selectColumns != null && !selectColumns.isEmpty() && batch.getHeaders().size() > selectColumns.size()) {
                                 batch = batch.select(selectColumns);
                             }
-                            if (batch.size() > remaining) {
-                                batch = batch.head((int) remaining);
-                            }
-                            remaining -= batch.size();
-                            collected.add(batch);
+                            partCollected.add(batch);
                         }
+                    } catch (IOException e) {
+                        throw new CupOfTeaException("I/O error during parallel lazy collect", e);
                     }
-                } catch (IOException e) {
-                    throw new CupOfTeaException("I/O error during lazy collect", e);
-                }
-                if (remaining <= 0) break;
+                    return partCollected.isEmpty() ? null : (partCollected.size() == 1 ? partCollected.get(0) : CupOfTea.concat(partCollected));
+                }));
             }
-        } finally {
-            for (PartitionReader partition : partitions) {
+
+            for (Future<CupOfTea> f : futures) {
                 try {
-                    partition.close();
-                } catch (IOException ignored) {}
+                    CupOfTea res = f.get();
+                    if (res != null && res.size() > 0) {
+                        collected.add(res);
+                    }
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new CupOfTeaException("Parallel partition collect error", e);
+                }
+            }
+        } else {
+            try {
+                for (PartitionReader partition : partitions) {
+                    try (partition) {
+                        CupOfTea batch;
+                        while ((batch = partition.nextBatch()) != null && remaining > 0) {
+                            for (IFilter filter : filters) {
+                                batch = batch.filter(filter);
+                                if (batch.size() == 0) break;
+                            }
+                            if (batch.size() > 0) {
+                                if (selectColumns != null && !selectColumns.isEmpty() && batch.getHeaders().size() > selectColumns.size()) {
+                                    batch = batch.select(selectColumns);
+                                }
+                                if (batch.size() > remaining) {
+                                    batch = batch.head((int) remaining);
+                                }
+                                remaining -= batch.size();
+                                collected.add(batch);
+                            }
+                        }
+                    } catch (IOException e) {
+                        throw new CupOfTeaException("I/O error during lazy collect", e);
+                    }
+                    if (remaining <= 0) break;
+                }
+            } finally {
+                for (PartitionReader partition : partitions) {
+                    try {
+                        partition.close();
+                    } catch (IOException ignored) {}
+                }
             }
         }
 
