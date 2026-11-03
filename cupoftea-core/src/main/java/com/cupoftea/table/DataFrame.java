@@ -1355,9 +1355,22 @@ public class DataFrame extends IDataFrame {
         ExecutorService pool = getExecutor();
         int numChunks = ParallelVectorEngine.computeChunkCount(total, pool);
         int[][] ranges = ParallelVectorEngine.partitionRanges(total, numChunks);
-        int[] chunkCounts = new int[ranges.length];
+        int chunkCount = ranges.length;
+        int[] chunkCounts = new int[chunkCount];
+        int colCount = this.columns.size();
 
-        // Phase 1: Parallel predicate evaluation per chunk
+        int[][] stringChunkByteCounts = null;
+        for (int colIdx = 0; colIdx < colCount; colIdx++) {
+            if (this.columns.get(colIdx) instanceof StringColumnVector) {
+                if (stringChunkByteCounts == null) {
+                    stringChunkByteCounts = new int[colCount][];
+                }
+                stringChunkByteCounts[colIdx] = new int[chunkCount];
+            }
+        }
+        final int[][] finalStringChunkByteCounts = stringChunkByteCounts;
+
+        // Phase 1: Parallel predicate evaluation per chunk (+ per-chunk UTF-8 byte count for StringColumnVector)
         List<int[]> chunkIndices = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
             int[] localMatches = new int[end - start];
             int count = 0;
@@ -1367,30 +1380,63 @@ public class DataFrame extends IDataFrame {
                 }
             }
             chunkCounts[chunkIdx] = count;
+            if (count > 0 && finalStringChunkByteCounts != null) {
+                for (int colIdx = 0; colIdx < colCount; colIdx++) {
+                    int[] colByteCounts = finalStringChunkByteCounts[colIdx];
+                    if (colByteCounts != null) {
+                        StringColumnVector srcStr = (StringColumnVector) this.columns.get(colIdx);
+                        colByteCounts[chunkIdx] = srcStr.computeIndexedByteCount(localMatches, count);
+                    }
+                }
+            }
             return localMatches;
         });
 
-        // Phase 2: Prefix-sum (parallel scan) offset calculation
-        int[] offsets = new int[ranges.length];
+        // Phase 2: Prefix-sum (parallel scan) offset calculation for rows and variable-width UTF-8 bytes
+        int[] offsets = new int[chunkCount];
         int totalMatched = ParallelVectorEngine.computePrefixSums(chunkCounts, offsets);
 
-        // Phase 3: Parallel vector compaction across chunks
-        int colCount = this.columns.size();
         List<ColumnVector> targetVectors = new ArrayList<>(colCount);
-        for (ColumnVector srcVec : this.columns) {
-            ColumnVector dstVec = srcVec.createEmptyWithSameEncoding(Math.max(16, totalMatched));
-            dstVec.setSizeUnchecked(totalMatched);
-            targetVectors.add(dstVec);
+        int[][] stringByteOffsets = null;
+        for (int colIdx = 0; colIdx < colCount; colIdx++) {
+            ColumnVector srcVec = this.columns.get(colIdx);
+            if (totalMatched > 0 && finalStringChunkByteCounts != null && finalStringChunkByteCounts[colIdx] != null) {
+                if (stringByteOffsets == null) {
+                    stringByteOffsets = new int[colCount][];
+                }
+                int[] byteOffsets = new int[chunkCount];
+                int totalBytes = ParallelVectorEngine.computePrefixSums(finalStringChunkByteCounts[colIdx], byteOffsets);
+                stringByteOffsets[colIdx] = byteOffsets;
+                targetVectors.add(StringColumnVector.allocateForCompaction(
+                        srcVec.getName(), srcVec.isNullable(), totalMatched, totalBytes));
+            } else {
+                ColumnVector dstVec = srcVec.createEmptyWithSameEncoding(Math.max(16, totalMatched));
+                dstVec.setSizeUnchecked(totalMatched);
+                targetVectors.add(dstVec);
+            }
         }
 
+        // Phase 3: Parallel lock-free vector compaction across chunks
         if (totalMatched > 0) {
+            final int[][] finalStringByteOffsets = stringByteOffsets;
             ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
                 int count = chunkCounts[chunkIdx];
                 if (count > 0) {
                     int[] indices = chunkIndices.get(chunkIdx);
                     int dstOffset = offsets[chunkIdx];
                     for (int colIdx = 0; colIdx < colCount; colIdx++) {
-                        targetVectors.get(colIdx).copyIndexedValuesOnly(this.columns.get(colIdx), indices, count, dstOffset);
+                        ColumnVector dstVec = targetVectors.get(colIdx);
+                        ColumnVector srcVec = this.columns.get(colIdx);
+                        if (finalStringByteOffsets != null && finalStringByteOffsets[colIdx] != null) {
+                            ((StringColumnVector) dstVec).copyIndexedBytesLockFree(
+                                    (StringColumnVector) srcVec,
+                                    indices,
+                                    count,
+                                    dstOffset,
+                                    finalStringByteOffsets[colIdx][chunkIdx]);
+                        } else {
+                            dstVec.copyIndexedValuesOnly(srcVec, indices, count, dstOffset);
+                        }
                     }
                 }
                 return null;
@@ -1400,7 +1446,7 @@ public class DataFrame extends IDataFrame {
                 ColumnVector srcVec = this.columns.get(colIdx);
                 if (srcVec.hasNulls()) {
                     ColumnVector dstVec = targetVectors.get(colIdx);
-                    for (int c = 0; c < ranges.length; c++) {
+                    for (int c = 0; c < chunkCount; c++) {
                         int count = chunkCounts[c];
                         if (count > 0) {
                             dstVec.applyNullsFromIndexed(srcVec, chunkIndices.get(c), count, offsets[c]);

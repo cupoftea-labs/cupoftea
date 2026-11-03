@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.1] - 2026-11-03
+
+### Performance
+
+- Eliminated $O(M^2)$ quadratic complexity in `StringColumnVector` during parallel `DataFrame.filter(...)` and `ColumnVector.filterFromChunks(...)` ([#253](https://github.com/cupoftea-labs/cupoftea/issues/253)):
+  - Implemented two-pass lock-free parallel chunk compaction (`computeIndexedByteCount`, `allocateForCompaction`, `copyIndexedBytesLockFree`) in `StringColumnVector` and `DataFrame.executeParallelFilterVectors`: computes per-chunk UTF-8 byte counts during Phase 1 predicate evaluation, computes prefix-sum byte offsets (`byteOffsets[c]`) in Phase 2, pre-allocates `new byte[totalBytes]` and `new int[totalMatched + 1]` once, and copies contiguous UTF-8 slices across worker threads in $O(M)$ without `synchronized` locks.
+  - Replaced per-row `replaceRowBytes` calls in `StringColumnVector.copyIndexedValuesOnly` with a single slice-level bulk replacement over `[dstOffset .. dstOffset + count)`, avoiding repeated $O(M)$ tail array and offset shifts when populated sequentially by chunks.
+  - Reduced `PolarsFilterVectorBenchmark.filterHighSelectivity90PctParallel` (100k rows) from ~3,190 ms to ~0.49 ms (>6,500x speedup), `filterMediumSelectivity50PctParallel` from ~905 ms to ~0.37 ms (>2,400x speedup), and `filterCompoundBooleanExpressionParallel` from ~2,480 ms to ~0.66 ms (>3,700x speedup).
+
 ## [0.21.0] - 2026-11-03
 
 ### Added

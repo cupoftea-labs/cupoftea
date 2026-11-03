@@ -608,4 +608,78 @@ public class ParallelDataFrameTest {
         })).isInstanceOf(CupOfTeaException.class)
             .hasMessageContaining("Boom in predicate");
     }
+
+    @Test
+    @DisplayName("Should compact StringColumnVector in linear O(M) time during high-selectivity parallel filter (#253)")
+    void testStringColumnVectorLinearParallelFilterCompaction() {
+        int rows = 100_000;
+        int[] ids = new int[rows];
+        String[] labels = new String[rows];
+        String[] notes = new String[rows];
+        BitSet noteNulls = new BitSet(rows);
+
+        String[] sampleUtf8 = {
+            "São Paulo", "Zürich-Flughafen", "København", "东京-Tokyo-Station", "", "A", "Aix-en-Provence"
+        };
+        for (int i = 0; i < rows; i++) {
+            ids[i] = i;
+            labels[i] = "CAT_" + (i % 10);
+            if (i % 13 == 0) {
+                noteNulls.set(i);
+            } else {
+                notes[i] = sampleUtf8[i % sampleUtf8.length] + "_" + (i % 97);
+            }
+        }
+
+        IntColumnVector idVec = new IntColumnVector("id", ids, new BitSet(), rows);
+        StringColumnVector labelVec = new StringColumnVector("label", false, labels, new BitSet(), rows);
+        StringColumnVector noteVec = new StringColumnVector("note", true, notes, noteNulls, rows);
+
+        CupOfTea df = CupOfTea.fromVectors(List.of(idVec, labelVec, noteVec))
+                .withMutationMode(MutationMode.COPY_ON_WRITE);
+
+        CupOfTea seqRes = df.asSequential().filter(r -> (r.getInt("id") % 10) != 0);
+
+        long startNs = System.nanoTime();
+        CupOfTea parRes = df.asParallel().withParallelThreshold(1_000).filter(r -> (r.getInt("id") % 10) != 0);
+        long elapsedMs = (System.nanoTime() - startNs) / 1_000_000L;
+
+        assertThat(parRes.size()).isEqualTo(90_000).isEqualTo(seqRes.size());
+        assertThat(elapsedMs).isLessThan(500L);
+
+        StringColumnVector seqLabels = (StringColumnVector) seqRes.getColumnVector("label");
+        StringColumnVector parLabels = (StringColumnVector) parRes.getColumnVector("label");
+        StringColumnVector seqNotes = (StringColumnVector) seqRes.getColumnVector("note");
+        StringColumnVector parNotes = (StringColumnVector) parRes.getColumnVector("note");
+
+        assertThat(parLabels.getValuesCount()).isEqualTo(seqLabels.getValuesCount());
+        assertThat(parNotes.getValuesCount()).isEqualTo(seqNotes.getValuesCount());
+        assertThat(parNotes.getNullCount()).isEqualTo(seqNotes.getNullCount());
+
+        for (int i = 0; i < 90_000; i++) {
+            assertThat(parLabels.getString(i)).isEqualTo(seqLabels.getString(i));
+            assertThat(parNotes.isNull(i)).isEqualTo(seqNotes.isNull(i));
+            if (!seqNotes.isNull(i)) {
+                assertThat(parNotes.getString(i)).isEqualTo(seqNotes.getString(i));
+            }
+        }
+
+        // Also test StringColumnVector.filter(IntPredicate, true, ...) directly via filterFromChunks
+        ColumnVector vecFilteredPar = noteVec.filter(r -> (r % 10) != 0, true, ForkJoinPool.commonPool(), 1_000);
+        assertThat(vecFilteredPar.size()).isEqualTo(90_000);
+        assertThat(vecFilteredPar.getNullCount()).isEqualTo(seqNotes.getNullCount());
+        for (int i = 0; i < 90_000; i += 113) {
+            assertThat(vecFilteredPar.getObject(i)).isEqualTo(seqNotes.getObject(i));
+        }
+
+        // Also test chunked sequential calls to copyIndexedValuesOnly
+        StringColumnVector chunkedDst = new StringColumnVector("chunked", 4, true);
+        chunkedDst.setSizeUnchecked(4);
+        chunkedDst.copyIndexedValuesOnly(noteVec, new int[]{0, 1}, 2, 0);
+        chunkedDst.copyIndexedValuesOnly(noteVec, new int[]{2, 13}, 2, 2);
+        assertThat(chunkedDst.isNull(0)).isTrue();
+        assertThat(chunkedDst.getString(1)).isEqualTo(noteVec.getString(1));
+        assertThat(chunkedDst.getString(2)).isEqualTo(noteVec.getString(2));
+        assertThat(chunkedDst.isNull(3)).isTrue();
+    }
 }

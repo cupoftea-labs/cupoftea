@@ -516,51 +516,188 @@ public class StringColumnVector extends ColumnVector implements Serializable {
         this.size = retainedCount;
     }
 
+    /**
+     * Pre-allocates a {@link StringColumnVector} with exact row and UTF-8 byte capacities for lock-free
+     * two-pass parallel chunk compaction.
+     *
+     * @param name column name
+     * @param nullable whether column supports nulls
+     * @param totalRows exact number of rows to be populated
+     * @param totalBytes exact number of UTF-8 bytes to be populated across all chunks
+     * @return pre-allocated {@link StringColumnVector} ready for {@link #copyIndexedBytesLockFree}
+     */
+    public static StringColumnVector allocateForCompaction(
+            String name, boolean nullable, int totalRows, int totalBytes) {
+        return new StringColumnVector(
+                name,
+                nullable,
+                new byte[totalBytes],
+                totalBytes,
+                new int[totalRows + 1],
+                new BitSet(),
+                totalRows);
+    }
+
+    /**
+     * Computes the total UTF-8 byte length across {@code srcIndices[0 .. count)} in this vector.
+     */
+    public int computeIndexedByteCount(int[] srcIndices, int count) {
+        int[] srcOffsets = this.offsets;
+        int totalBytes = 0;
+        if (!this.hasNulls()) {
+            for (int i = 0; i < count; i++) {
+                int r = srcIndices[i];
+                totalBytes += (srcOffsets[r + 1] - srcOffsets[r]);
+            }
+        } else {
+            BitSet srcNulls = this.nulls;
+            for (int i = 0; i < count; i++) {
+                int r = srcIndices[i];
+                if (!srcNulls.get(r)) {
+                    totalBytes += (srcOffsets[r + 1] - srcOffsets[r]);
+                }
+            }
+        }
+        return totalBytes;
+    }
+
+    /**
+     * Lock-free chunk compaction pass: copies UTF-8 bytes and populates {@code offsets[dstRowOffset + 1 .. dstRowOffset + count]}
+     * starting at {@code dstByteOffset} without synchronization or intermediate shifts.
+     * Safe for concurrent execution across disjoint {@code (dstRowOffset, dstByteOffset)} chunk slices.
+     */
+    public void copyIndexedBytesLockFree(
+            StringColumnVector strSrc,
+            int[] srcIndices,
+            int count,
+            int dstRowOffset,
+            int dstByteOffset) {
+        byte[] srcValues = strSrc.values;
+        int[] srcOffsets = strSrc.offsets;
+        byte[] dstValues = this.values;
+        int[] dstOffsets = this.offsets;
+        int currByte = dstByteOffset;
+
+        if (!strSrc.hasNulls()) {
+            for (int i = 0; i < count; i++) {
+                int srcRow = srcIndices[i];
+                int sStart = srcOffsets[srcRow];
+                int sLen = srcOffsets[srcRow + 1] - sStart;
+                if (sLen > 0) {
+                    System.arraycopy(srcValues, sStart, dstValues, currByte, sLen);
+                    currByte += sLen;
+                }
+                dstOffsets[dstRowOffset + i + 1] = currByte;
+            }
+        } else {
+            BitSet srcNulls = strSrc.nulls;
+            for (int i = 0; i < count; i++) {
+                int srcRow = srcIndices[i];
+                if (!srcNulls.get(srcRow)) {
+                    int sStart = srcOffsets[srcRow];
+                    int sLen = srcOffsets[srcRow + 1] - sStart;
+                    if (sLen > 0) {
+                        System.arraycopy(srcValues, sStart, dstValues, currByte, sLen);
+                        currByte += sLen;
+                    }
+                }
+                dstOffsets[dstRowOffset + i + 1] = currByte;
+            }
+        }
+    }
+
+    @Override
+    public ColumnVector filterFromChunks(
+            List<int[]> chunkIndices,
+            int[] chunkCounts,
+            int[] offsets,
+            int totalMatched,
+            int[][] ranges,
+            ExecutorService pool) {
+        if (totalMatched == 0) {
+            return createEmptyWithSameEncoding(16);
+        }
+
+        int numChunks = ranges.length;
+        int[] chunkByteCounts = new int[numChunks];
+        for (int c = 0; c < numChunks; c++) {
+            int count = chunkCounts[c];
+            if (count > 0) {
+                chunkByteCounts[c] = computeIndexedByteCount(chunkIndices.get(c), count);
+            }
+        }
+
+        int[] byteOffsets = new int[numChunks];
+        int totalBytes = ParallelVectorEngine.computePrefixSums(chunkByteCounts, byteOffsets);
+        StringColumnVector target = allocateForCompaction(this.name, this.nullable, totalMatched, totalBytes);
+
+        ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            int count = chunkCounts[chunkIdx];
+            if (count > 0) {
+                target.copyIndexedBytesLockFree(
+                        this, chunkIndices.get(chunkIdx), count, offsets[chunkIdx], byteOffsets[chunkIdx]);
+            }
+            return null;
+        });
+
+        if (this.hasNulls()) {
+            for (int c = 0; c < numChunks; c++) {
+                int count = chunkCounts[c];
+                if (count > 0) {
+                    target.applyNullsFromIndexed(this, chunkIndices.get(c), count, offsets[c]);
+                }
+            }
+        }
+
+        return target;
+    }
+
     @Override
     public synchronized void copyIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (count <= 0) {
+            return;
+        }
         if (src instanceof StringColumnVector strSrc) {
-            if (dstOffset == 0 && count == this.size && this.valuesCount == 0) {
-                int totalBytes = 0;
-                for (int i = 0; i < count; i++) {
-                    int srcRow = srcIndices[i];
-                    if (!strSrc.nulls.get(srcRow)) {
-                        totalBytes += (strSrc.offsets[srcRow + 1] - strSrc.offsets[srcRow]);
-                    }
+            ensureRowCapacity(Math.max(this.size, dstOffset + count));
+            int newSliceBytes = strSrc.computeIndexedByteCount(srcIndices, count);
+            int oldByteStart = this.offsets[dstOffset];
+            int oldByteEnd = this.offsets[dstOffset + count];
+            int oldSliceBytes = oldByteEnd - oldByteStart;
+            int delta = newSliceBytes - oldSliceBytes;
+
+            if (delta != 0) {
+                ensureValueCapacity(this.valuesCount + delta);
+                int tailBytes = this.valuesCount - oldByteEnd;
+                if (tailBytes > 0) {
+                    System.arraycopy(this.values, oldByteEnd, this.values, oldByteEnd + delta, tailBytes);
                 }
-                ensureValueCapacity(totalBytes);
-                ensureRowCapacity(count);
-                int currByte = 0;
-                this.offsets[0] = 0;
-                for (int i = 0; i < count; i++) {
-                    int srcRow = srcIndices[i];
-                    if (strSrc.nulls.get(srcRow)) {
-                        this.nulls.set(i);
-                    } else {
-                        this.nulls.clear(i);
-                        int sStart = strSrc.offsets[srcRow];
-                        int sLen = strSrc.offsets[srcRow + 1] - sStart;
-                        if (sLen > 0) {
-                            System.arraycopy(strSrc.values, sStart, this.values, currByte, sLen);
-                            currByte += sLen;
-                        }
-                    }
-                    this.offsets[i + 1] = currByte;
+                this.valuesCount += delta;
+                for (int r = dstOffset + count + 1; r <= this.size; r++) {
+                    this.offsets[r] += delta;
                 }
-                this.valuesCount = currByte;
-                return;
             }
+
+            int currByte = oldByteStart;
+            byte[] srcValues = strSrc.values;
+            int[] srcOffsets = strSrc.offsets;
+            BitSet srcNulls = strSrc.nulls;
+            boolean srcHasNulls = strSrc.hasNulls();
+
             for (int i = 0; i < count; i++) {
                 int srcRow = srcIndices[i];
                 int dstRow = dstOffset + i;
-                if (strSrc.nulls.get(srcRow)) {
+                if (srcHasNulls && srcNulls.get(srcRow)) {
                     this.nulls.set(dstRow);
-                    replaceRowBytes(dstRow, null, 0, 0);
                 } else {
                     this.nulls.clear(dstRow);
-                    int sStart = strSrc.offsets[srcRow];
-                    int sLen = strSrc.offsets[srcRow + 1] - sStart;
-                    replaceRowBytes(dstRow, strSrc.values, sStart, sLen);
+                    int sStart = srcOffsets[srcRow];
+                    int sLen = srcOffsets[srcRow + 1] - sStart;
+                    if (sLen > 0) {
+                        System.arraycopy(srcValues, sStart, this.values, currByte, sLen);
+                        currByte += sLen;
+                    }
                 }
+                this.offsets[dstRow + 1] = currByte;
             }
         } else {
             super.copyIndexedValuesOnly(src, srcIndices, count, dstOffset);
