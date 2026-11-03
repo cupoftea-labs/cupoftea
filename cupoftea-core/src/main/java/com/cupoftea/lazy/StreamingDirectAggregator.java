@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.cupoftea.table.Aggregate;
+import com.cupoftea.table.Aggregation;
 import com.cupoftea.table.Column;
 
 /**
@@ -41,9 +42,20 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     private boolean isGlobal;
     private boolean bound = false;
 
+    // Cache-line interleaved numeric accumulators
+    private boolean isInterleaved1Brc;
+    private InterleavedNumericAccumulator rootInterleavedAcc;
+    private InterleavedNumericAccumulator[] colInterleavedAccs; // per column root interleaved accumulator if applicable
+
     public StreamingDirectAggregator(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders) {
-        super(groupColumns, aggregates, sourceHeaders);
+        this(groupColumns, aggregates, sourceHeaders, buildAccumulators(aggregates, sourceHeaders));
+    }
+
+    private StreamingDirectAggregator(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders,
+                                      RunningAccumulator[] builtAccumulators) {
+        super(groupColumns, aggregates, sourceHeaders, builtAccumulators);
         initFastTables();
+        initInterleavedOptimization();
         if (sourceHeaders != null && !sourceHeaders.isEmpty()) {
             String[] names = new String[sourceHeaders.size()];
             Class<?>[] types = new Class<?>[sourceHeaders.size()];
@@ -52,6 +64,97 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
                 types[i] = sourceHeaders.get(i).columnType();
             }
             bindSource(names, types);
+        }
+    }
+
+    private static RunningAccumulator[] buildAccumulators(Aggregate[] aggregates, List<Column> sourceHeaders) {
+        if (aggregates == null || aggregates.length == 0) {
+            return new RunningAccumulator[0];
+        }
+
+        // Group numeric aggregates by target column to share interleaved storage
+        java.util.Map<String, InterleavedNumericAccumulator> columnToInterleaved = new java.util.HashMap<>();
+        RunningAccumulator[] result = new RunningAccumulator[aggregates.length];
+
+        for (int a = 0; a < aggregates.length; a++) {
+            Aggregate agg = aggregates[a];
+            Aggregation type = agg.getAggregationType();
+            if (type == null) {
+                String lower = agg.getOutputColumnName().toLowerCase();
+                if (lower.endsWith("sum")) type = Aggregation.SUM;
+                else if (lower.endsWith("mean") || lower.endsWith("avg") || lower.endsWith("average")) type = Aggregation.MEAN;
+                else if (lower.endsWith("min") || lower.endsWith("minimum")) type = Aggregation.MIN;
+                else if (lower.endsWith("max") || lower.endsWith("maximum")) type = Aggregation.MAX;
+                else if (lower.endsWith("count")) type = Aggregation.COUNT;
+                else if (lower.endsWith("first")) type = Aggregation.FIRST;
+                else if (lower.endsWith("last")) type = Aggregation.LAST;
+                else if (lower.endsWith("std") || lower.endsWith("deviation")) type = Aggregation.STD;
+                else if (lower.endsWith("var") || lower.endsWith("variance")) type = Aggregation.VAR;
+                else type = Aggregation.COUNT;
+            }
+
+            String col = agg.getColumn() != null ? agg.getColumn() : "__cupoftea_all__";
+            boolean isInterleavedEligible = (type == Aggregation.MIN || type == Aggregation.MINIMUM
+                    || type == Aggregation.MAX || type == Aggregation.MAXIMUM
+                    || type == Aggregation.SUM
+                    || type == Aggregation.MEAN || type == Aggregation.AVG || type == Aggregation.AVERAGE
+                    || type == Aggregation.COUNT);
+
+            if (isInterleavedEligible) {
+                Class<?> resType = agg.getResultType(sourceHeaders);
+                InterleavedNumericAccumulator root = columnToInterleaved.get(col);
+                if (root == null) {
+                    root = new InterleavedNumericAccumulator(type, resType, 16);
+                    columnToInterleaved.put(col, root);
+                    result[a] = root;
+                } else {
+                    result[a] = root.createSharedView(type, resType);
+                }
+            } else {
+                result[a] = createAccumulator(agg, sourceHeaders);
+            }
+        }
+
+        // Configure hasSeparateSum and hasSeparateCount on MEAN accumulators within each column group
+        for (int a = 0; a < aggregates.length; a++) {
+            if (result[a] instanceof InterleavedNumericAccumulator ina) {
+                Aggregation t = ina.getAggregationType();
+                if (t == Aggregation.MEAN || t == Aggregation.AVG || t == Aggregation.AVERAGE) {
+                    double[] targetStats = ina.getStatsArray();
+                    boolean hasSum = false;
+                    boolean hasCount = false;
+                    for (int b = 0; b < aggregates.length; b++) {
+                        if (a != b && result[b] instanceof InterleavedNumericAccumulator other
+                                && other.getStatsArray() == targetStats) {
+                            Aggregation ot = other.getAggregationType();
+                            if (ot == Aggregation.SUM) hasSum = true;
+                            if (ot == Aggregation.COUNT) hasCount = true;
+                        }
+                    }
+                    ina.setHasSeparateSum(hasSum);
+                    ina.setHasSeparateCount(hasCount);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private void initInterleavedOptimization() {
+        if (accumulators.length > 0 && accumulators[0] instanceof InterleavedNumericAccumulator ina) {
+            // Check if all accumulators share the exact same root interleaved backing array
+            boolean allSameRoot = true;
+            for (int a = 1; a < accumulators.length; a++) {
+                if (!(accumulators[a] instanceof InterleavedNumericAccumulator cur)
+                        || cur.getStatsArray() != ina.getStatsArray()) {
+                    allSameRoot = false;
+                    break;
+                }
+            }
+            if (allSameRoot) {
+                this.isInterleaved1Brc = true;
+                this.rootInterleavedAcc = ina;
+            }
         }
     }
 
@@ -159,6 +262,25 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
             }
         } else {
             this.countAllAggIndices = null;
+        }
+
+        // Map column to root interleaved accumulator if all aggregates for that column share one
+        this.colInterleavedAccs = new InterleavedNumericAccumulator[numCols];
+        for (int c = 0; c < numCols; c++) {
+            int[] aggs = this.colToAggIndices[c];
+            if (aggs != null && aggs.length > 0 && accumulators[aggs[0]] instanceof InterleavedNumericAccumulator firstIna) {
+                boolean allSame = true;
+                for (int i = 1; i < aggs.length; i++) {
+                    if (!(accumulators[aggs[i]] instanceof InterleavedNumericAccumulator otherIna)
+                            || otherIna.getStatsArray() != firstIna.getStatsArray()) {
+                        allSame = false;
+                        break;
+                    }
+                }
+                if (allSame) {
+                    this.colInterleavedAccs[c] = firstIna;
+                }
+            }
         }
 
         this.bound = true;
@@ -299,6 +421,10 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     }
 
     public void accumulateFieldDouble(int gid, int colIdx, double val) {
+        if (colInterleavedAccs != null && colIdx >= 0 && colIdx < colInterleavedAccs.length && colInterleavedAccs[colIdx] != null) {
+            colInterleavedAccs[colIdx].updateAll(gid, val);
+            return;
+        }
         int[] aggs = (colToAggIndices != null && colIdx < colToAggIndices.length) ? colToAggIndices[colIdx] : null;
         if (aggs != null) {
             for (int a : aggs) {
@@ -308,6 +434,10 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     }
 
     public void accumulateFieldLong(int gid, int colIdx, long val) {
+        if (colInterleavedAccs != null && colIdx >= 0 && colIdx < colInterleavedAccs.length && colInterleavedAccs[colIdx] != null) {
+            colInterleavedAccs[colIdx].updateAll(gid, (double) val);
+            return;
+        }
         int[] aggs = (colToAggIndices != null && colIdx < colToAggIndices.length) ? colToAggIndices[colIdx] : null;
         if (aggs != null) {
             for (int a : aggs) {
@@ -317,6 +447,10 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     }
 
     public void accumulateFieldInt(int gid, int colIdx, int val) {
+        if (colInterleavedAccs != null && colIdx >= 0 && colIdx < colInterleavedAccs.length && colInterleavedAccs[colIdx] != null) {
+            colInterleavedAccs[colIdx].updateAll(gid, (double) val);
+            return;
+        }
         int[] aggs = (colToAggIndices != null && colIdx < colToAggIndices.length) ? colToAggIndices[colIdx] : null;
         if (aggs != null) {
             for (int a : aggs) {
@@ -326,6 +460,10 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     }
 
     public void accumulateFieldScaled(int gid, int colIdx, long scaledVal, int scale) {
+        if (colInterleavedAccs != null && colIdx >= 0 && colIdx < colInterleavedAccs.length && colInterleavedAccs[colIdx] != null) {
+            colInterleavedAccs[colIdx].updateAllScaled(gid, scaledVal, scale);
+            return;
+        }
         int[] aggs = (colToAggIndices != null && colIdx < colToAggIndices.length) ? colToAggIndices[colIdx] : null;
         if (aggs != null) {
             for (int a : aggs) {
@@ -367,6 +505,10 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     public void accumulate1Brc(byte[] buf, int keyStart, int keyLen, double val) {
         int gid = singleStringTable.findOrInsertBytes(buf, keyStart, keyLen);
         ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+        if (isInterleaved1Brc) {
+            rootInterleavedAcc.updateAll(gid, val);
+            return;
+        }
         for (int a = 0; a < accumulators.length; a++) {
             accumulators[a].accumulateDouble(gid, val);
         }
@@ -379,6 +521,10 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     public void accumulate1BrcScaled(byte[] buf, int keyStart, int keyLen, long scaledVal, int scale) {
         int gid = singleStringTable.findOrInsertBytes(buf, keyStart, keyLen);
         ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+        if (isInterleaved1Brc) {
+            rootInterleavedAcc.updateAllScaled(gid, scaledVal, scale);
+            return;
+        }
         for (int a = 0; a < accumulators.length; a++) {
             accumulators[a].accumulateScaled(gid, scaledVal, scale);
         }

@@ -38,14 +38,23 @@ public class CompactRunningGroupBy {
     protected final RunningAccumulator[] accumulators;
 
     public CompactRunningGroupBy(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders) {
+        this(groupColumns, aggregates, sourceHeaders, null);
+    }
+
+    protected CompactRunningGroupBy(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders,
+                                    RunningAccumulator[] customAccumulators) {
         this.groupColumns = groupColumns != null ? groupColumns : new String[0];
         this.aggregates = aggregates != null ? aggregates : new Aggregate[0];
         this.sourceHeaders = sourceHeaders != null ? sourceHeaders : new ArrayList<>();
 
         this.keyTable = createGroupTable(this.groupColumns, this.sourceHeaders);
-        this.accumulators = new RunningAccumulator[this.aggregates.length];
-        for (int a = 0; a < this.aggregates.length; a++) {
-            this.accumulators[a] = createAccumulator(this.aggregates[a], this.sourceHeaders);
+        if (customAccumulators != null) {
+            this.accumulators = customAccumulators;
+        } else {
+            this.accumulators = new RunningAccumulator[this.aggregates.length];
+            for (int a = 0; a < this.aggregates.length; a++) {
+                this.accumulators[a] = createAccumulator(this.aggregates[a], this.sourceHeaders);
+            }
         }
     }
 
@@ -174,7 +183,7 @@ public class CompactRunningGroupBy {
 
     // --- Accumulator Factory ---
 
-    private static RunningAccumulator createAccumulator(Aggregate agg, List<Column> sourceHeaders) {
+    static RunningAccumulator createAccumulator(Aggregate agg, List<Column> sourceHeaders) {
         Aggregation type = agg.getAggregationType();
         String outName = agg.getOutputColumnName();
 
