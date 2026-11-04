@@ -422,19 +422,31 @@ public class LazyCupOfTea implements LazyDataFrame {
                 }));
             }
 
-            CompactRunningGroupBy globalState = null;
+            List<CompactRunningGroupBy> states = new ArrayList<>(futures.size());
             for (Future<CompactRunningGroupBy> future : futures) {
                 try {
-                    CompactRunningGroupBy state = future.get();
-                    if (globalState == null) {
-                        globalState = state;
-                    } else {
-                        globalState.merge(state);
-                    }
+                    states.add(future.get());
                 } catch (InterruptedException | ExecutionException e) {
                     throw new CupOfTeaException("Parallel partition aggregation error", e);
                 }
             }
+
+            // Hierarchical tree reduction
+            while (states.size() > 1) {
+                List<CompactRunningGroupBy> nextRound = new ArrayList<>((states.size() + 1) / 2);
+                for (int i = 0; i < states.size(); i += 2) {
+                    if (i + 1 < states.size()) {
+                        CompactRunningGroupBy left = states.get(i);
+                        left.merge(states.get(i + 1));
+                        nextRound.add(left);
+                    } else {
+                        nextRound.add(states.get(i));
+                    }
+                }
+                states = nextRound;
+            }
+
+            CompactRunningGroupBy globalState = states.isEmpty() ? null : states.get(0);
 
             CupOfTea result = globalState != null ? globalState.finish() : new CupOfTea();
             if (orderColumns != null && !orderColumns.isEmpty()) {

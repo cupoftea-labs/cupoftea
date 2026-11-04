@@ -442,6 +442,41 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         }
     }
 
+    /**
+     * Vectorized batch accumulation of primitive double metrics into accumulators.
+     */
+    public void accumulateBatchDouble(int[] gids, int colIdx, double[] vals, int count) {
+        if (count <= 0) return;
+        if (colInterleavedAccs != null && colIdx >= 0 && colIdx < colInterleavedAccs.length && colInterleavedAccs[colIdx] != null) {
+            InterleavedNumericAccumulator ina = colInterleavedAccs[colIdx];
+            for (int i = 0; i < count; i++) {
+                double val = vals[i];
+                if (!Double.isNaN(val)) {
+                    ina.updateAll(gids[i], val);
+                } else {
+                    accumulateFieldNull(gids[i], colIdx);
+                }
+            }
+            return;
+        }
+        int[] aggs = (colToAggIndices != null && colIdx < colToAggIndices.length) ? colToAggIndices[colIdx] : null;
+        if (aggs != null) {
+            for (int i = 0; i < count; i++) {
+                int gid = gids[i];
+                double val = vals[i];
+                if (!Double.isNaN(val)) {
+                    for (int a : aggs) {
+                        accumulators[a].accumulateDouble(gid, val);
+                    }
+                } else {
+                    for (int a : aggs) {
+                        accumulators[a].accumulateNull(gid);
+                    }
+                }
+            }
+        }
+    }
+
     public void accumulateFieldLong(int gid, int colIdx, long val) {
         if (colInterleavedAccs != null && colIdx >= 0 && colIdx < colInterleavedAccs.length && colInterleavedAccs[colIdx] != null) {
             colInterleavedAccs[colIdx].updateAll(gid, (double) val);

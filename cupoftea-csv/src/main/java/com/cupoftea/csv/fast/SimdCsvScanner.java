@@ -1215,7 +1215,19 @@ public final class SimdCsvScanner {
         final boolean[] pendingHasVal;
         final Object[] multiKeyVals;
 
+        // Vectorized batch accumulation buffer
+        public static final int VECTOR_BATCH_SIZE = 512;
+        final int[] batchGids;
+        final double[][] batchNumericValues;
+        final int[] batchNumericCols;
+        final int batchNumericColCount;
+        int batchCount = 0;
+
         public DirectRowState(int colCount, int multiKeyCount) {
+            this(colCount, multiKeyCount, null);
+        }
+
+        public DirectRowState(int colCount, int multiKeyCount, StreamingDirectAggregator aggregator) {
             this.pendingDoubles = new double[colCount];
             this.pendingLongs = new long[colCount];
             this.pendingInts = new int[colCount];
@@ -1223,11 +1235,50 @@ public final class SimdCsvScanner {
             this.pendingNulls = new boolean[colCount];
             this.pendingHasVal = new boolean[colCount];
             this.multiKeyVals = multiKeyCount > 0 ? new Object[multiKeyCount] : null;
+
+            if (aggregator != null) {
+                int numCols = 0;
+                for (int c = 0; c < colCount; c++) {
+                    if (aggregator.hasAggregates(c) && aggregator.isColNumericAgg(c)) {
+                        numCols++;
+                    }
+                }
+                this.batchNumericColCount = numCols;
+                if (numCols > 0) {
+                    this.batchGids = new int[VECTOR_BATCH_SIZE];
+                    this.batchNumericValues = new double[numCols][VECTOR_BATCH_SIZE];
+                    this.batchNumericCols = new int[numCols];
+                    int idx = 0;
+                    for (int c = 0; c < colCount; c++) {
+                        if (aggregator.hasAggregates(c) && aggregator.isColNumericAgg(c)) {
+                            this.batchNumericCols[idx++] = c;
+                        }
+                    }
+                } else {
+                    this.batchGids = null;
+                    this.batchNumericValues = null;
+                    this.batchNumericCols = null;
+                }
+            } else {
+                this.batchNumericColCount = 0;
+                this.batchGids = null;
+                this.batchNumericValues = null;
+                this.batchNumericCols = null;
+            }
         }
 
         public void reset(boolean isGlobal) {
             this.currentGid = isGlobal ? 0 : -1;
             this.hadPending = false;
+        }
+
+        public void flushBatch(StreamingDirectAggregator aggregator) {
+            if (batchCount > 0 && batchNumericColCount > 0) {
+                for (int c = 0; c < batchNumericColCount; c++) {
+                    aggregator.accumulateBatchDouble(batchGids, batchNumericCols[c], batchNumericValues[c], batchCount);
+                }
+                batchCount = 0;
+            }
         }
     }
 
@@ -1437,7 +1488,7 @@ public final class SimdCsvScanner {
             StreamingDirectAggregator aggregator) {
 
         int colCount = colNames.length;
-        DirectRowState rowState = new DirectRowState(colCount, aggregator.isMultiKey() ? aggregator.getGroupColumns().length : 0);
+        DirectRowState rowState = new DirectRowState(colCount, aggregator.isMultiKey() ? aggregator.getGroupColumns().length : 0, aggregator);
         rowState.reset(aggregator.isGlobal());
 
         byte[][] fieldBufHolder = new byte[][]{new byte[256]};
@@ -1692,6 +1743,8 @@ public final class SimdCsvScanner {
                 finishRowDirect(aggregator, rowState, colTypeIds);
             }
         }
+
+        rowState.flushBatch(aggregator);
     }
 
     public static void processFieldDirect(
@@ -1930,6 +1983,30 @@ public final class SimdCsvScanner {
 
     static void flushPendingValues(StreamingDirectAggregator aggregator, DirectRowState rowState, byte[] colTypeIds) {
         int gid = rowState.currentGid;
+        // Vectorized batch buffering for numeric columns
+        if (rowState.batchNumericColCount > 0) {
+            int bIdx = rowState.batchCount;
+            rowState.batchGids[bIdx] = gid;
+            for (int i = 0; i < rowState.batchNumericColCount; i++) {
+                int c = rowState.batchNumericCols[i];
+                if (rowState.pendingHasVal[c]) {
+                    if (rowState.pendingNulls[c]) {
+                        rowState.batchNumericValues[i][bIdx] = Double.NaN;
+                    } else {
+                        rowState.batchNumericValues[i][bIdx] = rowState.pendingDoubles[c];
+                    }
+                    rowState.pendingHasVal[c] = false;
+                    rowState.pendingNulls[c] = false;
+                } else {
+                    rowState.batchNumericValues[i][bIdx] = Double.NaN;
+                }
+            }
+            rowState.batchCount++;
+            if (rowState.batchCount == DirectRowState.VECTOR_BATCH_SIZE) {
+                rowState.flushBatch(aggregator);
+            }
+        }
+
         for (int c = 0; c < rowState.pendingHasVal.length; c++) {
             if (rowState.pendingHasVal[c]) {
                 if (rowState.pendingNulls[c]) {

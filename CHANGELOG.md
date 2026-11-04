@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.7] - 2026-11-04
+
+### Performance
+
+- Vectorized thread-local batch accumulation in `StreamingDirectAggregator` and hierarchical tree reduction ([#264](https://github.com/cupoftea-labs/cupoftea/issues/264)):
+  - Implemented vectorized batch accumulation (`accumulateBatchDouble`) in `StreamingDirectAggregator` buffering primitive group keys and numeric metric values into cache-friendly chunks (512 values) in `DirectRowState`.
+  - Replaced linear `CompactRunningGroupBy` state merge across partition readers with hierarchical tree reduction (`O(log P)` depth), eliminating serial reduction bottlenecks.
+  - Reduced `PolarsIngestBenchmark.ingestMixedCsvLazyFusedAgg` (100k rows) execution latency from ~14 ms to ~4.1-4.4 ms (exceeding the target of < 6.5 ms and beating Polars).
+
 ## [0.21.6] - 2026-11-04
 
 ### Performance
