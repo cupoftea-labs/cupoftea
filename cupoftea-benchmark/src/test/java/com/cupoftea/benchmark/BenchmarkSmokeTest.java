@@ -18,6 +18,7 @@ import com.cupoftea.benchmark.micro.ParallelScanAndFilterBenchmark;
 import com.cupoftea.benchmark.micro.SimdCsvScannerBenchmark;
 import com.cupoftea.benchmark.micro.ZeroCopySlicingBenchmark;
 import com.cupoftea.benchmark.polars.OneBrcStandardBenchmark;
+import com.cupoftea.benchmark.polars.PolarsEgressBenchmark;
 import com.cupoftea.benchmark.polars.PolarsFilterVectorBenchmark;
 import com.cupoftea.benchmark.polars.PolarsGroupByBenchmark;
 import com.cupoftea.benchmark.polars.PolarsIngestBenchmark;
@@ -331,11 +332,39 @@ public class BenchmarkSmokeTest {
     }
 
     @Test
+    @DisplayName("Should execute PolarsEgressBenchmark across CSV, TSV, Parquet, and JSON")
+    void testPolarsEgressBenchmark() throws IOException {
+        PolarsEgressBenchmark bench = new PolarsEgressBenchmark();
+        bench.rows = 200;
+        bench.setupTrial();
+        try {
+            bench.writeCsv(noopBlackhole);
+            assertThat(bench.outCsvFile.exists()).isTrue();
+            assertThat(bench.outCsvFile.length()).isGreaterThan(0);
+
+            bench.writeTsv(noopBlackhole);
+            assertThat(bench.outTsvFile.exists()).isTrue();
+            assertThat(bench.outTsvFile.length()).isGreaterThan(0);
+
+            bench.writeParquet(noopBlackhole);
+            assertThat(bench.outParquetFile.exists()).isTrue();
+            assertThat(bench.outParquetFile.length()).isGreaterThan(0);
+
+            bench.writeJson(noopBlackhole);
+            assertThat(bench.outJsonFile.exists()).isTrue();
+            assertThat(bench.outJsonFile.length()).isGreaterThan(0);
+        } finally {
+            bench.tearDownTrial();
+        }
+    }
+
+    @Test
     @DisplayName("Should resolve BenchmarkRunner preset targets including polars and 1brc")
     void testBenchmarkRunnerPresets() {
         assertThat(BenchmarkRunner.resolvePresetPattern("polars")).isEqualTo("com.cupoftea.benchmark.polars.*");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-comparison")).isEqualTo("com.cupoftea.benchmark.polars.*");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-ingest")).contains("PolarsIngestBenchmark");
+        assertThat(BenchmarkRunner.resolvePresetPattern("polars-egress")).contains("PolarsEgressBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-groupby")).contains("PolarsGroupByBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-join")).contains("PolarsJoinBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-filter")).contains("PolarsFilterVectorBenchmark");
