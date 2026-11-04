@@ -256,4 +256,38 @@ public class CsvDynamicWorkStealingTest {
 
         assertThat(evenCount).isEqualTo(rows / 2);
     }
+
+    @Test
+    @DisplayName("Should adapt segment size dynamically for files under 32 MB to utilize all available cores")
+    void test_adaptive_segment_sizing_under_32mb() throws IOException {
+        File file = new File(tempDir, "adaptive_dataset.csv");
+        // Create ~3 MB file
+        int rows = 100_000;
+        try (FileWriter fw = new FileWriter(file)) {
+            fw.write("id,name,value\n");
+            for (int i = 0; i < rows; i++) {
+                fw.write(i + ",NameLongPrefix" + i + "," + (i * 1.5) + "\n");
+            }
+        }
+
+        CSVImporterConfiguration config = new CSVImporterConfiguration();
+        config.setHasHeaders(true);
+        CsvLazySource source = new CsvLazySource(file, config);
+
+        ScanContext context = new ScanContext(true, null, 65536, 0); // chunkSizeBytes = 0 -> default adaptive
+        List<PartitionReader> partitions = source.getPartitions(context);
+
+        int procs = Runtime.getRuntime().availableProcessors();
+        if (procs > 1 && file.length() > CsvLazySource.MIN_SEGMENT_SIZE) {
+            assertThat(partitions.size()).isGreaterThan(1);
+        }
+
+        CupOfTea res = CupOfTea.scan()
+                .parallel(true)
+                .csv(file)
+                .agg(Aggregations.count("id").as("cnt"), Aggregations.sum("value").as("sum_val"))
+                .collect();
+
+        assertThat(((Number) res.getRow(0).get("cnt")).longValue()).isEqualTo((long) rows);
+    }
 }

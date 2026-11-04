@@ -40,7 +40,7 @@ public class LazyCupOfTea implements LazyDataFrame {
     private boolean parallel = true;
     private ExecutorService executor = null;
     private int batchSize = 65_536;
-    private int chunkSizeBytes = 32 * 1024 * 1024;
+    private int chunkSizeBytes = 0;
 
     public LazyCupOfTea(LazySource source) {
         if (source == null) {

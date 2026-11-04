@@ -30,7 +30,7 @@ public class DataFrameScanner {
     private Boolean hasHeaders;
     private Character delimiter;
     private int batchSize = 65_536;
-    private int chunkSizeBytes = 32 * 1024 * 1024;
+    private int chunkSizeBytes = 0;
     private boolean parallel = true;
     private ExecutorService executor = null;
 

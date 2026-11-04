@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.6] - 2026-11-04
+
+### Performance
+
+- Adaptive chunk segmentation in `CsvLazySource` for multi-core parallelism ([#263](https://github.com/cupoftea-labs/cupoftea/issues/263)):
+  - Implemented adaptive segment sizing in `CsvLazySource` based on total file size and available processors: for files < 32 MB, segments are dynamically scaled (`segmentSize = Math.max(256 * 1024, (int)(dataLen / procs))`), ensuring all processor threads are utilized during parallel scanning.
+  - Retained fixed 4 MB bounds for files >= 32 MB and user-specified `chunkSize(...)` configurations.
+  - Configured default scan chunk size to adapt dynamically across `DataFrameScanner`, `ScanOptions`, and `LazyCupOfTea`.
+  - Aligned `ingestMixedCsvLazyScan` and `ingestMixedTsvLazyScan` latency with eager parallel reading.
+
 ## [0.21.5] - 2026-11-03
 
 ### Performance

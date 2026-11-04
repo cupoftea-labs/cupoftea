@@ -230,6 +230,8 @@ public class CsvLazySource implements LazySource {
     }
 
     public static final int DEFAULT_SEGMENT_SIZE = 4 * 1024 * 1024; // 4 MB
+    public static final int MIN_SEGMENT_SIZE = 256 * 1024; // 256 KB
+    public static final long ADAPTIVE_THRESHOLD_BYTES = 32L * 1024 * 1024; // 32 MB
 
     @Override
     public List<PartitionReader> getPartitions(ScanContext context) {
@@ -249,10 +251,18 @@ public class CsvLazySource implements LazySource {
         FileChannel channel = null;
         try {
             channel = FileChannel.open(file.toPath(), StandardOpenOption.READ);
-            int segmentSize = context.getChunkSizeBytes() > 0 ? context.getChunkSizeBytes() : DEFAULT_SEGMENT_SIZE;
             long dataLen = fileLength - dataStartOffset;
-
             int procs = Runtime.getRuntime().availableProcessors();
+
+            int segmentSize;
+            if (context.getChunkSizeBytes() > 0) {
+                segmentSize = context.getChunkSizeBytes();
+            } else if (fileLength < ADAPTIVE_THRESHOLD_BYTES && procs > 1) {
+                segmentSize = (int) Math.max((long) MIN_SEGMENT_SIZE, dataLen / procs);
+            } else {
+                segmentSize = DEFAULT_SEGMENT_SIZE;
+            }
+
             int numPartitions = 1;
             if (context.isParallel() && dataLen > segmentSize) {
                 long totalSegments = (dataLen + segmentSize - 1) / segmentSize;
