@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.File;
 import java.nio.file.Files;
+import java.util.BitSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +22,13 @@ import static com.cupoftea.exporters.configurations.CSVExporterConfiguration.Hea
 import static com.cupoftea.exporters.configurations.CSVExporterConfiguration.QuoteBehaviour.ALL;
 import static com.cupoftea.exporters.configurations.CSVExporterConfiguration.QuoteBehaviour.ALL_BUT_NUMBERS;
 import static com.cupoftea.exporters.configurations.CSVExporterConfiguration.QuoteBehaviour.NONE;
+import com.cupoftea.table.DataFrame;
+import com.cupoftea.table.vector.BooleanColumnVector;
+import com.cupoftea.table.vector.DoubleColumnVector;
+import com.cupoftea.table.vector.FloatColumnVector;
+import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.StringColumnVector;
 
 public class CSVExporterTest {
 
@@ -133,6 +141,58 @@ public class CSVExporterTest {
         new CSVExporter(df).exportToCsv(temp, cfg);
         List<String> lines = Files.readAllLines(temp.toPath());
         assertThat(lines.get(1)).isEqualTo("1,N/A");
+    }
+
+    @Test
+    @DisplayName("Should export large DataFrame in parallel chunked egress matching sequential output")
+    void testParallelChunkedEgressFidelity() throws Exception {
+        int n = 40_000;
+        int[] ids = new int[n];
+        long[] timestamps = new long[n];
+        double[] vals = new double[n];
+        float[] ratios = new float[n];
+        boolean[] flags = new boolean[n];
+        String[] labels = new String[n];
+
+        BitSet nulls = new BitSet();
+        BitSet labelNulls = new BitSet();
+        for (int i = 0; i < n; i++) {
+            ids[i] = i;
+            timestamps[i] = 1700000000000L + i;
+            vals[i] = i * 1.5;
+            ratios[i] = i * 0.1f;
+            flags[i] = (i % 2) == 0;
+            if (i % 7 == 0) {
+                labelNulls.set(i);
+                labels[i] = null;
+            } else {
+                labels[i] = "item_" + i;
+            }
+        }
+
+        DataFrame innerDf = new DataFrame(List.of(
+            new IntColumnVector("id", false, ids, nulls, n),
+            new LongColumnVector("ts", false, timestamps, nulls, n),
+            new DoubleColumnVector("val", false, vals, nulls, n),
+            new FloatColumnVector("ratio", false, ratios, nulls, n),
+            new BooleanColumnVector("flag", false, flags, nulls, n),
+            new StringColumnVector("label", true, labels, labelNulls, n)
+        ));
+        CupOfTea df = new CupOfTea(innerDf);
+
+        File tempPar = File.createTempFile("test_csv_par", ".csv");
+        tempPar.deleteOnExit();
+
+        df.write().csv(tempPar);
+        assertThat(tempPar.exists()).isTrue();
+        assertThat(tempPar.length()).isGreaterThan(0);
+
+        List<String> lines = Files.readAllLines(tempPar.toPath());
+        assertThat(lines).hasSize(n + 1);
+        assertThat(lines.get(0)).isEqualTo("id,ts,val,ratio,flag,label");
+        assertThat(lines.get(1)).isEqualTo("0,1700000000000,0.0,0.0,true,null");
+        assertThat(lines.get(2)).isEqualTo("1,1700000000001,1.5,0.1,false,item_1");
+        assertThat(lines.get(n)).isEqualTo((n - 1) + "," + (1700000000000L + n - 1) + "," + ((n - 1) * 1.5) + "," + ((n - 1) * 0.1f) + "," + (((n - 1) % 2) == 0) + "," + ((n - 1) % 7 == 0 ? "null" : "item_" + (n - 1)));
     }
 
     @Test
