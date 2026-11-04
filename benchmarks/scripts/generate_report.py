@@ -148,7 +148,7 @@ def estimate_dataset_bytes(bname: str, rows: int, dataset_dir: Path | None, pola
             p = dataset_dir / f"measurements_{rows}.txt"
             if p.exists():
                 return p.stat().st_size
-        elif "Ingest" in bname:
+        elif "Ingest" in bname or "Egress" in bname:
             if "Csv" in bname:
                 p = dataset_dir / f"mixed_{rows}.csv"
                 if p.exists():

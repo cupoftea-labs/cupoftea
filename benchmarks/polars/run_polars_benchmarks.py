@@ -298,6 +298,35 @@ def main():
         base_df = pl.read_csv(csv_file)
         mem_bytes = int(base_df.estimated_size())
 
+        out_csv_tmp = dataset_dir / f".tmp_out_{rows}.csv"
+        out_tsv_tmp = dataset_dir / f".tmp_out_{rows}.tsv"
+        out_pq_tmp = dataset_dir / f".tmp_out_{rows}.parquet"
+        out_json_tmp = dataset_dir / f".tmp_out_{rows}.json"
+
+        results.append(run_timed_benchmark(
+            "PolarsEgressBenchmark.writeCsv", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.write_csv(out_csv_tmp)
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsEgressBenchmark.writeTsv", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.write_csv(out_tsv_tmp, separator="\t")
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsEgressBenchmark.writeParquet", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.write_parquet(out_pq_tmp)
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsEgressBenchmark.writeJson", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.write_json(out_json_tmp)
+        ))
+
+        for p in (out_csv_tmp, out_tsv_tmp, out_pq_tmp, out_json_tmp):
+            if p.exists():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
+
         results.append(run_timed_benchmark(
             "PolarsGroupByBenchmark.groupByLowCardSequential", rows, mem_bytes, args.warmup, args.iterations,
             lambda: base_df.group_by("k_low").agg([

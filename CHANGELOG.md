@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.9] - 2026-11-04
+
+### Performance
+
+- Vectorized columnar file creation/export optimization and Polars egress benchmark suite ([#269](https://github.com/cupoftea-labs/cupoftea/issues/269)):
+  - Optimized `CSVExporter` by replacing row-by-row `Row` map materialization, stream mapping, and `ArrayList<String>` heap allocations with direct columnar vector traversal (`ColumnVector` primitive accessors) and a reusable line buffer.
+  - Implemented 64 KB buffered UTF-8 streaming output in `CSVExporter`, drastically cutting memory allocations and GC overhead during large exports.
+  - Added comparative JMH benchmark suite `PolarsEgressBenchmark` measuring `writeCsv`, `writeTsv`, `writeParquet`, and `writeJson` across mixed datasets.
+  - Added matching Polars egress benchmarks in `benchmarks/polars/run_polars_benchmarks.py` (`write_csv`, `write_parquet`, `write_json`) and wired egress dataset metrics in `generate_report.py`.
+  - Added comprehensive unit tests in `CSVExporterTest` and `JsonExporterTest`.
+
 ## [0.21.8] - 2026-11-04
 
 ### Performance
