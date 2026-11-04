@@ -5,11 +5,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ColumnReader;
+import org.apache.parquet.column.Dictionary;
 import org.apache.parquet.column.impl.ColumnReaderImpl;
 import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.io.LocalInputFile;
@@ -26,21 +29,40 @@ import com.cupoftea.lazy.ScanContext;
 import com.cupoftea.spi.ScanOptions;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.DataFrame;
+import com.cupoftea.table.Row;
 import com.cupoftea.table.Schema;
 import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
 import com.cupoftea.table.vector.LongColumnVector;
 import com.cupoftea.table.vector.StringColumnVector;
+import com.cupoftea.utils.interfaces.IFilter;
 
 /**
  * High-performance streaming and lazy Parquet data source with column projection pushdown.
  */
 public class ParquetLazySource implements LazySource {
 
-    private static final PrimitiveConverter DUMMY_CONVERTER = new PrimitiveConverter() {};
+    private static class CapturingConverter extends PrimitiveConverter {
+        private Dictionary dictionary;
+
+        @Override
+        public boolean hasDictionarySupport() {
+            return true;
+        }
+
+        @Override
+        public void setDictionary(Dictionary dictionary) {
+            this.dictionary = dictionary;
+        }
+
+        public Dictionary getDictionary() {
+            return dictionary;
+        }
+    }
 
     private final File file;
     private final ScanOptions scanOptions;
@@ -130,23 +152,48 @@ public class ParquetLazySource implements LazySource {
     @Override
     public List<PartitionReader> getPartitions(ScanContext context) {
         int batchSize = (context != null && context.getBatchSize() > 0) ? context.getBatchSize() : 65_536;
-        return Collections.singletonList(new ParquetPartitionReader(file, projectedSchema, batchSize));
+        MessageType effectiveSchema = projectedSchema;
+
+        // If context provides projected columns not reflected in projectedSchema, apply them
+        if (context != null && context.getProjectedColumns() != null && !context.getProjectedColumns().isEmpty()) {
+            List<String> projCols = context.getProjectedColumns();
+            List<Type> fields = new ArrayList<>();
+            for (String name : projCols) {
+                if (fileSchema.containsField(name)) {
+                    fields.add(fileSchema.getType(name));
+                }
+            }
+            if (!fields.isEmpty()) {
+                effectiveSchema = new MessageType(fileSchema.getName(), fields);
+            }
+        }
+
+        List<IFilter> filters = context != null ? context.getFilters() : null;
+        return Collections.singletonList(new ParquetPartitionReader(file, effectiveSchema, batchSize, filters));
     }
 
     private static class ParquetPartitionReader implements PartitionReader {
         private final File file;
         private final MessageType schema;
         private final int batchSize;
+        private final List<IFilter> filters;
         private org.apache.parquet.hadoop.ParquetFileReader reader;
         private PageReadStore currentRowGroup;
         private ColumnReader[] currentColumnReaders;
+        private CapturingConverter[] currentConverters;
         private int currentRowGroupRemaining = 0;
         private boolean closed = false;
 
-        public ParquetPartitionReader(File file, MessageType schema, int batchSize) {
+        public ParquetPartitionReader(File file, MessageType schema, int batchSize, List<IFilter> filters) {
             this.file = file;
             this.schema = schema;
             this.batchSize = batchSize;
+            this.filters = filters != null && !filters.isEmpty() ? filters : null;
+        }
+
+        @Override
+        public boolean hasAppliedFilters() {
+            return filters != null && !filters.isEmpty();
         }
 
         private void ensureOpen() throws IOException {
@@ -164,66 +211,394 @@ public class ParquetLazySource implements LazySource {
             }
             ensureOpen();
 
-            while (currentRowGroupRemaining <= 0) {
-                currentRowGroup = reader.readNextRowGroup();
-                if (currentRowGroup == null) {
-                    close();
-                    return null;
+            while (true) {
+                while (currentRowGroupRemaining <= 0) {
+                    currentRowGroup = reader.readNextRowGroup();
+                    if (currentRowGroup == null) {
+                        close();
+                        return null;
+                    }
+                    long count = currentRowGroup.getRowCount();
+                    if (count == 0) {
+                        continue;
+                    }
+                    currentRowGroupRemaining = (int) count;
+                    List<ColumnDescriptor> cols = schema.getColumns();
+                    currentColumnReaders = new ColumnReader[cols.size()];
+                    currentConverters = new CapturingConverter[cols.size()];
+                    for (int c = 0; c < cols.size(); c++) {
+                        ColumnDescriptor cd = cols.get(c);
+                        currentConverters[c] = new CapturingConverter();
+                        currentColumnReaders[c] = new ColumnReaderImpl(cd, currentRowGroup.getPageReader(cd), currentConverters[c], null);
+                    }
                 }
-                long count = currentRowGroup.getRowCount();
-                if (count == 0) {
-                    continue;
+
+                int rowsToRead = Math.min(batchSize, currentRowGroupRemaining);
+                currentRowGroupRemaining -= rowsToRead;
+
+                List<ColumnDescriptor> descriptors = schema.getColumns();
+                int numCols = descriptors.size();
+                Map<String, Integer> colIndexMap = new LinkedHashMap<>(numCols * 2);
+                List<String> colOrder = new ArrayList<>(numCols);
+                for (int c = 0; c < numCols; c++) {
+                    String colName = descriptors.get(c).getPath()[0];
+                    colIndexMap.put(colName, c);
+                    colOrder.add(colName);
                 }
-                currentRowGroupRemaining = (int) count;
-                List<ColumnDescriptor> cols = schema.getColumns();
-                currentColumnReaders = new ColumnReader[cols.size()];
-                for (int c = 0; c < cols.size(); c++) {
-                    ColumnDescriptor cd = cols.get(c);
-                    currentColumnReaders[c] = new ColumnReaderImpl(cd, currentRowGroup.getPageReader(cd), DUMMY_CONVERTER, null);
+
+                ColumnVector[] vectors = new ColumnVector[numCols];
+
+                if (filters == null || filters.isEmpty()) {
+                    // Standard vectorized read without filters
+                    for (int colIdx = 0; colIdx < numCols; colIdx++) {
+                        vectors[colIdx] = readVector(colIdx, rowsToRead, null, 0);
+                    }
+                    return new CupOfTea(DataFrame.fromVectors(List.of(vectors)));
                 }
-            }
 
-            int rowsToRead = Math.min(batchSize, currentRowGroupRemaining);
-            List<ColumnDescriptor> descriptors = schema.getColumns();
-            List<ColumnVector> vectors = new ArrayList<>(descriptors.size());
+                // Vectorized filter pushdown with adaptive column access probing:
+                ColumnVector[] probeVectors = new ColumnVector[numCols];
+                boolean[] accessed = new boolean[numCols];
+                for (int c = 0; c < numCols; c++) {
+                    final int colIdx = c;
+                    ColumnDescriptor cd = descriptors.get(c);
+                    Class<?> cls = ParquetImporter.resolveColumnClass(cd);
+                    probeVectors[c] = new com.cupoftea.table.vector.ObjectColumnVector(cd.getPath()[0], cls, 1, true) {
+                        @Override public double getDouble(int r) { accessed[colIdx] = true; return 0.0; }
+                        @Override public int getInt(int r) { accessed[colIdx] = true; return 0; }
+                        @Override public long getLong(int r) { accessed[colIdx] = true; return 0L; }
+                        @Override public float getFloat(int r) { accessed[colIdx] = true; return 0.0f; }
+                        @Override public boolean getBoolean(int r) { accessed[colIdx] = true; return false; }
+                        @Override public String getString(int r) { accessed[colIdx] = true; return ""; }
+                        @Override public Object getObject(int r) { accessed[colIdx] = true; return null; }
+                    };
+                }
+                Row probeRow = new Row(probeVectors, colIndexMap, colOrder, 0);
+                for (int f = 0; f < filters.size(); f++) {
+                    try {
+                        filters.get(f).filter(probeRow);
+                    } catch (Exception ignored) {}
+                }
 
-            for (ColumnDescriptor cd : descriptors) {
-                String colName = cd.getPath()[0];
-                vectors.add(ParquetImporter.createColumnVector(colName, cd, rowsToRead));
-            }
+                List<Integer> filterColIndices = new ArrayList<>();
+                for (int c = 0; c < numCols; c++) {
+                    if (accessed[c]) {
+                        filterColIndices.add(c);
+                    }
+                }
+                if (filterColIndices.isEmpty()) {
+                    for (int c = 0; c < numCols; c++) {
+                        filterColIndices.add(c);
+                    }
+                }
 
-            for (int colIdx = 0; colIdx < descriptors.size(); colIdx++) {
-                ColumnDescriptor cd = descriptors.get(colIdx);
-                ColumnVector vec = vectors.get(colIdx);
-                ColumnReader cr = currentColumnReaders[colIdx];
-                int maxDl = cd.getMaxDefinitionLevel();
+                // Read filter column(s) first
+                ColumnVector[] filterRowVectors = new ColumnVector[numCols];
+                for (int fIdx : filterColIndices) {
+                    filterRowVectors[fIdx] = readVector(fIdx, rowsToRead, null, 0);
+                }
 
+                // Evaluate filter predicates across rows
+                java.util.BitSet matchMask = new java.util.BitSet(rowsToRead);
+                int matchCount = 0;
                 for (int r = 0; r < rowsToRead; r++) {
-                    if (cr.getCurrentDefinitionLevel() < maxDl) {
-                        vec.appendNull();
-                    } else {
-                        switch (cd.getType()) {
-                            case INT32 -> ((IntColumnVector) vec).appendInt(cr.getInteger());
-                            case INT64 -> ((LongColumnVector) vec).appendLong(cr.getLong());
-                            case FLOAT -> ((FloatColumnVector) vec).appendFloat(cr.getFloat());
-                            case DOUBLE -> ((DoubleColumnVector) vec).appendDouble(cr.getDouble());
-                            case BOOLEAN -> ((BooleanColumnVector) vec).appendBoolean(cr.getBoolean());
-                            case BINARY -> {
-                                byte[] bytes = cr.getBinary().getBytes();
-                                ((StringColumnVector) vec).appendUtf8Bytes(bytes, 0, bytes.length);
-                            }
-                            default -> {
-                                byte[] bytes = cr.getBinary().getBytes();
-                                ((StringColumnVector) vec).appendUtf8Bytes(bytes, 0, bytes.length);
+                    Row row = new Row(filterRowVectors, colIndexMap, colOrder, r);
+                    boolean pass = true;
+                    for (int f = 0; f < filters.size(); f++) {
+                        if (!Boolean.TRUE.equals(filters.get(f).filter(row))) {
+                            pass = false;
+                            break;
+                        }
+                    }
+                    if (pass) {
+                        matchMask.set(r);
+                        matchCount++;
+                    }
+                }
+
+                if (matchCount == 0) {
+                    // Skip remaining row positions in current column readers that were not read
+                    for (int c = 0; c < numCols; c++) {
+                        if (!filterColIndices.contains(c)) {
+                            ColumnReader cr = currentColumnReaders[c];
+                            for (int r = 0; r < rowsToRead; r++) {
+                                cr.skip();
                             }
                         }
                     }
-                    cr.consume();
+                    continue;
+                }
+
+                // Populate result vectors: filter columns are sliced/filtered; unread columns are decoded with skip()
+                for (int c = 0; c < numCols; c++) {
+                    if (filterColIndices.contains(c)) {
+                        vectors[c] = filterRowVectors[c].filter(matchMask, matchCount);
+                    } else {
+                        vectors[c] = readVector(c, rowsToRead, matchMask, matchCount);
+                    }
+                }
+
+                return new CupOfTea(DataFrame.fromVectors(List.of(vectors)));
+            }
+        }
+
+        private ColumnVector readVector(int colIdx, int totalRows, java.util.BitSet matchMask, int matchCount) {
+            ColumnDescriptor cd = schema.getColumns().get(colIdx);
+            String colName = cd.getPath()[0];
+            ColumnReader cr = currentColumnReaders[colIdx];
+            CapturingConverter conv = currentConverters[colIdx];
+            int maxDl = cd.getMaxDefinitionLevel();
+            int outSize = (matchMask != null) ? matchCount : totalRows;
+
+            switch (cd.getType()) {
+                case INT32 -> {
+                    int[] data = new int[outSize];
+                    java.util.BitSet nulls = new java.util.BitSet(outSize);
+                    if (matchMask == null) {
+                        for (int r = 0; r < totalRows; r++) {
+                            if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                nulls.set(r);
+                            } else {
+                                data[r] = cr.getInteger();
+                            }
+                            cr.consume();
+                        }
+                    } else {
+                        int outIdx = 0;
+                        for (int r = 0; r < totalRows; r++) {
+                            if (matchMask.get(r)) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    nulls.set(outIdx);
+                                } else {
+                                    data[outIdx] = cr.getInteger();
+                                }
+                                outIdx++;
+                                cr.consume();
+                            } else {
+                                cr.skip();
+                            }
+                        }
+                    }
+                    return new IntColumnVector(colName, true, data, nulls, outSize);
+                }
+                case INT64 -> {
+                    long[] data = new long[outSize];
+                    java.util.BitSet nulls = new java.util.BitSet(outSize);
+                    if (matchMask == null) {
+                        for (int r = 0; r < totalRows; r++) {
+                            if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                nulls.set(r);
+                            } else {
+                                data[r] = cr.getLong();
+                            }
+                            cr.consume();
+                        }
+                    } else {
+                        int outIdx = 0;
+                        for (int r = 0; r < totalRows; r++) {
+                            if (matchMask.get(r)) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    nulls.set(outIdx);
+                                } else {
+                                    data[outIdx] = cr.getLong();
+                                }
+                                outIdx++;
+                                cr.consume();
+                            } else {
+                                cr.skip();
+                            }
+                        }
+                    }
+                    return new LongColumnVector(colName, true, data, nulls, outSize);
+                }
+                case FLOAT -> {
+                    float[] data = new float[outSize];
+                    java.util.BitSet nulls = new java.util.BitSet(outSize);
+                    if (matchMask == null) {
+                        for (int r = 0; r < totalRows; r++) {
+                            if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                nulls.set(r);
+                            } else {
+                                data[r] = cr.getFloat();
+                            }
+                            cr.consume();
+                        }
+                    } else {
+                        int outIdx = 0;
+                        for (int r = 0; r < totalRows; r++) {
+                            if (matchMask.get(r)) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    nulls.set(outIdx);
+                                } else {
+                                    data[outIdx] = cr.getFloat();
+                                }
+                                outIdx++;
+                                cr.consume();
+                            } else {
+                                cr.skip();
+                            }
+                        }
+                    }
+                    return new FloatColumnVector(colName, true, data, nulls, outSize);
+                }
+                case DOUBLE -> {
+                    double[] data = new double[outSize];
+                    java.util.BitSet nulls = new java.util.BitSet(outSize);
+                    if (matchMask == null) {
+                        for (int r = 0; r < totalRows; r++) {
+                            if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                nulls.set(r);
+                            } else {
+                                data[r] = cr.getDouble();
+                            }
+                            cr.consume();
+                        }
+                    } else {
+                        int outIdx = 0;
+                        for (int r = 0; r < totalRows; r++) {
+                            if (matchMask.get(r)) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    nulls.set(outIdx);
+                                } else {
+                                    data[outIdx] = cr.getDouble();
+                                }
+                                outIdx++;
+                                cr.consume();
+                            } else {
+                                cr.skip();
+                            }
+                        }
+                    }
+                    return new DoubleColumnVector(colName, true, data, nulls, outSize);
+                }
+                case BOOLEAN -> {
+                    boolean[] data = new boolean[outSize];
+                    java.util.BitSet nulls = new java.util.BitSet(outSize);
+                    if (matchMask == null) {
+                        for (int r = 0; r < totalRows; r++) {
+                            if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                nulls.set(r);
+                            } else {
+                                data[r] = cr.getBoolean();
+                            }
+                            cr.consume();
+                        }
+                    } else {
+                        int outIdx = 0;
+                        for (int r = 0; r < totalRows; r++) {
+                            if (matchMask.get(r)) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    nulls.set(outIdx);
+                                } else {
+                                    data[outIdx] = cr.getBoolean();
+                                }
+                                outIdx++;
+                                cr.consume();
+                            } else {
+                                cr.skip();
+                            }
+                        }
+                    }
+                    return new BooleanColumnVector(colName, true, data, nulls, outSize);
+                }
+                case BINARY -> {
+                    if (conv.getDictionary() != null) {
+                        Dictionary dict = conv.getDictionary();
+                        int dictSize = dict.getMaxId() + 1;
+                        String[] dictEntries = new String[dictSize];
+                        for (int d = 0; d < dictSize; d++) {
+                            dictEntries[d] = dict.decodeToBinary(d).toStringUsingUTF8();
+                        }
+                        int[] codes = new int[outSize];
+                        java.util.BitSet nulls = new java.util.BitSet(outSize);
+                        if (matchMask == null) {
+                            for (int r = 0; r < totalRows; r++) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    codes[r] = -1;
+                                    nulls.set(r);
+                                } else {
+                                    codes[r] = cr.getCurrentValueDictionaryID();
+                                }
+                                cr.consume();
+                            }
+                        } else {
+                            int outIdx = 0;
+                            for (int r = 0; r < totalRows; r++) {
+                                if (matchMask.get(r)) {
+                                    if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                        codes[outIdx] = -1;
+                                        nulls.set(outIdx);
+                                    } else {
+                                        codes[outIdx] = cr.getCurrentValueDictionaryID();
+                                    }
+                                    outIdx++;
+                                    cr.consume();
+                                } else {
+                                    cr.skip();
+                                }
+                            }
+                        }
+                        return new DictionaryColumnVector(colName, true, dictEntries, codes, nulls, outSize);
+                    } else {
+                        StringColumnVector scv = new StringColumnVector(colName, outSize, true);
+                        if (matchMask == null) {
+                            for (int r = 0; r < totalRows; r++) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    scv.appendNull();
+                                } else {
+                                    byte[] bytes = cr.getBinary().getBytes();
+                                    scv.appendUtf8Bytes(bytes, 0, bytes.length);
+                                }
+                                cr.consume();
+                            }
+                        } else {
+                            for (int r = 0; r < totalRows; r++) {
+                                if (matchMask.get(r)) {
+                                    if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                        scv.appendNull();
+                                    } else {
+                                        byte[] bytes = cr.getBinary().getBytes();
+                                        scv.appendUtf8Bytes(bytes, 0, bytes.length);
+                                    }
+                                    cr.consume();
+                                } else {
+                                    cr.skip();
+                                }
+                            }
+                        }
+                        return scv;
+                    }
+                }
+                default -> {
+                    StringColumnVector scv = new StringColumnVector(colName, outSize, true);
+                    if (matchMask == null) {
+                        for (int r = 0; r < totalRows; r++) {
+                            if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                scv.appendNull();
+                            } else {
+                                byte[] bytes = cr.getBinary().getBytes();
+                                scv.appendUtf8Bytes(bytes, 0, bytes.length);
+                            }
+                            cr.consume();
+                        }
+                    } else {
+                        for (int r = 0; r < totalRows; r++) {
+                            if (matchMask.get(r)) {
+                                if (cr.getCurrentDefinitionLevel() < maxDl) {
+                                    scv.appendNull();
+                                } else {
+                                    byte[] bytes = cr.getBinary().getBytes();
+                                    scv.appendUtf8Bytes(bytes, 0, bytes.length);
+                                }
+                                cr.consume();
+                            } else {
+                                cr.skip();
+                            }
+                        }
+                    }
+                    return scv;
                 }
             }
-
-            currentRowGroupRemaining -= rowsToRead;
-            return new CupOfTea(DataFrame.fromVectors(vectors));
         }
 
         @Override
