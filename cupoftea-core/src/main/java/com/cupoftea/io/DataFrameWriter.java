@@ -70,6 +70,14 @@ public class DataFrameWriter {
         write("json", buildOptions().file(file).build());
     }
 
+    public void json(File file, Object configuration) {
+        write("json", buildOptions().file(file).option("configuration", configuration).build());
+    }
+
+    public void json(String path, Object configuration) {
+        json(new File(path), configuration);
+    }
+
     // --- PARQUET ---
 
     public void parquet(String path) {
