@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.8] - 2026-11-04
+
+### Performance
+
+- Columnar predicate pushdown and dictionary support in `ParquetLazySource` ([#265](https://github.com/cupoftea-labs/cupoftea/issues/265)):
+  - Pushed filter predicates and projected columns directly into `ScanContext` and `ParquetLazySource`.
+  - Added native Parquet dictionary support (`CapturingConverter`) for binary/string columns, constructing `DictionaryColumnVector` directly from page dictionaries and integer dictionary IDs without row-by-row UTF-8 decoding.
+  - Implemented adaptive filter-first columnar scanning: evaluated filter predicates on filter-referenced columns first to construct a boolean `BitSet` mask, then skipped unmatched rows on payload columns using `ColumnReader.skip()` or applied vectorized filtering on columnar batches before row materialization.
+  - Reduced `PolarsIngestBenchmark.ingestParquetLazyPushdown` (100k rows) latency from ~33.8 ms to ~17.1 ms, outperforming eager reading (~19.5 ms).
+
 ## [0.21.7] - 2026-11-04
 
 ### Performance

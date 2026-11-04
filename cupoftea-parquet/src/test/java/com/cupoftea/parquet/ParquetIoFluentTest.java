@@ -49,4 +49,26 @@ public class ParquetIoFluentTest {
         assertThat(df.getHeaders().get(0).columnName()).isEqualTo("nome");
         assertThat(df.getHeaders().get(1).columnName()).isEqualTo("idade");
     }
+
+    @Test
+    @DisplayName("Should scan Parquet lazily with columnar predicate pushdown")
+    void testScanParquetLazyPredicatePushdown() {
+        File sample = new File("src/test/resources/testFiles/parquet_sample.parquet");
+        if (!sample.exists()) {
+            sample = new File("cupoftea-parquet/src/test/resources/testFiles/parquet_sample.parquet");
+        }
+
+        CupOfTea df = CupOfTea.scan()
+                .parquet(sample.getPath())
+                .select("nome", "idade")
+                .filter(r -> r.getLong("idade") > 50L)
+                .collect();
+
+        assertThat(df.getHeaders()).hasSize(2);
+        assertThat(df.size()).isGreaterThan(0);
+        assertThat(df.size()).isLessThan(499);
+        for (int i = 0; i < df.size(); i++) {
+            assertThat(df.getRow(i).getLong("idade")).isGreaterThan(50L);
+        }
+    }
 }

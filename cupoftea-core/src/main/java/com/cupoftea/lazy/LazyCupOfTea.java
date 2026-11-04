@@ -267,11 +267,14 @@ public class LazyCupOfTea implements LazyDataFrame {
     private long countPartition(PartitionReader partition) {
         long count = 0;
         try (partition) {
+            boolean filtersApplied = partition.hasAppliedFilters();
             CupOfTea batch;
             while ((batch = partition.nextBatch()) != null) {
-                for (IFilter filter : filters) {
-                    batch = batch.filter(filter);
-                    if (batch.size() == 0) break;
+                if (!filtersApplied) {
+                    for (IFilter filter : filters) {
+                        batch = batch.filter(filter);
+                        if (batch.size() == 0) break;
+                    }
                 }
                 count += batch.size();
             }
@@ -343,7 +346,7 @@ public class LazyCupOfTea implements LazyDataFrame {
         List<String> projCols = null;
         long mask = -1L;
 
-        if (selectColumns != null && !selectColumns.isEmpty() && filters.isEmpty()) {
+        if (selectColumns != null && !selectColumns.isEmpty()) {
             projCols = selectColumns;
         } else if (canFuseScanAggregate()) {
             List<String> needed = new ArrayList<>();
@@ -376,7 +379,7 @@ public class LazyCupOfTea implements LazyDataFrame {
             mask = m;
         }
 
-        return new ScanContext(parallel, executor, batchSize, chunkSizeBytes, projCols, mask);
+        return new ScanContext(parallel, executor, batchSize, chunkSizeBytes, projCols, mask, filters);
     }
 
     private CupOfTea collectAggregates(List<PartitionReader> partitions, ScanContext context) {
@@ -406,11 +409,14 @@ public class LazyCupOfTea implements LazyDataFrame {
                     } else {
                         CompactRunningGroupBy localState = new CompactRunningGroupBy(groupCols, aggs, headers);
                         try (partition) {
+                            boolean filtersApplied = partition.hasAppliedFilters();
                             CupOfTea batch;
                             while ((batch = partition.nextBatch()) != null) {
-                                for (IFilter filter : filters) {
-                                    batch = batch.filter(filter);
-                                    if (batch.size() == 0) break;
+                                if (!filtersApplied) {
+                                    for (IFilter filter : filters) {
+                                        batch = batch.filter(filter);
+                                        if (batch.size() == 0) break;
+                                    }
                                 }
                                 if (batch.size() > 0) {
                                     localState.accumulateBatch(batch);
@@ -472,11 +478,14 @@ public class LazyCupOfTea implements LazyDataFrame {
                 CompactRunningGroupBy state = new CompactRunningGroupBy(groupCols, aggs, headers);
                 for (PartitionReader partition : partitions) {
                     try (partition) {
+                        boolean filtersApplied = partition.hasAppliedFilters();
                         CupOfTea batch;
                         while ((batch = partition.nextBatch()) != null) {
-                            for (IFilter filter : filters) {
-                                batch = batch.filter(filter);
-                                if (batch.size() == 0) break;
+                            if (!filtersApplied) {
+                                for (IFilter filter : filters) {
+                                    batch = batch.filter(filter);
+                                    if (batch.size() == 0) break;
+                                }
                             }
                             if (batch.size() > 0) {
                                 state.accumulateBatch(batch);
@@ -535,11 +544,14 @@ public class LazyCupOfTea implements LazyDataFrame {
             try {
                 for (PartitionReader partition : partitions) {
                     try (partition) {
+                        boolean filtersApplied = partition.hasAppliedFilters();
                         CupOfTea batch;
                         while ((batch = partition.nextBatch()) != null && remaining > 0) {
-                            for (IFilter filter : filters) {
-                                batch = batch.filter(filter);
-                                if (batch.size() == 0) break;
+                            if (!filtersApplied) {
+                                for (IFilter filter : filters) {
+                                    batch = batch.filter(filter);
+                                    if (batch.size() == 0) break;
+                                }
                             }
                             if (batch.size() > 0) {
                                 if (selectColumns != null && !selectColumns.isEmpty() && batch.getHeaders().size() > selectColumns.size()) {

@@ -30,6 +30,17 @@ public interface PartitionReader extends Closeable {
     }
 
     /**
+     * Indicates whether this partition reader has already evaluated and applied the filter predicates
+     * pushed down from {@link ScanContext#getFilters()} directly during columnar scanning, so that
+     * downstream operators do not need to re-evaluate them row-by-row.
+     *
+     * @return true if predicates were fully evaluated in this partition reader
+     */
+    default boolean hasAppliedFilters() {
+        return false;
+    }
+
+    /**
      * Evaluates this partition directly into the provided {@link StreamingDirectAggregator}.
      * Default implementation falls back to reading batches via {@link #nextBatch()} and accumulating.
      *
