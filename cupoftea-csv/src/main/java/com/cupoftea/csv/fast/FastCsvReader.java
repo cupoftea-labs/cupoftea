@@ -1320,7 +1320,7 @@ public class FastCsvReader {
         Set<String> naStrings = config.getNaStrings();
         boolean customNaStrings = naStrings != null && !naStrings.equals(SimdCsvScanner.DEFAULT_NA_STRINGS);
 
-        SimdCsvScanner.DirectRowState rowState = new SimdCsvScanner.DirectRowState(colCount, aggregator.isMultiKey() ? aggregator.getGroupColumns().length : 0);
+        SimdCsvScanner.DirectRowState rowState = new SimdCsvScanner.DirectRowState(colCount, aggregator.isMultiKey() ? aggregator.getGroupColumns().length : 0, aggregator);
         rowState.reset(aggregator.isGlobal());
 
         int curr = start;
@@ -1396,6 +1396,8 @@ public class FastCsvReader {
 
             curr = skipLineBreak(fullBytes, mappedBuf, curr, end);
         }
+
+        rowState.flushBatch(aggregator);
     }
 
     /**
