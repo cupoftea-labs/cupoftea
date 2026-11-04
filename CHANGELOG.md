@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.12] - 2026-11-04
+
+### Performance
+
+- Vectorized direct JSON streaming egress via Jackson `JsonGenerator` ([#273](https://github.com/cupoftea-labs/cupoftea/issues/273)):
+  - Replaced full row map serialization via `ObjectMapper.writeValue(file, dataFrame.getRows())` with low-level `JsonGenerator` streaming in `JsonFormatWriter` and `JsonExporter`.
+  - Reads directly from columnar vectors (`IntColumnVector`, `LongColumnVector`, `DoubleColumnVector`, `FloatColumnVector`, `BooleanColumnVector`, `DictionaryColumnVector`, `StringColumnVector`), eliminating intermediate `Row` maps, reflection overhead, and boxing allocations.
+  - Pre-encodes field names with `SerializedString` and caches dictionary string entries for `DictionaryColumnVector`, speeding up egress by ~3x (100k rows egress from ~147 ms down to ~51 ms).
+  - Introduced configurable JSON export modes (`COMPACT`, `PRETTY`, and `LINES` for NDJSON) via `JsonExporterConfiguration` and fluent API options (`df.write().json(file, config)` and `df.write().option("lines", true).json(file)`).
+  - Added unit test coverage in `JsonExporterTest` covering compact, pretty, and newline-delimited JSON formats.
+
 ## [0.21.11] - 2026-11-04
 
 ### Performance

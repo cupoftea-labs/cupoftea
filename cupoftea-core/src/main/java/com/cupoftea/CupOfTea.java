@@ -1320,6 +1320,14 @@ public class CupOfTea {
         return this;
     }
 
+    public CupOfTea exportToJson(File file, Object configuration) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().json(file, configuration);
+        return this;
+    }
+
     public Object exportToJson() {
         return this.dataFrame.getRows();
     }

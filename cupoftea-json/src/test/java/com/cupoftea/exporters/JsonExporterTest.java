@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.ExportException;
+import com.cupoftea.exporters.configurations.JsonExporterConfiguration;
 
 public class JsonExporterTest {
 
@@ -46,6 +47,42 @@ public class JsonExporterTest {
 
         String content = Files.readString(temp.toPath());
         assertThat(content).contains("alpha").contains("beta").contains("10.5");
+    }
+
+    @Test
+    @DisplayName("Should export DataFrame to JSON with compact and pretty configuration")
+    void testExportWithModes() throws Exception {
+        CupOfTea df = new CupOfTea();
+        df.addColumn("id", Integer.class);
+        df.addColumn("active", Boolean.class);
+        df.addColumn("nullVal", String.class);
+
+        Map<String, Object> r1 = new HashMap<>();
+        r1.put("id", 100);
+        r1.put("active", true);
+        r1.put("nullVal", null);
+        df.addRow(r1);
+
+        // Compact mode
+        File tempCompact = File.createTempFile("test_compact", ".json");
+        tempCompact.deleteOnExit();
+        df.exportToJson(tempCompact, JsonExporterConfiguration.builder().mode(JsonExporterConfiguration.Mode.COMPACT));
+        String compactContent = Files.readString(tempCompact.toPath());
+        assertThat(compactContent).contains("[{\"id\":100,\"active\":true,\"nullVal\":null}]");
+
+        // Pretty mode
+        File tempPretty = File.createTempFile("test_pretty", ".json");
+        tempPretty.deleteOnExit();
+        df.exportToJson(tempPretty, JsonExporterConfiguration.builder().mode(JsonExporterConfiguration.Mode.PRETTY));
+        String prettyContent = Files.readString(tempPretty.toPath());
+        assertThat(prettyContent).contains("\n").contains("\"id\" : 100");
+
+        // Lines mode (NDJSON)
+        File tempLines = File.createTempFile("test_lines", ".json");
+        tempLines.deleteOnExit();
+        df.write().option("lines", true).json(tempLines);
+        String linesContent = Files.readString(tempLines.toPath());
+        assertThat(linesContent).doesNotStartWith("[").contains("{\"id\":100,\"active\":true,\"nullVal\":null}\n");
     }
 
     @Test
