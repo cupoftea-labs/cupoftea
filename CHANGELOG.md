@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.10] - 2026-11-04
+
+### Performance
+
+- Native columnar Parquet export without Avro/Hadoop GenericRecord overhead ([#271](https://github.com/cupoftea-labs/cupoftea/issues/271)):
+  - Rewrote `ParquetExporter` to stream data directly from primitive columnar vectors (`IntColumnVector`, `LongColumnVector`, `DoubleColumnVector`, `FloatColumnVector`, `BooleanColumnVector`, `StringColumnVector`, `DictionaryColumnVector`) into Parquet `ColumnWriter` pages via `ColumnChunkPageWriteStore` and `ParquetFileWriter`.
+  - Eliminated row-by-row `GenericRecord` and `Row` map materialization, bypassing intermediate Avro serialization and avoiding millions of transient object allocations.
+  - Leveraged `LocalOutputFile` and Snappy compression block encoding, reducing 100k-row Parquet export latency by ~20x (from ~1,495 ms down to ~76 ms).
+  - Added comprehensive test coverage in `ParquetExporterTest` validating primitive vectors, null values, dictionary encodings, and roundtrip data fidelity.
+
 ## [0.21.9] - 2026-11-04
 
 ### Performance

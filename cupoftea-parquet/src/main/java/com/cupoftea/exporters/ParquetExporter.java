@@ -2,35 +2,54 @@ package com.cupoftea.exporters;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.parquet.avro.AvroParquetWriter;
-import org.apache.parquet.conf.PlainParquetConfiguration;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.ColumnWriteStore;
+import org.apache.parquet.column.ColumnWriter;
+import org.apache.parquet.column.ParquetProperties;
+import org.apache.parquet.hadoop.CodecFactory;
+import org.apache.parquet.hadoop.ColumnChunkPageWriteStore;
+import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.io.LocalOutputFile;
-import org.json.JSONArray;
-import org.json.JSONObject;
+import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.apache.parquet.schema.Types;
 
 import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.ExportException;
 import com.cupoftea.exporters.interfaces.IParquetExporter;
 import com.cupoftea.table.Column;
-import com.cupoftea.table.Row;
+import com.cupoftea.table.interfaces.IDataFrame;
+import com.cupoftea.table.vector.BooleanColumnVector;
+import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
+import com.cupoftea.table.vector.DoubleColumnVector;
+import com.cupoftea.table.vector.FloatColumnVector;
+import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.StringColumnVector;
 
+/**
+ * High-performance Parquet exporter that consumes primitive ColumnVectors directly
+ * without Avro or Hadoop GenericRecord row-by-row object allocations.
+ */
 public class ParquetExporter implements IParquetExporter {
 
-    private CupOfTea dataFrame;
+    private final CupOfTea dataFrame;
 
-    public ParquetExporter(CupOfTea dataFrame){
+    public ParquetExporter(CupOfTea dataFrame) {
         this.dataFrame = dataFrame;
     }
 
     /**
-     * Create a PARQUET file from the data frame.
+     * Create a PARQUET file from the data frame using direct columnar writing.
      * 
      * @param file path to your PARQUET file. Can't be null.
      */
@@ -41,64 +60,163 @@ public class ParquetExporter implements IParquetExporter {
         }
 
         try {
-            ArrayList<Column> headers = this.dataFrame.getHeaders();
+            IDataFrame df = this.dataFrame.getDataFrame();
+            int rowCount = df.size();
+            List<Column> headers = this.dataFrame.getHeaders();
 
-            JSONArray fields = new JSONArray();
-
-            for(var column : this.dataFrame.getHeaders()){
-                Class<?> columnType = column.columnType();
-                String type;
-
-                if (columnType == String.class) {
-                    type = "string";
-                } else if (columnType == Integer.class || columnType == int.class) {
-                    type = "int";
-                } else if (columnType == Double.class || columnType == double.class) {
-                    type = "double";
+            Types.MessageTypeBuilder builder = Types.buildMessage();
+            for (Column col : headers) {
+                Class<?> columnType = col.columnType();
+                if (columnType == Integer.class || columnType == int.class) {
+                    builder.optional(PrimitiveTypeName.INT32).named(col.columnName());
                 } else if (columnType == Long.class || columnType == long.class) {
-                    type = "long";
+                    builder.optional(PrimitiveTypeName.INT64).named(col.columnName());
+                } else if (columnType == Double.class || columnType == double.class) {
+                    builder.optional(PrimitiveTypeName.DOUBLE).named(col.columnName());
                 } else if (columnType == Float.class || columnType == float.class) {
-                    type = "float";
+                    builder.optional(PrimitiveTypeName.FLOAT).named(col.columnName());
                 } else if (columnType == Boolean.class || columnType == boolean.class) {
-                    type = "boolean";
+                    builder.optional(PrimitiveTypeName.BOOLEAN).named(col.columnName());
                 } else {
-                    type = "string";
+                    builder.optional(PrimitiveTypeName.BINARY).as(LogicalTypeAnnotation.stringType()).named(col.columnName());
                 }
-
-                fields.put(new JSONObject()
-                    .put("name", column.columnName())
-                    .put("type", new JSONArray().put("null").put(type))
-                    .put("default", JSONObject.NULL));
             }
-            
-            JSONObject schemaJson = new JSONObject();
+            MessageType schema = builder.named("DataFrame");
 
-            schemaJson
-                    .put("type", "record")
-                    .put("name", "DataFrame")
-                    .put("fields", fields)
-                ;
+            ParquetFileWriter fileWriter = new ParquetFileWriter(
+                    new LocalOutputFile(file.toPath()),
+                    schema,
+                    ParquetFileWriter.Mode.CREATE,
+                    ParquetWriter.DEFAULT_BLOCK_SIZE,
+                    ParquetWriter.MAX_PADDING_SIZE_DEFAULT
+            );
+            fileWriter.start();
 
-            Schema schema = new Schema.Parser().parse(schemaJson.toString());
+            ParquetProperties props = ParquetProperties.builder().build();
+            Configuration conf = new Configuration();
+            CodecFactory codecFactory = new CodecFactory(conf, props.getPageSizeThreshold());
+            CodecFactory.BytesCompressor compressor = codecFactory.getCompressor(CompressionCodecName.SNAPPY);
 
-            LocalOutputFile outputFile = new LocalOutputFile(file.toPath());
-            PlainParquetConfiguration conf = new PlainParquetConfiguration();
+            ColumnChunkPageWriteStore pageStore = new ColumnChunkPageWriteStore(
+                    compressor,
+                    schema,
+                    props.getAllocator(),
+                    props.getColumnIndexTruncateLength(),
+                    props.getPageWriteChecksumEnabled()
+            );
 
-            try (ParquetWriter<GenericRecord> writer = AvroParquetWriter.<GenericRecord>builder(outputFile)
-                    .withSchema(schema)
-                    .withCompressionCodec(CompressionCodecName.SNAPPY)
-                    .withPageSize(1 * 1024 * 1024)
-                    .withConf(conf)
-                    .build()) {
-                for (Row data : this.dataFrame.getRows()){
-                    GenericRecord record = new GenericData.Record(schema);
-                    for (int i = 0; i < data.size(); i++){
-                        String header = headers.get(i).columnName();
-                        record.put(header, data.get(header));
+            ColumnWriteStore columnStore = props.newColumnWriteStore(schema, pageStore);
+
+            int colIdx = 0;
+            for (Column col : headers) {
+                ColumnDescriptor cd = schema.getColumns().get(colIdx++);
+                ColumnWriter cw = columnStore.getColumnWriter(cd);
+                ColumnVector vec = df.getColumnVector(col.columnName());
+
+                if (vec instanceof IntColumnVector iv) {
+                    int[] data = iv.getRawData();
+                    for (int r = 0; r < rowCount; r++) {
+                        if (iv.isNull(r)) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            cw.write(data[r], 0, 1);
+                        }
                     }
-                    writer.write(record);
+                } else if (vec instanceof LongColumnVector lv) {
+                    long[] data = lv.getRawData();
+                    for (int r = 0; r < rowCount; r++) {
+                        if (lv.isNull(r)) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            cw.write(data[r], 0, 1);
+                        }
+                    }
+                } else if (vec instanceof DoubleColumnVector dv) {
+                    double[] data = dv.getRawData();
+                    for (int r = 0; r < rowCount; r++) {
+                        if (dv.isNull(r)) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            cw.write(data[r], 0, 1);
+                        }
+                    }
+                } else if (vec instanceof FloatColumnVector fv) {
+                    float[] data = fv.getRawData();
+                    for (int r = 0; r < rowCount; r++) {
+                        if (fv.isNull(r)) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            cw.write(data[r], 0, 1);
+                        }
+                    }
+                } else if (vec instanceof BooleanColumnVector bv) {
+                    for (int r = 0; r < rowCount; r++) {
+                        if (bv.isNull(r)) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            cw.write(bv.getBoolean(r), 0, 1);
+                        }
+                    }
+                } else if (vec instanceof DictionaryColumnVector dcv) {
+                    int dictSize = dcv.getDictionarySize();
+                    Binary[] dictBinaries = new Binary[dictSize];
+                    String[] rawDict = dcv.getDictionary();
+                    for (int d = 0; d < dictSize; d++) {
+                        String s = rawDict[d];
+                        dictBinaries[d] = s != null ? Binary.fromString(s) : null;
+                    }
+                    for (int r = 0; r < rowCount; r++) {
+                        if (dcv.isNull(r)) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            int code = dcv.getCodeUnchecked(r);
+                            Binary bin = dictBinaries[code];
+                            if (bin != null) {
+                                cw.write(bin, 0, 1);
+                            } else {
+                                cw.writeNull(0, 0);
+                            }
+                        }
+                    }
+                } else if (vec instanceof StringColumnVector sv) {
+                    byte[] rawBytes = sv.getValues();
+                    int[] offsets = sv.getOffsets();
+                    for (int r = 0; r < rowCount; r++) {
+                        if (sv.isNull(r)) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            int start = offsets[r];
+                            int len = offsets[r + 1] - start;
+                            cw.write(Binary.fromByteArray(rawBytes, start, len), 0, 1);
+                        }
+                    }
+                } else {
+                    for (int r = 0; r < rowCount; r++) {
+                        Object val = vec != null ? vec.getObject(r) : null;
+                        if (val == null) {
+                            cw.writeNull(0, 0);
+                        } else {
+                            cw.write(Binary.fromString(val.toString()), 0, 1);
+                        }
+                    }
                 }
             }
+
+            for (int r = 0; r < rowCount; r++) {
+                columnStore.endRecord();
+            }
+
+            fileWriter.startBlock(rowCount);
+            columnStore.flush();
+            pageStore.flushToFileWriter(fileWriter);
+            fileWriter.endBlock();
+
+            fileWriter.end(Collections.emptyMap());
+            columnStore.close();
+            pageStore.close();
+            fileWriter.close();
+            codecFactory.release();
+
         } catch (IOException e) {
             throw new ExportException("Failed to export to Parquet file: " + file.getPath(), e);
         } catch (Exception e) {
@@ -108,5 +226,4 @@ public class ParquetExporter implements IParquetExporter {
             throw new ExportException("Failed to export to Parquet file: " + file.getPath(), e);
         }
     }
-
 }
