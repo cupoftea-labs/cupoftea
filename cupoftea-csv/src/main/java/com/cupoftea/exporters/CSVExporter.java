@@ -6,11 +6,15 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 
 import com.cupoftea.CupOfTea;
+import com.cupoftea.csv.fast.FastByteArrayOutputStream;
 import com.cupoftea.exceptions.ExportException;
 import com.cupoftea.exporters.configurations.CSVExporterConfiguration;
 import static com.cupoftea.exporters.configurations.CSVExporterConfiguration.HeadersPlacement.BOTTOM;
@@ -24,9 +28,13 @@ import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
 import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.ParallelVectorEngine;
 import com.cupoftea.table.vector.StringColumnVector;
 
 public class CSVExporter {
+
+    private static final int PARALLEL_ROW_THRESHOLD = 16_384;
+    private static final int CHUNK_ROW_SIZE = 16_384;
 
     private final CupOfTea dataFrame;
     private CSVExporterConfiguration configuration;
@@ -51,6 +59,21 @@ public class CSVExporter {
             parent.mkdirs();
         }
 
+        int rowCount = this.dataFrame.size();
+        if (rowCount >= PARALLEL_ROW_THRESHOLD) {
+            try {
+                exportParallelChunked(file);
+                return;
+            } catch (IOException e) {
+                throw new ExportException("Failed to export to CSV file: " + file.getPath(), e);
+            } catch (Exception e) {
+                if (e instanceof ExportException) {
+                    throw (ExportException) e;
+                }
+                throw new ExportException("Failed to export to CSV file: " + file.getPath(), e);
+            }
+        }
+
         final int bufferSize = 64 * 1024;
         try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8), bufferSize)) {
             exportToWriter(writer);
@@ -73,6 +96,171 @@ public class CSVExporter {
     public void exportToCsv(File file, CSVExporterConfiguration configuration) {
         this.configuration = configuration;
         this.exportToCsv(file);
+    }
+
+    private void exportParallelChunked(File file) throws IOException {
+        IDataFrame df = this.dataFrame.getDataFrame();
+        List<Column> headers = this.dataFrame.getHeaders();
+        int numCols = headers.size();
+        int rowCount = this.dataFrame.size();
+
+        byte[] delimiterBytes = this.configuration.getDelimiter().getBytes(StandardCharsets.UTF_8);
+        byte[] lineEndBytes = this.configuration.getLineEndString().getBytes(StandardCharsets.UTF_8);
+        byte[] stringNullBytes = this.configuration.getStringNull().getBytes(StandardCharsets.UTF_8);
+        byte[] quoteBytes = this.configuration.getQuoteString().getBytes(StandardCharsets.UTF_8);
+        var quoteBehaviour = this.configuration.getQuoteBehaviour();
+
+        // Precompute header bytes if needed
+        byte[] headerBytes = null;
+        if (this.configuration.getHeadersPlacement() != NO_HEADER && numCols > 0) {
+            FastByteArrayOutputStream hOut = new FastByteArrayOutputStream(numCols * 32);
+            for (int c = 0; c < numCols; c++) {
+                if (c > 0) {
+                    hOut.writeBytes(delimiterBytes);
+                }
+                Column col = headers.get(c);
+                boolean quote = shouldQuote(quoteBehaviour, true, isNum(col.columnType()), isStr(col.columnType()), col.columnName() != null);
+                if (quote && quoteBytes.length > 0) hOut.writeBytes(quoteBytes);
+                hOut.writeAsciiOrUtf8(col.columnName());
+                if (quote && quoteBytes.length > 0) hOut.writeBytes(quoteBytes);
+            }
+            hOut.writeBytes(lineEndBytes);
+            headerBytes = new byte[hOut.size()];
+            System.arraycopy(hOut.getBuffer(), 0, headerBytes, 0, hOut.size());
+        }
+
+        // Fast columnar setup
+        ColumnVector[] vectors = new ColumnVector[numCols];
+        boolean[] isNumCol = new boolean[numCols];
+        boolean[] isStrCol = new boolean[numCols];
+
+        for (int c = 0; c < numCols; c++) {
+            Column col = headers.get(c);
+            ColumnVector vec = df != null ? df.getColumnVector(col.columnName()) : null;
+            vectors[c] = vec;
+            Class<?> type = col.columnType();
+            isNumCol[c] = isNum(type);
+            isStrCol[c] = isStr(type);
+        }
+
+        ExecutorService executor = df != null ? df.getExecutor() : null;
+        if (executor == null) {
+            executor = ForkJoinPool.commonPool();
+        }
+
+        int parallelism = ParallelVectorEngine.getParallelism(executor);
+        int chunkSize = Math.max(CHUNK_ROW_SIZE, (rowCount + parallelism - 1) / parallelism);
+        int numChunks = (rowCount + chunkSize - 1) / chunkSize;
+        int[][] ranges = new int[numChunks][2];
+        for (int i = 0; i < numChunks; i++) {
+            ranges[i][0] = i * chunkSize;
+            ranges[i][1] = Math.min(rowCount, (i + 1) * chunkSize);
+        }
+
+        List<FastByteArrayOutputStream> chunkBuffers = ParallelVectorEngine.executeRanges(ranges, executor, (chunkIdx, start, end) -> {
+            FastByteArrayOutputStream out = new FastByteArrayOutputStream((end - start) * (numCols * 16));
+            for (int r = start; r < end; r++) {
+                for (int c = 0; c < numCols; c++) {
+                    if (c > 0) {
+                        out.writeBytes(delimiterBytes);
+                    }
+
+                    ColumnVector vec = vectors[c];
+                    boolean isNull = (vec != null) ? vec.isNull(r) : false;
+
+                    if (isNull) {
+                        boolean quote = shouldQuote(quoteBehaviour, false, isNumCol[c], isStrCol[c], false);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        out.writeBytes(stringNullBytes);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else if (vec instanceof IntColumnVector intVec) {
+                        boolean quote = (quoteBehaviour == CSVExporterConfiguration.QuoteBehaviour.ALL);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        out.writeInt(intVec.getInt(r));
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else if (vec instanceof LongColumnVector longVec) {
+                        boolean quote = (quoteBehaviour == CSVExporterConfiguration.QuoteBehaviour.ALL);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        out.writeLong(longVec.getLong(r));
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else if (vec instanceof DoubleColumnVector dblVec) {
+                        boolean quote = (quoteBehaviour == CSVExporterConfiguration.QuoteBehaviour.ALL);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        out.writeDouble(dblVec.getDouble(r));
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else if (vec instanceof FloatColumnVector fltVec) {
+                        boolean quote = (quoteBehaviour == CSVExporterConfiguration.QuoteBehaviour.ALL);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        out.writeFloat(fltVec.getFloat(r));
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else if (vec instanceof BooleanColumnVector boolVec) {
+                        boolean quote = shouldQuote(quoteBehaviour, false, false, false, true);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        out.writeBoolean(boolVec.getBoolean(r));
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else if (vec instanceof StringColumnVector strVec) {
+                        String s = strVec.getString(r);
+                        boolean quote = shouldQuote(quoteBehaviour, false, false, true, s != null);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        if (s != null) out.writeAsciiOrUtf8(s);
+                        else out.writeBytes(stringNullBytes);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else if (vec != null) {
+                        Object obj = vec.getObject(r);
+                        String s = obj != null ? obj.toString() : null;
+                        boolean quote = shouldQuote(quoteBehaviour, false, isNumCol[c], isStrCol[c], s != null);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        if (s != null) out.writeAsciiOrUtf8(s);
+                        else out.writeBytes(stringNullBytes);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    } else {
+                        Object obj = this.dataFrame.getRow(r).get(headers.get(c).columnName());
+                        String s = obj != null ? obj.toString() : null;
+                        boolean quote = shouldQuote(quoteBehaviour, false, isNumCol[c], isStrCol[c], s != null);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                        if (s != null) out.writeAsciiOrUtf8(s);
+                        else out.writeBytes(stringNullBytes);
+                        if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
+                    }
+                }
+                out.writeBytes(lineEndBytes);
+            }
+            return out;
+        });
+
+        try (FileOutputStream fos = new FileOutputStream(file);
+             FileChannel fc = fos.getChannel()) {
+            if (this.configuration.getHeadersPlacement() == TOP && headerBytes != null) {
+                fc.write(ByteBuffer.wrap(headerBytes));
+            }
+            for (FastByteArrayOutputStream chunk : chunkBuffers) {
+                chunk.writeToFileChannel(fc);
+            }
+            if (this.configuration.getHeadersPlacement() == BOTTOM && headerBytes != null) {
+                fc.write(ByteBuffer.wrap(headerBytes));
+            }
+        }
+    }
+
+    private static boolean isNum(Class<?> type) {
+        return type != null && Number.class.isAssignableFrom(type);
+    }
+
+    private static boolean isStr(Class<?> type) {
+        return type == String.class;
+    }
+
+    private static boolean shouldQuote(CSVExporterConfiguration.QuoteBehaviour b, boolean isHeader, boolean isNum, boolean isStr, boolean hasVal) {
+        if (isHeader) {
+            return b != CSVExporterConfiguration.QuoteBehaviour.NONE;
+        }
+        return switch (b) {
+            case ALL -> true;
+            case ALL_BUT_NUMBERS -> !isNum;
+            case ALL_BUT_NULL -> hasVal;
+            case STRING_ONLY -> isStr;
+            case HEADERS_ONLY, NONE -> false;
+        };
     }
 
     private void exportToWriter(Writer writer) throws IOException {
@@ -116,8 +304,8 @@ public class CSVExporter {
             ColumnVector vec = df != null ? df.getColumnVector(col.columnName()) : null;
             vectors[c] = vec;
             Class<?> type = col.columnType();
-            isNumCol[c] = type != null && Number.class.isAssignableFrom(type);
-            isStrCol[c] = type == String.class;
+            isNumCol[c] = isNum(type);
+            isStrCol[c] = isStr(type);
         }
 
         // Reusable row buffer
@@ -136,7 +324,7 @@ public class CSVExporter {
                 if (isNull) {
                     boolean quote;
                     switch (quoteBehaviour) {
-                        case ALL, HEADERS_ONLY: // For row data, HEADERS_ONLY quote is false
+                        case ALL, HEADERS_ONLY:
                             quote = quoteBehaviour == CSVExporterConfiguration.QuoteBehaviour.ALL;
                             break;
                         case ALL_BUT_NUMBERS:

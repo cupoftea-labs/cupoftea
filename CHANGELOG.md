@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.11] - 2026-11-04
+
+### Performance
+
+- Chunked parallel egress and zero-copy byte buffer streaming for CSV/TSV export ([#272](https://github.com/cupoftea-labs/cupoftea/issues/272)):
+  - Implemented parallel chunk encoding in `CSVExporter` via `ParallelVectorEngine.executeRanges`, partitioning large DataFrames into contiguous row ranges across worker threads (`ForkJoinPool`).
+  - Added `FastByteArrayOutputStream` direct byte accumulator with non-allocating integer and long byte serialization routines, avoiding intermediate `String` or `char[]` allocations.
+  - Implemented zero-copy streaming of encoded chunk byte buffers directly into the destination `FileChannel` (`ByteBuffer.wrap`).
+  - Maintained full compatibility with headers placement (`TOP`, `BOTTOM`, `NO_HEADER`), null replacements, and quote behaviors (`ALL`, `ALL_BUT_NUMBERS`, `ALL_BUT_NULL`, `STRING_ONLY`, `HEADERS_ONLY`, `NONE`).
+  - Added unit test in `CSVExporterTest` verifying byte fidelity and correctness of parallel chunked egress.
+
 ## [0.21.10] - 2026-11-04
 
 ### Performance
