@@ -298,10 +298,10 @@ def main():
         base_df = pl.read_csv(csv_file)
         mem_bytes = int(base_df.estimated_size())
 
-        out_csv_tmp = dataset_dir / f".tmp_out_{rows}.csv"
-        out_tsv_tmp = dataset_dir / f".tmp_out_{rows}.tsv"
-        out_pq_tmp = dataset_dir / f".tmp_out_{rows}.parquet"
-        out_json_tmp = dataset_dir / f".tmp_out_{rows}.json"
+        out_csv_tmp = ds_dir / f".tmp_out_{rows}.csv"
+        out_tsv_tmp = ds_dir / f".tmp_out_{rows}.tsv"
+        out_pq_tmp = ds_dir / f".tmp_out_{rows}.parquet"
+        out_json_tmp = ds_dir / f".tmp_out_{rows}.json"
 
         results.append(run_timed_benchmark(
             "PolarsEgressBenchmark.writeCsv", rows, mem_bytes, args.warmup, args.iterations,
