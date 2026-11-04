@@ -25,7 +25,7 @@ public class ScanContext {
         this.parallel = parallel;
         this.executor = executor;
         this.batchSize = batchSize > 0 ? batchSize : 65_536;
-        this.chunkSizeBytes = chunkSizeBytes > 0 ? chunkSizeBytes : 32 * 1024 * 1024;
+        this.chunkSizeBytes = chunkSizeBytes > 0 ? chunkSizeBytes : 0;
         this.projectedColumns = projectedColumns != null ? Collections.unmodifiableList(projectedColumns) : null;
         this.projectedColumnsMask = projectedColumnsMask;
     }
