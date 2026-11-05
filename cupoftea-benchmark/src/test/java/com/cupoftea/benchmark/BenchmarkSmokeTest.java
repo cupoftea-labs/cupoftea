@@ -291,6 +291,9 @@ public class BenchmarkSmokeTest {
         bench.leftJoinString1toN(noopBlackhole);
         bench.innerJoinIntNtoM(noopBlackhole);
         bench.leftJoinStringNtoM(noopBlackhole);
+        bench.asOfJoinBackward(noopBlackhole);
+        bench.asOfJoinForward(noopBlackhole);
+        bench.asOfJoinNearest(noopBlackhole);
     }
 
     @Test

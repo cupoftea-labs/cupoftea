@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -2402,4 +2403,770 @@ public final class DataFrameJoiner {
         }
         return 1 << (32 - Integer.numberOfLeadingZeros(n - 1));
     }
+
+    // =========================================================================
+    // As-Of Join Implementation (Issue #283)
+    // =========================================================================
+
+    public static IDataFrame asOfJoin(
+            IDataFrame left,
+            IDataFrame right,
+            String leftOn,
+            String rightOn,
+            List<String> leftBy,
+            List<String> rightBy,
+            AsOfDirection direction,
+            String leftSuffix,
+            String rightSuffix) {
+
+        if (left == null) {
+            throw new IllegalArgumentException("Left DataFrame cannot be null");
+        }
+        if (right == null) {
+            throw new IllegalArgumentException("Right DataFrame cannot be null");
+        }
+        if (leftOn == null || leftOn.isBlank()) {
+            throw new IllegalArgumentException("leftOn column must be specified for asOfJoin");
+        }
+        if (rightOn == null || rightOn.isBlank()) {
+            throw new IllegalArgumentException("rightOn column must be specified for asOfJoin");
+        }
+
+        if (left.getColumnHeader(leftOn) == null) {
+            throw new SchemaMismatchException("Column '" + leftOn + "' does not exist in left DataFrame");
+        }
+        if (right.getColumnHeader(rightOn) == null) {
+            throw new SchemaMismatchException("Column '" + rightOn + "' does not exist in right DataFrame");
+        }
+
+        List<String> lBy = leftBy != null ? leftBy : Collections.emptyList();
+        List<String> rBy = rightBy != null ? rightBy : Collections.emptyList();
+
+        if (lBy.size() != rBy.size()) {
+            throw new IllegalArgumentException("leftBy and rightBy must have the same number of columns, got "
+                    + lBy.size() + " and " + rBy.size());
+        }
+
+        for (String col : lBy) {
+            if (left.getColumnHeader(col) == null) {
+                throw new SchemaMismatchException("Column '" + col + "' does not exist in left DataFrame");
+            }
+        }
+        for (String col : rBy) {
+            if (right.getColumnHeader(col) == null) {
+                throw new SchemaMismatchException("Column '" + col + "' does not exist in right DataFrame");
+            }
+        }
+
+        AsOfDirection dir = direction != null ? direction : AsOfDirection.BACKWARD;
+        String lSuffix = leftSuffix != null ? leftSuffix : "_left";
+        String rSuffix = rightSuffix != null ? rightSuffix : "_right";
+
+        return executeAsOfJoin(left, right, leftOn, rightOn, lBy, rBy, dir, lSuffix, rSuffix);
+    }
+
+    private static IDataFrame executeAsOfJoin(
+            IDataFrame left,
+            IDataFrame right,
+            String leftOn,
+            String rightOn,
+            List<String> leftBy,
+            List<String> rightBy,
+            AsOfDirection direction,
+            String lSuffix,
+            String rSuffix) {
+
+        int leftSize = left.size();
+        int rightSize = right.size();
+
+        List<Column> leftHeaders = left.getHeaders() != null ? left.getHeaders() : Collections.emptyList();
+        List<Column> rightHeaders = right.getHeaders() != null ? right.getHeaders() : Collections.emptyList();
+
+        Set<String> sharedRightKeys = new HashSet<>();
+        if (leftOn.equals(rightOn)) {
+            sharedRightKeys.add(rightOn);
+        }
+        for (int i = 0; i < leftBy.size(); i++) {
+            if (leftBy.get(i).equals(rightBy.get(i))) {
+                sharedRightKeys.add(rightBy.get(i));
+            }
+        }
+
+        Set<String> leftColNames = new HashSet<>();
+        for (Column col : leftHeaders) {
+            leftColNames.add(col.columnName());
+        }
+
+        Set<String> rightColNames = new HashSet<>();
+        for (Column col : rightHeaders) {
+            rightColNames.add(col.columnName());
+        }
+
+        Set<String> collidingColNames = new HashSet<>();
+        for (String colName : leftColNames) {
+            if (rightColNames.contains(colName) && !sharedRightKeys.contains(colName)) {
+                collidingColNames.add(colName);
+            }
+        }
+
+        Map<String, String> leftOutMap = new LinkedHashMap<>();
+        for (Column col : leftHeaders) {
+            String name = col.columnName();
+            if (collidingColNames.contains(name)) {
+                leftOutMap.put(name, name + lSuffix);
+            } else {
+                leftOutMap.put(name, name);
+            }
+        }
+
+        Map<String, String> rightOutMap = new LinkedHashMap<>();
+        for (Column col : rightHeaders) {
+            String name = col.columnName();
+            if (sharedRightKeys.contains(name)) {
+                rightOutMap.put(name, leftOutMap.get(name));
+            } else if (collidingColNames.contains(name)) {
+                rightOutMap.put(name, name + rSuffix);
+            } else {
+                rightOutMap.put(name, name);
+            }
+        }
+
+        ArrayList<Column> outputHeaders = new ArrayList<>(leftHeaders.size() + rightHeaders.size());
+        List<OutputColSpec> outputSpecs = new ArrayList<>(leftHeaders.size() + rightHeaders.size());
+        Set<String> seenOutputNames = new HashSet<>();
+
+        // Add left columns (preserved as in left table)
+        for (Column col : leftHeaders) {
+            String lName = col.columnName();
+            String outName = leftOutMap.get(lName);
+            if (!seenOutputNames.add(outName)) {
+                throw new IllegalArgumentException("Duplicate column name in joined DataFrame: '" + outName + "'");
+            }
+            Class<?> colType = col.columnType();
+            ColumnVector leftVec = left.getColumnVector( lName);
+            outputHeaders.add(new Column(outName, colType));
+            outputSpecs.add(new OutputColSpec(outName, colType, leftVec != null && leftVec.isNullable(), leftVec, null, true, false));
+        }
+
+        // Add right columns (unmatched right rows become null in left-outer semantics)
+        for (Column col : rightHeaders) {
+            String rName = col.columnName();
+            if (sharedRightKeys.contains(rName)) {
+                continue;
+            }
+            String outName = rightOutMap.get(rName);
+            if (!seenOutputNames.add(outName)) {
+                throw new IllegalArgumentException("Duplicate column name in joined DataFrame: '" + outName + "'");
+            }
+            Class<?> colType = col.columnType();
+            ColumnVector rightVec = right.getColumnVector( rName);
+            outputHeaders.add(new Column(outName, colType));
+            outputSpecs.add(new OutputColSpec(outName, colType, true, rightVec, null, false, true));
+        }
+
+        if (leftSize == 0) {
+            return createEmptyResult(left, outputHeaders, outputSpecs, leftOutMap);
+        }
+
+        boolean parallel = left.isParallel() || right.isParallel();
+        ExecutorService executor = left.isParallel() ? left.getExecutor() : right.getExecutor();
+        int threshold = Math.min(left.getParallelThreshold(), right.getParallelThreshold());
+
+        List<ColumnVector> resultVectors = executeAsOfJoinProbe(
+                left, right, leftSize, rightSize, leftOn, rightOn, leftBy, rightBy,
+                direction, outputSpecs, parallel, executor, threshold);
+
+        DataFrame result = DataFrame.fromHeadersAndVectors(outputHeaders, resultVectors);
+        if (left.getIndex() != null && leftOutMap.containsKey(left.getIndex())) {
+            result.setIndex(leftOutMap.get(left.getIndex()));
+        }
+        return result;
+    }
+
+    private static List<ColumnVector> executeAsOfJoinProbe(
+            IDataFrame left,
+            IDataFrame right,
+            int leftSize,
+            int rightSize,
+            String leftOn,
+            String rightOn,
+            List<String> leftBy,
+            List<String> rightBy,
+            AsOfDirection direction,
+            List<OutputColSpec> outputSpecs,
+            boolean parallel,
+            ExecutorService executor,
+            int threshold) {
+
+        int numCols = outputSpecs.size();
+        ColumnVector[] resultVectors = new ColumnVector[numCols];
+
+        List<Integer> rightPrimCols = new ArrayList<>(numCols);
+        List<Integer> rightStrCols = new ArrayList<>(numCols);
+
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (spec.fromLeft) {
+                ColumnVector copied = spec.primaryVec.copy();
+                copied.setName(spec.outName);
+                copied.setNullable(spec.nullable);
+                resultVectors[c] = copied;
+            } else if (spec.primaryVec instanceof StringColumnVector) {
+                rightStrCols.add(c);
+            } else {
+                ColumnVector outVec = createOutputVector(spec, leftSize);
+                outVec.setSizeUnchecked(leftSize);
+                resultVectors[c] = outVec;
+                rightPrimCols.add(c);
+            }
+        }
+
+        ColumnVector leftOnVec = left.getColumnVector( leftOn);
+        ColumnVector rightOnVec = right.getColumnVector( rightOn);
+
+        ColumnVector[] leftByVecs = extractKeyVectors(left, leftBy);
+        ColumnVector[] rightByVecs = extractKeyVectors(right, rightBy);
+
+        AsOfProbeMatcher matcher = AsOfProbeMatcher.create(
+                leftOnVec, rightOnVec, leftByVecs, rightByVecs, rightSize, direction);
+
+        boolean runParallel = parallel && leftSize >= threshold && leftSize > 1;
+        ExecutorService pool = ParallelVectorEngine.resolveExecutor(executor);
+        int numChunks = runParallel ? ParallelVectorEngine.computeChunkCount(leftSize, pool) : 1;
+        int[][] ranges = ParallelVectorEngine.partitionRanges(leftSize, numChunks);
+
+        int numRightStr = rightStrCols.size();
+        int[][] strChunkByteCounts = numRightStr > 0 ? new int[numRightStr][ranges.length] : null;
+
+        List<int[]> rightIndexChunks = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+            int len = end - start;
+            int[] rightIdx = new int[len];
+            matcher.matchRange(start, end, rightIdx);
+
+            for (int i = 0; i < rightPrimCols.size(); i++) {
+                int colIdx = rightPrimCols.get(i);
+                OutputColSpec spec = outputSpecs.get(colIdx);
+                resultVectors[colIdx].copyNullableIndexedValuesOnly(spec.primaryVec, rightIdx, len, start);
+            }
+
+            for (int s = 0; s < numRightStr; s++) {
+                int colIdx = rightStrCols.get(s);
+                StringColumnVector strSrc = (StringColumnVector) outputSpecs.get(colIdx).primaryVec;
+                strChunkByteCounts[s][chunkIdx] = strSrc.computeNullableIndexedByteCount(rightIdx, len);
+            }
+            return rightIdx;
+        });
+
+        if (numRightStr > 0) {
+            int[][] strByteOffsets = new int[numRightStr][ranges.length];
+            for (int s = 0; s < numRightStr; s++) {
+                int colIdx = rightStrCols.get(s);
+                OutputColSpec spec = outputSpecs.get(colIdx);
+                int totalBytes = ParallelVectorEngine.computePrefixSums(strChunkByteCounts[s], strByteOffsets[s]);
+                resultVectors[colIdx] = StringColumnVector.allocateForCompaction(
+                        spec.outName, spec.nullable, leftSize, totalBytes);
+            }
+
+            ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
+                int len = end - start;
+                int[] rightIdx = rightIndexChunks.get(chunkIdx);
+                for (int s = 0; s < numRightStr; s++) {
+                    int colIdx = rightStrCols.get(s);
+                    StringColumnVector srcStr = (StringColumnVector) outputSpecs.get(colIdx).primaryVec;
+                    StringColumnVector dstStr = (StringColumnVector) resultVectors[colIdx];
+                    dstStr.copyNullableIndexedBytesLockFree(
+                            srcStr, rightIdx, len, start, strByteOffsets[s][chunkIdx]);
+                }
+                return null;
+            });
+        }
+
+        for (int c = 0; c < numCols; c++) {
+            OutputColSpec spec = outputSpecs.get(c);
+            if (!spec.fromLeft) {
+                ColumnVector dstVec = resultVectors[c];
+                ColumnVector srcVec = spec.primaryVec;
+                for (int chunkIdx = 0; chunkIdx < ranges.length; chunkIdx++) {
+                    int[] rightIdx = rightIndexChunks.get(chunkIdx);
+                    int start = ranges[chunkIdx][0];
+                    dstVec.applyNullsFromNullableIndexed(srcVec, rightIdx, rightIdx.length, start);
+                }
+            }
+        }
+
+        return Arrays.asList(resultVectors);
+    }
+
+    private abstract static class AsOfProbeMatcher {
+        abstract void matchRange(int start, int end, int[] outRightIdx);
+
+        static AsOfProbeMatcher create(
+                ColumnVector leftOnVec,
+                ColumnVector rightOnVec,
+                ColumnVector[] leftByVecs,
+                ColumnVector[] rightByVecs,
+                int rightSize,
+                AsOfDirection direction) {
+
+            if (leftByVecs == null || leftByVecs.length == 0) {
+                return createUnpartitioned(leftOnVec, rightOnVec, rightSize, direction);
+            }
+            return new PartitionedAsOfMatcher(leftOnVec, rightOnVec, leftByVecs, rightByVecs, rightSize, direction);
+        }
+
+        private static AsOfProbeMatcher createUnpartitioned(
+                ColumnVector leftOnVec, ColumnVector rightOnVec, int rightSize, AsOfDirection direction) {
+            if (leftOnVec instanceof LongColumnVector lLong && rightOnVec instanceof LongColumnVector rLong) {
+                return new LongAsOfMatcher(lLong, rLong, rightSize, direction);
+            }
+            if (leftOnVec instanceof IntColumnVector lInt && rightOnVec instanceof IntColumnVector rInt) {
+                return new IntAsOfMatcher(lInt, rInt, rightSize, direction);
+            }
+            if (leftOnVec instanceof DoubleColumnVector lDbl && rightOnVec instanceof DoubleColumnVector rDbl) {
+                return new DoubleAsOfMatcher(lDbl, rDbl, rightSize, direction);
+            }
+            return new GeneralAsOfMatcher(leftOnVec, rightOnVec, rightSize, direction);
+        }
+    }
+
+    private static final class LongAsOfMatcher extends AsOfProbeMatcher {
+        private final long[] leftData;
+        private final BitSet leftNulls;
+        private final long[] rightData;
+        private final BitSet rightNulls;
+        private final int rightSize;
+        private final AsOfDirection direction;
+        private final boolean linearPassEligible;
+
+        LongAsOfMatcher(LongColumnVector lVec, LongColumnVector rVec, int rightSize, AsOfDirection direction) {
+            this.leftData = lVec.getRawData();
+            this.leftNulls = lVec.getNulls();
+            this.rightData = rVec.getRawData();
+            this.rightNulls = rVec.getNulls();
+            this.rightSize = rightSize;
+            this.direction = direction;
+            this.linearPassEligible = isArraySorted(rightData, rightNulls, rightSize);
+        }
+
+        private static boolean isArraySorted(long[] arr, BitSet nulls, int len) {
+            if (len <= 1) return true;
+            for (int i = 1; i < len; i++) {
+                if (nulls != null && (nulls.get(i) || nulls.get(i - 1))) return false;
+                if (arr[i] < arr[i - 1]) return false;
+            }
+            return true;
+        }
+
+        @Override
+        void matchRange(int start, int end, int[] outRightIdx) {
+            if (rightSize == 0) {
+                Arrays.fill(outRightIdx, -1);
+                return;
+            }
+            for (int i = start; i < end; i++) {
+                int outOffset = i - start;
+                if (leftNulls != null && leftNulls.get(i)) {
+                    outRightIdx[outOffset] = -1;
+                    continue;
+                }
+                long target = leftData[i];
+                outRightIdx[outOffset] = search(target);
+            }
+        }
+
+        private int search(long target) {
+            int low = 0;
+            int high = rightSize - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                long midVal = rightData[mid];
+                if (midVal <= target) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            // high is the last index where rightData[high] <= target
+            if (direction == AsOfDirection.BACKWARD) {
+                return (high >= 0) ? high : -1;
+            } else if (direction == AsOfDirection.FORWARD) {
+                int fwdIdx = (high + 1 < rightSize) ? (high + 1) : -1;
+                if (high >= 0 && rightData[high] == target) {
+                    return high; // exact match
+                }
+                return fwdIdx;
+            } else {
+                // NEAREST
+                if (high < 0) return 0;
+                if (high >= rightSize - 1) return rightSize - 1;
+                int cand1 = high;
+                int cand2 = high + 1;
+                long d1 = Math.abs(target - rightData[cand1]);
+                long d2 = Math.abs(rightData[cand2] - target);
+                return (d2 <= d1) ? cand2 : cand1; // prefer later in tie
+            }
+        }
+    }
+
+    private static final class IntAsOfMatcher extends AsOfProbeMatcher {
+        private final int[] leftData;
+        private final BitSet leftNulls;
+        private final int[] rightData;
+        private final BitSet rightNulls;
+        private final int rightSize;
+        private final AsOfDirection direction;
+
+        IntAsOfMatcher(IntColumnVector lVec, IntColumnVector rVec, int rightSize, AsOfDirection direction) {
+            this.leftData = lVec.getRawData();
+            this.leftNulls = lVec.getNulls();
+            this.rightData = rVec.getRawData();
+            this.rightNulls = rVec.getNulls();
+            this.rightSize = rightSize;
+            this.direction = direction;
+        }
+
+        @Override
+        void matchRange(int start, int end, int[] outRightIdx) {
+            if (rightSize == 0) {
+                Arrays.fill(outRightIdx, -1);
+                return;
+            }
+            for (int i = start; i < end; i++) {
+                int outOffset = i - start;
+                if (leftNulls != null && leftNulls.get(i)) {
+                    outRightIdx[outOffset] = -1;
+                    continue;
+                }
+                int target = leftData[i];
+                outRightIdx[outOffset] = search(target);
+            }
+        }
+
+        private int search(int target) {
+            int low = 0;
+            int high = rightSize - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                int midVal = rightData[mid];
+                if (midVal <= target) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            if (direction == AsOfDirection.BACKWARD) {
+                return (high >= 0) ? high : -1;
+            } else if (direction == AsOfDirection.FORWARD) {
+                int fwdIdx = (high + 1 < rightSize) ? (high + 1) : -1;
+                if (high >= 0 && rightData[high] == target) {
+                    return high;
+                }
+                return fwdIdx;
+            } else {
+                if (high < 0) return 0;
+                if (high >= rightSize - 1) return rightSize - 1;
+                int cand1 = high;
+                int cand2 = high + 1;
+                long d1 = Math.abs((long) target - rightData[cand1]);
+                long d2 = Math.abs((long) rightData[cand2] - target);
+                return (d2 <= d1) ? cand2 : cand1;
+            }
+        }
+    }
+
+    private static final class DoubleAsOfMatcher extends AsOfProbeMatcher {
+        private final double[] leftData;
+        private final BitSet leftNulls;
+        private final double[] rightData;
+        private final BitSet rightNulls;
+        private final int rightSize;
+        private final AsOfDirection direction;
+
+        DoubleAsOfMatcher(DoubleColumnVector lVec, DoubleColumnVector rVec, int rightSize, AsOfDirection direction) {
+            this.leftData = lVec.getRawData();
+            this.leftNulls = lVec.getNulls();
+            this.rightData = rVec.getRawData();
+            this.rightNulls = rVec.getNulls();
+            this.rightSize = rightSize;
+            this.direction = direction;
+        }
+
+        @Override
+        void matchRange(int start, int end, int[] outRightIdx) {
+            if (rightSize == 0) {
+                Arrays.fill(outRightIdx, -1);
+                return;
+            }
+            for (int i = start; i < end; i++) {
+                int outOffset = i - start;
+                if (leftNulls != null && leftNulls.get(i)) {
+                    outRightIdx[outOffset] = -1;
+                    continue;
+                }
+                double target = leftData[i];
+                outRightIdx[outOffset] = search(target);
+            }
+        }
+
+        private int search(double target) {
+            int low = 0;
+            int high = rightSize - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                double midVal = rightData[mid];
+                if (Double.compare(midVal, target) <= 0) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            if (direction == AsOfDirection.BACKWARD) {
+                return (high >= 0) ? high : -1;
+            } else if (direction == AsOfDirection.FORWARD) {
+                int fwdIdx = (high + 1 < rightSize) ? (high + 1) : -1;
+                if (high >= 0 && Double.compare(rightData[high], target) == 0) {
+                    return high;
+                }
+                return fwdIdx;
+            } else {
+                if (high < 0) return 0;
+                if (high >= rightSize - 1) return rightSize - 1;
+                int cand1 = high;
+                int cand2 = high + 1;
+                double d1 = Math.abs(target - rightData[cand1]);
+                double d2 = Math.abs(rightData[cand2] - target);
+                return (d2 <= d1) ? cand2 : cand1;
+            }
+        }
+    }
+
+    private static final class GeneralAsOfMatcher extends AsOfProbeMatcher {
+        private final ColumnVector leftOnVec;
+        private final ColumnVector rightOnVec;
+        private final int rightSize;
+        private final AsOfDirection direction;
+
+        GeneralAsOfMatcher(ColumnVector leftOnVec, ColumnVector rightOnVec, int rightSize, AsOfDirection direction) {
+            this.leftOnVec = leftOnVec;
+            this.rightOnVec = rightOnVec;
+            this.rightSize = rightSize;
+            this.direction = direction;
+        }
+
+        @Override
+        void matchRange(int start, int end, int[] outRightIdx) {
+            if (rightSize == 0) {
+                Arrays.fill(outRightIdx, -1);
+                return;
+            }
+            for (int i = start; i < end; i++) {
+                int outOffset = i - start;
+                if (leftOnVec.isNull(i)) {
+                    outRightIdx[outOffset] = -1;
+                    continue;
+                }
+                Object target = leftOnVec.getObject(i);
+                outRightIdx[outOffset] = search(target);
+            }
+        }
+
+        private int search(Object target) {
+            int low = 0;
+            int high = rightSize - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                if (rightOnVec.isNull(mid)) {
+                    high = mid - 1;
+                    continue;
+                }
+                Object midVal = rightOnVec.getObject(mid);
+                int cmp = compareAsOfKeys(midVal, target);
+                if (cmp <= 0) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            if (direction == AsOfDirection.BACKWARD) {
+                return (high >= 0) ? high : -1;
+            } else if (direction == AsOfDirection.FORWARD) {
+                int fwdIdx = (high + 1 < rightSize) ? (high + 1) : -1;
+                if (high >= 0 && compareAsOfKeys(rightOnVec.getObject(high), target) == 0) {
+                    return high;
+                }
+                return fwdIdx;
+            } else {
+                if (high < 0) return 0;
+                if (high >= rightSize - 1) return rightSize - 1;
+                int cand1 = high;
+                int cand2 = high + 1;
+                double d1 = numericDiff(target, rightOnVec.getObject(cand1));
+                double d2 = numericDiff(rightOnVec.getObject(cand2), target);
+                return (d2 <= d1) ? cand2 : cand1;
+            }
+        }
+    }
+
+    private static final class PartitionedAsOfMatcher extends AsOfProbeMatcher {
+        private final ColumnVector leftOnVec;
+        private final ColumnVector rightOnVec;
+        private final ColumnVector[] leftByVecs;
+        private final ColumnVector[] rightByVecs;
+        private final AsOfDirection direction;
+        private final Map<AsOfKey, int[]> partitionIndices = new HashMap<>();
+
+        PartitionedAsOfMatcher(
+                ColumnVector leftOnVec,
+                ColumnVector rightOnVec,
+                ColumnVector[] leftByVecs,
+                ColumnVector[] rightByVecs,
+                int rightSize,
+                AsOfDirection direction) {
+            this.leftOnVec = leftOnVec;
+            this.rightOnVec = rightOnVec;
+            this.leftByVecs = leftByVecs;
+            this.rightByVecs = rightByVecs;
+            this.direction = direction;
+
+            // Group right rows into partitions
+            Map<AsOfKey, List<Integer>> temp = new HashMap<>();
+            for (int r = 0; r < rightSize; r++) {
+                Object[] byVals = new Object[rightByVecs.length];
+                boolean hasNull = false;
+                for (int b = 0; b < rightByVecs.length; b++) {
+                    if (rightByVecs[b].isNull(r)) {
+                        hasNull = true;
+                        break;
+                    }
+                    byVals[b] = canonicalKey(rightByVecs[b].getObject(r));
+                }
+                if (hasNull) continue;
+                AsOfKey key = new AsOfKey(byVals);
+                temp.computeIfAbsent(key, k -> new ArrayList<>()).add(r);
+            }
+            for (Map.Entry<AsOfKey, List<Integer>> entry : temp.entrySet()) {
+                List<Integer> list = entry.getValue();
+                int[] arr = new int[list.size()];
+                for (int i = 0; i < arr.length; i++) {
+                    arr[i] = list.get(i);
+                }
+                partitionIndices.put(entry.getKey(), arr);
+            }
+        }
+
+        @Override
+        void matchRange(int start, int end, int[] outRightIdx) {
+            for (int i = start; i < end; i++) {
+                int outOffset = i - start;
+                if (leftOnVec.isNull(i)) {
+                    outRightIdx[outOffset] = -1;
+                    continue;
+                }
+                Object[] byVals = new Object[leftByVecs.length];
+                boolean hasNull = false;
+                for (int b = 0; b < leftByVecs.length; b++) {
+                    if (leftByVecs[b].isNull(i)) {
+                        hasNull = true;
+                        break;
+                    }
+                    byVals[b] = canonicalKey(leftByVecs[b].getObject(i));
+                }
+                if (hasNull) {
+                    outRightIdx[outOffset] = -1;
+                    continue;
+                }
+                AsOfKey key = new AsOfKey(byVals);
+                int[] rightIndices = partitionIndices.get(key);
+                if (rightIndices == null || rightIndices.length == 0) {
+                    outRightIdx[outOffset] = -1;
+                    continue;
+                }
+                outRightIdx[outOffset] = searchPartition(rightIndices, leftOnVec.getObject(i));
+            }
+        }
+
+        private int searchPartition(int[] rightIndices, Object target) {
+            int len = rightIndices.length;
+            int low = 0;
+            int high = len - 1;
+            while (low <= high) {
+                int mid = (low + high) >>> 1;
+                int rRow = rightIndices[mid];
+                if (rightOnVec.isNull(rRow)) {
+                    high = mid - 1;
+                    continue;
+                }
+                Object midVal = rightOnVec.getObject(rRow);
+                int cmp = compareAsOfKeys(midVal, target);
+                if (cmp <= 0) {
+                    low = mid + 1;
+                } else {
+                    high = mid - 1;
+                }
+            }
+            if (direction == AsOfDirection.BACKWARD) {
+                return (high >= 0) ? rightIndices[high] : -1;
+            } else if (direction == AsOfDirection.FORWARD) {
+                int fwdIdx = (high + 1 < len) ? rightIndices[high + 1] : -1;
+                if (high >= 0 && compareAsOfKeys(rightOnVec.getObject(rightIndices[high]), target) == 0) {
+                    return rightIndices[high];
+                }
+                return fwdIdx;
+            } else {
+                if (high < 0) return rightIndices[0];
+                if (high >= len - 1) return rightIndices[len - 1];
+                int cand1 = rightIndices[high];
+                int cand2 = rightIndices[high + 1];
+                double d1 = numericDiff(target, rightOnVec.getObject(cand1));
+                double d2 = numericDiff(rightOnVec.getObject(cand2), target);
+                return (d2 <= d1) ? cand2 : cand1;
+            }
+        }
+    }
+
+    private static final class AsOfKey {
+        private final Object[] values;
+        private final int hash;
+
+        AsOfKey(Object[] values) {
+            this.values = values;
+            this.hash = Arrays.hashCode(values);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AsOfKey other)) return false;
+            return Arrays.equals(this.values, other.values);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static int compareAsOfKeys(Object valA, Object valB) {
+        if (valA instanceof Number numA && valB instanceof Number numB) {
+            if (numA instanceof Long || numB instanceof Long || numA instanceof Integer || numB instanceof Integer) {
+                return Long.compare(numA.longValue(), numB.longValue());
+            }
+            return Double.compare(numA.doubleValue(), numB.doubleValue());
+        }
+        if (valA instanceof Comparable compA && valB instanceof Comparable compB) {
+            try {
+                return compA.compareTo(compB);
+            } catch (ClassCastException ignored) {}
+        }
+        return valA.toString().compareTo(valB.toString());
+    }
+
+    private static double numericDiff(Object a, Object b) {
+        if (a instanceof Number numA && b instanceof Number numB) {
+            return Math.abs(numA.doubleValue() - numB.doubleValue());
+        }
+        return 0.0;
+    }
+
 }

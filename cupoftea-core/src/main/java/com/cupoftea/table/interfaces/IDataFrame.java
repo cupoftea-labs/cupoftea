@@ -23,6 +23,8 @@ import com.cupoftea.plot.Plot;
 import com.cupoftea.plot.PlotRegistry;
 import com.cupoftea.table.Aggregate;
 import com.cupoftea.table.Aggregation;
+import com.cupoftea.table.AsOfDirection;
+import com.cupoftea.table.DataFrameJoiner;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.ColumnRef;
 import com.cupoftea.table.ConcatAxis;
@@ -639,6 +641,48 @@ public abstract class IDataFrame {
 
     public IDataFrame crossJoin(IDataFrame other) {
         return join(other, JoinType.CROSS, null, null, "_left", "_right");
+    }
+
+    // --- As-Of Join Operations (Issue #283) ---
+
+    public IDataFrame asOfJoin(IDataFrame right, String on) {
+        return asOfJoin(right, on, (String) null, AsOfDirection.BACKWARD);
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, AsOfDirection direction) {
+        return asOfJoin(right, on, (String) null, direction);
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, String by) {
+        return asOfJoin(right, on, by, AsOfDirection.BACKWARD);
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, String by, AsOfDirection direction) {
+        List<String> byList = by != null && !by.isBlank() ? Collections.singletonList(by) : Collections.emptyList();
+        return asOfJoin(right, on, on, byList, byList, direction, "_left", "_right");
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, List<String> by, AsOfDirection direction) {
+        List<String> byList = by != null ? by : Collections.emptyList();
+        return asOfJoin(right, on, on, byList, byList, direction, "_left", "_right");
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String leftOn, String rightOn, String leftBy, String rightBy, AsOfDirection direction) {
+        List<String> lBy = leftBy != null && !leftBy.isBlank() ? Collections.singletonList(leftBy) : Collections.emptyList();
+        List<String> rBy = rightBy != null && !rightBy.isBlank() ? Collections.singletonList(rightBy) : Collections.emptyList();
+        return asOfJoin(right, leftOn, rightOn, lBy, rBy, direction, "_left", "_right");
+    }
+
+    public IDataFrame asOfJoin(
+            IDataFrame right,
+            String leftOn,
+            String rightOn,
+            List<String> leftBy,
+            List<String> rightBy,
+            AsOfDirection direction,
+            String leftSuffix,
+            String rightSuffix) {
+        return DataFrameJoiner.asOfJoin(this, right, leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix);
     }
 
     // --- Concat Operations ---
