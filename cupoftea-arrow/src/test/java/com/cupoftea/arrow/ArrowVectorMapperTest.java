@@ -148,4 +148,95 @@ public class ArrowVectorMapperTest {
             assertThat(decCv.isNull(1)).isTrue();
         }
     }
+
+    @Test
+    @DisplayName("Should convert DataFrame to VectorSchemaRoot and back zero-copy")
+    void testVectorSchemaRootRoundTrip() {
+        try (BufferAllocator allocator = new RootAllocator()) {
+            int rows = 1000;
+            int[] intData = new int[rows];
+            long[] longData = new long[rows];
+            double[] doubleData = new double[rows];
+            byte[] stringBytes = new byte[rows * 8];
+            int[] stringOffsets = new int[rows + 1];
+
+            for (int i = 0; i < rows; i++) {
+                intData[i] = i * 2;
+                longData[i] = (long) i * 100L;
+                doubleData[i] = i * 0.5;
+                stringOffsets[i] = i * 4;
+                stringBytes[i * 4] = 'T';
+                stringBytes[i * 4 + 1] = 'E';
+                stringBytes[i * 4 + 2] = 'S';
+                stringBytes[i * 4 + 3] = 'T';
+            }
+            stringOffsets[rows] = rows * 4;
+
+            IntColumnVector iv = new IntColumnVector("i", false, intData, null, rows);
+            LongColumnVector lv = new LongColumnVector("l", false, longData, null, rows);
+            DoubleColumnVector dv = new DoubleColumnVector("d", false, doubleData, null, rows);
+            StringColumnVector sv = new StringColumnVector("s", false, stringBytes, rows * 4, stringOffsets, null, rows);
+
+            com.cupoftea.table.DataFrame df = new com.cupoftea.table.DataFrame(java.util.List.of(iv, lv, dv, sv));
+
+            try (org.apache.arrow.vector.VectorSchemaRoot root = ArrowVectorMapper.toVectorSchemaRoot(df, allocator)) {
+                assertThat(root.getRowCount()).isEqualTo(rows);
+                assertThat(root.getFieldVectors()).hasSize(4);
+
+                com.cupoftea.table.DataFrame back = ArrowVectorMapper.fromVectorSchemaRoot(root);
+                assertThat(back.size()).isEqualTo(rows);
+                assertThat(back.getColumnVectors()).hasSize(4);
+                assertThat(((IntColumnVector) back.getColumnVector("i")).getInt(0)).isEqualTo(0);
+                assertThat(((IntColumnVector) back.getColumnVector("i")).getInt(rows - 1)).isEqualTo((rows - 1) * 2);
+                assertThat(((LongColumnVector) back.getColumnVector("l")).getLong(rows - 1)).isEqualTo((long) (rows - 1) * 100L);
+                assertThat(((DoubleColumnVector) back.getColumnVector("d")).getDouble(rows - 1)).isEqualTo((rows - 1) * 0.5);
+                assertThat(((StringColumnVector) back.getColumnVector("s")).getString(0)).isEqualTo("TEST");
+                assertThat(((StringColumnVector) back.getColumnVector("s")).getString(rows - 1)).isEqualTo("TEST");
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Should convert DataFrame to ArrowRecordBatch and back zero-copy")
+    void testRecordBatchRoundTrip() {
+        try (BufferAllocator allocator = new RootAllocator()) {
+            int rows = 500;
+            int[] intData = new int[rows];
+            for (int i = 0; i < rows; i++) intData[i] = i * 3;
+            IntColumnVector iv = new IntColumnVector("i", false, intData, null, rows);
+            com.cupoftea.table.DataFrame df = new com.cupoftea.table.DataFrame(java.util.List.of(iv));
+
+            org.apache.arrow.vector.types.pojo.Schema arrowSchema = ArrowSchemaConverter.toArrowSchema(df);
+            try (org.apache.arrow.vector.ipc.message.ArrowRecordBatch batch = ArrowVectorMapper.toRecordBatch(df, allocator)) {
+                assertThat(batch.getLength()).isEqualTo(rows);
+
+                com.cupoftea.table.DataFrame back = ArrowVectorMapper.fromRecordBatch(batch, arrowSchema, allocator);
+                assertThat(back.size()).isEqualTo(rows);
+                assertThat(((IntColumnVector) back.getColumnVector("i")).getInt(10)).isEqualTo(30);
+            }
+        }
+    }
+
+    @Test
+    @DisplayName("Should export and import DataFrame via Arrow C Data Interface")
+    void testCDataInterfaceRoundTrip() {
+        try (BufferAllocator allocator = new RootAllocator();
+             org.apache.arrow.c.ArrowArray array = org.apache.arrow.c.ArrowArray.allocateNew(allocator);
+             org.apache.arrow.c.ArrowSchema schema = org.apache.arrow.c.ArrowSchema.allocateNew(allocator)) {
+
+            int rows = 100;
+            int[] intData = new int[rows];
+            for (int i = 0; i < rows; i++) intData[i] = i * 7;
+            IntColumnVector iv = new IntColumnVector("col", false, intData, null, rows);
+            com.cupoftea.table.DataFrame df = new com.cupoftea.table.DataFrame(java.util.List.of(iv));
+
+            ArrowVectorMapper.exportToCData(df, allocator, array, schema);
+            assertThat(array.memoryAddress()).isNotZero();
+            assertThat(schema.memoryAddress()).isNotZero();
+
+            com.cupoftea.table.DataFrame back = ArrowVectorMapper.importFromCData(array, schema, allocator);
+            assertThat(back.size()).isEqualTo(rows);
+            assertThat(((IntColumnVector) back.getColumnVector("col")).getInt(5)).isEqualTo(35);
+        }
+    }
 }

@@ -8,9 +8,19 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Date;
+import java.util.List;
+import java.util.Objects;
 
+import org.apache.arrow.c.ArrowArray;
+import org.apache.arrow.c.ArrowSchema;
+import org.apache.arrow.c.CDataDictionaryProvider;
+import org.apache.arrow.c.Data;
+import org.apache.arrow.memory.ArrowBuf;
+import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.memory.util.MemoryUtil;
 import org.apache.arrow.vector.BigIntVector;
 import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
@@ -29,7 +39,14 @@ import org.apache.arrow.vector.TimeStampSecVector;
 import org.apache.arrow.vector.TimeStampVector;
 import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.VarCharVector;
+import org.apache.arrow.vector.VectorLoader;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.VectorUnloader;
+import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.types.pojo.Schema;
 
+import com.cupoftea.table.DataFrame;
+import com.cupoftea.table.interfaces.IDataFrame;
 import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
 import com.cupoftea.table.vector.DoubleColumnVector;
@@ -40,8 +57,9 @@ import com.cupoftea.table.vector.ObjectColumnVector;
 import com.cupoftea.table.vector.StringColumnVector;
 
 /**
- * Handles fast, zero-copy buffer mapping between Apache Arrow {@link FieldVector} instances
- * and CupOfTea {@link ColumnVector} instances.
+ * Handles fast, zero-copy buffer mapping between Apache Arrow {@link FieldVector} / {@link ArrowRecordBatch}
+ * / {@link VectorSchemaRoot} instances and CupOfTea {@link ColumnVector} / {@link IDataFrame} instances,
+ * including Apache Arrow C Data Interface export and import.
  */
 public final class ArrowVectorMapper {
 
@@ -50,64 +68,64 @@ public final class ArrowVectorMapper {
 
     /**
      * Maps an Arrow {@link FieldVector} directly into a new CupOfTea {@link ColumnVector}.
+     * For primitive numeric types and contiguous UTF-8 VarChar vectors, extracts contiguous
+     * byte/data buffers in direct bulk memory transfers without per-row object allocations.
      */
     public static ColumnVector toColumnVector(FieldVector vector) {
         String name = vector.getName();
         boolean nullable = vector.getField().isNullable();
         int valueCount = vector.getValueCount();
 
-        BitSet nulls = new BitSet(valueCount);
-        if (vector.getNullCount() > 0) {
-            for (int i = 0; i < valueCount; i++) {
-                if (vector.isNull(i)) {
-                    nulls.set(i);
-                }
-            }
-        }
+        BitSet nulls = extractNulls(vector, valueCount);
 
         if (vector instanceof IntVector iv) {
             int[] data = new int[valueCount];
             if (valueCount > 0 && iv.getDataBuffer() != null) {
-                iv.getDataBuffer().nioBuffer().order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().get(data);
+                iv.getDataBuffer().nioBuffer(0, valueCount * 4).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().get(data);
             }
             return new IntColumnVector(name, nullable, data, nulls, valueCount);
         } else if (vector instanceof BigIntVector bv) {
             long[] data = new long[valueCount];
             if (valueCount > 0 && bv.getDataBuffer() != null) {
-                bv.getDataBuffer().nioBuffer().order(ByteOrder.LITTLE_ENDIAN).asLongBuffer().get(data);
+                bv.getDataBuffer().nioBuffer(0, valueCount * 8).order(ByteOrder.LITTLE_ENDIAN).asLongBuffer().get(data);
             }
             return new LongColumnVector(name, nullable, data, nulls, valueCount);
         } else if (vector instanceof Float8Vector f8) {
             double[] data = new double[valueCount];
             if (valueCount > 0 && f8.getDataBuffer() != null) {
-                f8.getDataBuffer().nioBuffer().order(ByteOrder.LITTLE_ENDIAN).asDoubleBuffer().get(data);
+                f8.getDataBuffer().nioBuffer(0, valueCount * 8).order(ByteOrder.LITTLE_ENDIAN).asDoubleBuffer().get(data);
             }
             return new DoubleColumnVector(name, nullable, data, nulls, valueCount);
         } else if (vector instanceof Float4Vector f4) {
             float[] data = new float[valueCount];
             if (valueCount > 0 && f4.getDataBuffer() != null) {
-                f4.getDataBuffer().nioBuffer().order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(data);
+                f4.getDataBuffer().nioBuffer(0, valueCount * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().get(data);
             }
             return new FloatColumnVector(name, nullable, data, nulls, valueCount);
         } else if (vector instanceof BitVector bitVector) {
             boolean[] data = new boolean[valueCount];
             for (int i = 0; i < valueCount; i++) {
-                if (!bitVector.isNull(i)) {
+                if (!nulls.get(i)) {
                     data[i] = bitVector.get(i) == 1;
                 }
             }
             return new BooleanColumnVector(name, nullable, data, nulls, valueCount);
         } else if (vector instanceof VarCharVector vcv) {
-            StringColumnVector scv = new StringColumnVector(name, valueCount, nullable);
-            for (int i = 0; i < valueCount; i++) {
-                if (vcv.isNull(i)) {
-                    scv.appendNull();
-                } else {
-                    byte[] bytes = vcv.get(i);
-                    scv.appendUtf8Bytes(bytes, 0, bytes.length);
-                }
+            if (valueCount == 0) {
+                return new StringColumnVector(name, 0, nullable);
             }
-            return scv;
+            int[] offsets = new int[valueCount + 1];
+            ArrowBuf offsetBuf = vcv.getOffsetBuffer();
+            if (offsetBuf != null) {
+                offsetBuf.nioBuffer(0, (valueCount + 1) * 4).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().get(offsets);
+            }
+            int totalBytes = offsets[valueCount];
+            byte[] rawBytes = new byte[totalBytes];
+            ArrowBuf dataBuf = vcv.getDataBuffer();
+            if (dataBuf != null && totalBytes > 0) {
+                dataBuf.getBytes(0, rawBytes, 0, totalBytes);
+            }
+            return new StringColumnVector(name, nullable, rawBytes, totalBytes, offsets, nulls, valueCount);
         } else if (vector instanceof LargeVarCharVector lvcv) {
             StringColumnVector scv = new StringColumnVector(name, valueCount, nullable);
             for (int i = 0; i < valueCount; i++) {
@@ -122,7 +140,7 @@ public final class ArrowVectorMapper {
         } else if (vector instanceof SmallIntVector sv) {
             int[] data = new int[valueCount];
             for (int i = 0; i < valueCount; i++) {
-                if (!sv.isNull(i)) {
+                if (!nulls.get(i)) {
                     data[i] = sv.get(i);
                 }
             }
@@ -130,7 +148,7 @@ public final class ArrowVectorMapper {
         } else if (vector instanceof TinyIntVector tv) {
             int[] data = new int[valueCount];
             for (int i = 0; i < valueCount; i++) {
-                if (!tv.isNull(i)) {
+                if (!nulls.get(i)) {
                     data[i] = tv.get(i);
                 }
             }
@@ -138,7 +156,7 @@ public final class ArrowVectorMapper {
         } else if (vector instanceof DateDayVector ddv) {
             LocalDate[] data = new LocalDate[valueCount];
             for (int i = 0; i < valueCount; i++) {
-                if (!ddv.isNull(i)) {
+                if (!nulls.get(i)) {
                     data[i] = LocalDate.ofEpochDay(ddv.get(i));
                 }
             }
@@ -146,7 +164,7 @@ public final class ArrowVectorMapper {
         } else if (vector instanceof DateMilliVector dmv) {
             Date[] data = new Date[valueCount];
             for (int i = 0; i < valueCount; i++) {
-                if (!dmv.isNull(i)) {
+                if (!nulls.get(i)) {
                     data[i] = new Date(dmv.get(i));
                 }
             }
@@ -156,7 +174,7 @@ public final class ArrowVectorMapper {
             boolean hasTz = tsv.getField().getFieldType().getType() instanceof org.apache.arrow.vector.types.pojo.ArrowType.Timestamp ts
                     && ts.getTimezone() != null;
             for (int i = 0; i < valueCount; i++) {
-                if (!tsv.isNull(i)) {
+                if (!nulls.get(i)) {
                     Instant inst = extractInstant(tsv, i);
                     data[i] = hasTz ? inst : LocalDateTime.ofInstant(inst, ZoneOffset.UTC);
                 }
@@ -166,7 +184,7 @@ public final class ArrowVectorMapper {
         } else if (vector instanceof DecimalVector dec) {
             BigDecimal[] data = new BigDecimal[valueCount];
             for (int i = 0; i < valueCount; i++) {
-                if (!dec.isNull(i)) {
+                if (!nulls.get(i)) {
                     data[i] = dec.getObject(i);
                 }
             }
@@ -174,12 +192,38 @@ public final class ArrowVectorMapper {
         } else {
             Object[] data = new Object[valueCount];
             for (int i = 0; i < valueCount; i++) {
-                if (!vector.isNull(i)) {
+                if (!nulls.get(i)) {
                     data[i] = vector.getObject(i);
                 }
             }
             return new ObjectColumnVector(name, Object.class, nullable, data, nulls, valueCount);
         }
+    }
+
+    /**
+     * Extracts null bit positions from a {@link FieldVector} into a CupOfTea {@link BitSet}.
+     */
+    private static BitSet extractNulls(FieldVector vector, int valueCount) {
+        BitSet nulls = new BitSet(valueCount);
+        if (vector.getNullCount() == 0 || valueCount == 0) {
+            return nulls;
+        }
+        ArrowBuf validityBuf = vector.getValidityBuffer();
+        if (validityBuf != null && validityBuf.capacity() > 0) {
+            int validityBytes = (valueCount + 7) / 8;
+            byte[] bytes = new byte[validityBytes];
+            validityBuf.getBytes(0, bytes, 0, validityBytes);
+            BitSet validMask = BitSet.valueOf(bytes);
+            nulls.set(0, valueCount);
+            nulls.andNot(validMask);
+        } else {
+            for (int i = 0; i < valueCount; i++) {
+                if (vector.isNull(i)) {
+                    nulls.set(i);
+                }
+            }
+        }
+        return nulls;
     }
 
     /**
@@ -267,47 +311,73 @@ public final class ArrowVectorMapper {
     }
 
     /**
-     * Populates an Arrow {@link FieldVector} from a CupOfTea {@link ColumnVector}.
+     * Populates an Arrow {@link FieldVector} directly from a CupOfTea {@link ColumnVector}.
+     * Employs direct bulk memory transfer for primitive numeric vectors and contiguous UTF-8 byte
+     * offsets for String vectors, eliminating redundant JVM element iterations.
      */
     public static void populateArrowVector(FieldVector arrowVector, ColumnVector colVector, int rowCount) {
         arrowVector.reset();
         if (arrowVector instanceof IntVector iv) {
             iv.allocateNew(rowCount);
-            for (int i = 0; i < rowCount; i++) {
-                if (colVector.isNull(i)) {
-                    iv.setNull(i);
-                } else {
-                    iv.set(i, colVector.getInt(i));
+            if (colVector instanceof IntColumnVector icv && rowCount > 0) {
+                int[] rawData = icv.getRawData();
+                iv.getDataBuffer().nioBuffer(0, rowCount * 4).order(ByteOrder.LITTLE_ENDIAN).asIntBuffer().put(rawData, 0, rowCount);
+                populateValidityBuffer(iv.getValidityBuffer(), colVector, rowCount);
+            } else {
+                for (int i = 0; i < rowCount; i++) {
+                    if (colVector.isNull(i)) {
+                        iv.setNull(i);
+                    } else {
+                        iv.set(i, colVector.getInt(i));
+                    }
                 }
             }
             iv.setValueCount(rowCount);
         } else if (arrowVector instanceof BigIntVector bv) {
             bv.allocateNew(rowCount);
-            for (int i = 0; i < rowCount; i++) {
-                if (colVector.isNull(i)) {
-                    bv.setNull(i);
-                } else {
-                    bv.set(i, colVector.getLong(i));
+            if (colVector instanceof LongColumnVector lcv && rowCount > 0) {
+                long[] rawData = lcv.getRawData();
+                bv.getDataBuffer().nioBuffer(0, rowCount * 8).order(ByteOrder.LITTLE_ENDIAN).asLongBuffer().put(rawData, 0, rowCount);
+                populateValidityBuffer(bv.getValidityBuffer(), colVector, rowCount);
+            } else {
+                for (int i = 0; i < rowCount; i++) {
+                    if (colVector.isNull(i)) {
+                        bv.setNull(i);
+                    } else {
+                        bv.set(i, colVector.getLong(i));
+                    }
                 }
             }
             bv.setValueCount(rowCount);
         } else if (arrowVector instanceof Float8Vector f8) {
             f8.allocateNew(rowCount);
-            for (int i = 0; i < rowCount; i++) {
-                if (colVector.isNull(i)) {
-                    f8.setNull(i);
-                } else {
-                    f8.set(i, colVector.getDouble(i));
+            if (colVector instanceof DoubleColumnVector dcv && rowCount > 0) {
+                double[] rawData = dcv.getRawData();
+                f8.getDataBuffer().nioBuffer(0, rowCount * 8).order(ByteOrder.LITTLE_ENDIAN).asDoubleBuffer().put(rawData, 0, rowCount);
+                populateValidityBuffer(f8.getValidityBuffer(), colVector, rowCount);
+            } else {
+                for (int i = 0; i < rowCount; i++) {
+                    if (colVector.isNull(i)) {
+                        f8.setNull(i);
+                    } else {
+                        f8.set(i, colVector.getDouble(i));
+                    }
                 }
             }
             f8.setValueCount(rowCount);
         } else if (arrowVector instanceof Float4Vector f4) {
             f4.allocateNew(rowCount);
-            for (int i = 0; i < rowCount; i++) {
-                if (colVector.isNull(i)) {
-                    f4.setNull(i);
-                } else {
-                    f4.set(i, colVector.getFloat(i));
+            if (colVector instanceof FloatColumnVector fcv && rowCount > 0) {
+                float[] rawData = fcv.getRawData();
+                f4.getDataBuffer().nioBuffer(0, rowCount * 4).order(ByteOrder.LITTLE_ENDIAN).asFloatBuffer().put(rawData, 0, rowCount);
+                populateValidityBuffer(f4.getValidityBuffer(), colVector, rowCount);
+            } else {
+                for (int i = 0; i < rowCount; i++) {
+                    if (colVector.isNull(i)) {
+                        f4.setNull(i);
+                    } else {
+                        f4.set(i, colVector.getFloat(i));
+                    }
                 }
             }
             f4.setValueCount(rowCount);
@@ -322,8 +392,9 @@ public final class ArrowVectorMapper {
             }
             bitVector.setValueCount(rowCount);
         } else if (arrowVector instanceof VarCharVector vcv) {
-            vcv.allocateNew(rowCount);
-            if (colVector instanceof StringColumnVector scv) {
+            if (colVector instanceof StringColumnVector scv && rowCount > 0) {
+                int totalBytes = scv.getOffsets()[rowCount];
+                vcv.allocateNew(totalBytes, rowCount);
                 byte[] rawValues = scv.getValues();
                 int[] offsets = scv.getOffsets();
                 for (int i = 0; i < rowCount; i++) {
@@ -336,6 +407,7 @@ public final class ArrowVectorMapper {
                     }
                 }
             } else {
+                vcv.allocateNew(rowCount);
                 for (int i = 0; i < rowCount; i++) {
                     if (colVector.isNull(i)) {
                         vcv.setNull(i);
@@ -432,6 +504,131 @@ public final class ArrowVectorMapper {
                 }
             }
             arrowVector.setValueCount(rowCount);
+        }
+    }
+
+    /**
+     * Efficiently writes the validity bitmask into an Arrow vector validity buffer.
+     * Inverts the CupOfTea nulls {@link BitSet} (where 1=null) into Arrow validity bits (where 1=valid).
+     */
+    private static void populateValidityBuffer(ArrowBuf validityBuf, ColumnVector colVector, int rowCount) {
+        if (validityBuf == null || rowCount == 0) {
+            return;
+        }
+        int validityWords = (rowCount + 63) / 64;
+        BitSet nulls = colVector.getNulls();
+        if (nulls == null || nulls.isEmpty()) {
+            for (int w = 0; w < validityWords - 1; w++) {
+                validityBuf.setLong((long) w * 8L, 0xFFFFFFFFFFFFFFFFL);
+            }
+            int rem = rowCount % 64;
+            long lastWord = (rem == 0) ? 0xFFFFFFFFFFFFFFFFL : ((1L << rem) - 1L);
+            validityBuf.setLong((long) (validityWords - 1) * 8L, lastWord);
+        } else {
+            BitSet validity = new BitSet(rowCount);
+            validity.set(0, rowCount);
+            validity.andNot(nulls);
+            long[] words = validity.toLongArray();
+            for (int w = 0; w < words.length; w++) {
+                validityBuf.setLong((long) w * 8L, words[w]);
+            }
+            for (int w = words.length; w < validityWords; w++) {
+                validityBuf.setLong((long) w * 8L, 0L);
+            }
+        }
+    }
+
+    // --- High-Level Zero-Copy Conversions: RecordBatch, VectorSchemaRoot & C Data Interface ---
+
+    /**
+     * Exports a CupOfTea {@link IDataFrame} into an Apache Arrow {@link VectorSchemaRoot}
+     * using zero-copy / direct buffer transfers.
+     */
+    public static VectorSchemaRoot toVectorSchemaRoot(IDataFrame dataFrame, BufferAllocator allocator) {
+        Objects.requireNonNull(dataFrame, "dataFrame cannot be null");
+        Objects.requireNonNull(allocator, "allocator cannot be null");
+
+        Schema arrowSchema = ArrowSchemaConverter.toArrowSchema(dataFrame);
+        VectorSchemaRoot root = VectorSchemaRoot.create(arrowSchema, allocator);
+        int rowCount = dataFrame.size();
+
+        for (FieldVector fv : root.getFieldVectors()) {
+            ColumnVector cv = dataFrame.getColumnVector(fv.getName());
+            if (cv != null) {
+                populateArrowVector(fv, cv, rowCount);
+            }
+        }
+        root.setRowCount(rowCount);
+        return root;
+    }
+
+    /**
+     * Exports a CupOfTea {@link IDataFrame} into an Apache Arrow {@link ArrowRecordBatch}
+     * using zero-copy / direct buffer transfers.
+     */
+    public static ArrowRecordBatch toRecordBatch(IDataFrame dataFrame, BufferAllocator allocator) {
+        try (VectorSchemaRoot root = toVectorSchemaRoot(dataFrame, allocator)) {
+            VectorUnloader unloader = new VectorUnloader(root);
+            return unloader.getRecordBatch();
+        }
+    }
+
+    /**
+     * Imports an Apache Arrow {@link VectorSchemaRoot} into a CupOfTea {@link DataFrame}
+     * using zero-copy / direct buffer transfers.
+     */
+    public static DataFrame fromVectorSchemaRoot(VectorSchemaRoot root) {
+        Objects.requireNonNull(root, "root cannot be null");
+        List<ColumnVector> vectors = new ArrayList<>(root.getFieldVectors().size());
+        for (FieldVector fv : root.getFieldVectors()) {
+            vectors.add(toColumnVector(fv));
+        }
+        return new DataFrame(vectors);
+    }
+
+    /**
+     * Imports an Apache Arrow {@link ArrowRecordBatch} with a given {@link Schema} into a CupOfTea {@link DataFrame}
+     * using zero-copy / direct buffer transfers.
+     */
+    public static DataFrame fromRecordBatch(ArrowRecordBatch recordBatch, Schema schema, BufferAllocator allocator) {
+        Objects.requireNonNull(recordBatch, "recordBatch cannot be null");
+        Objects.requireNonNull(schema, "schema cannot be null");
+        Objects.requireNonNull(allocator, "allocator cannot be null");
+
+        try (VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator)) {
+            VectorLoader loader = new VectorLoader(root);
+            loader.load(recordBatch);
+            return fromVectorSchemaRoot(root);
+        }
+    }
+
+    /**
+     * Exports a CupOfTea {@link IDataFrame} into Apache Arrow C Data Interface structures
+     * ({@link ArrowArray} and {@link ArrowSchema}) for seamless, zero-copy cross-runtime FFI transfer.
+     */
+    public static void exportToCData(IDataFrame dataFrame, BufferAllocator allocator, ArrowArray outArray, ArrowSchema outSchema) {
+        Objects.requireNonNull(dataFrame, "dataFrame cannot be null");
+        Objects.requireNonNull(allocator, "allocator cannot be null");
+        Objects.requireNonNull(outArray, "outArray cannot be null");
+        Objects.requireNonNull(outSchema, "outSchema cannot be null");
+
+        try (VectorSchemaRoot root = toVectorSchemaRoot(dataFrame, allocator)) {
+            Data.exportVectorSchemaRoot(allocator, root, null, outArray, outSchema);
+        }
+    }
+
+    /**
+     * Imports Apache Arrow C Data Interface structures ({@link ArrowArray} and {@link ArrowSchema})
+     * into a CupOfTea {@link DataFrame} via zero-copy buffer transfer.
+     */
+    public static DataFrame importFromCData(ArrowArray inArray, ArrowSchema inSchema, BufferAllocator allocator) {
+        Objects.requireNonNull(inArray, "inArray cannot be null");
+        Objects.requireNonNull(inSchema, "inSchema cannot be null");
+        Objects.requireNonNull(allocator, "allocator cannot be null");
+
+        try (CDataDictionaryProvider provider = new CDataDictionaryProvider();
+             VectorSchemaRoot root = Data.importVectorSchemaRoot(allocator, inArray, inSchema, provider)) {
+            return fromVectorSchemaRoot(root);
         }
     }
 
