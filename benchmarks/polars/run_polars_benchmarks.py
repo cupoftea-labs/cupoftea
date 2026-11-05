@@ -581,6 +581,159 @@ def main():
                 )
             ))
 
+    # TPC-H Analytical Suite (CupOfTea vs. Polars Lazy)
+    tpch_dir = ds_dir / "tpch"
+    lineitem_csv = tpch_dir / "lineitem.csv"
+    orders_csv = tpch_dir / "orders.csv"
+    customer_csv = tpch_dir / "customer.csv"
+    part_csv = tpch_dir / "part.csv"
+    supplier_csv = tpch_dir / "supplier.csv"
+    partsupp_csv = tpch_dir / "partsupp.csv"
+    nation_csv = tpch_dir / "nation.csv"
+    region_csv = tpch_dir / "region.csv"
+
+    if lineitem_csv.exists() and orders_csv.exists():
+        tpch_bytes = sum(f.stat().st_size for f in [lineitem_csv, orders_csv, customer_csv, part_csv, supplier_csv, partsupp_csv, nation_csv, region_csv] if f.exists())
+
+        # Q1 Polars Eager & Lazy
+        results.append(run_timed_benchmark(
+            "TpchAnalyticalBenchmark.q01_pricingSummaryReport", rows, tpch_bytes, args.warmup, args.iterations,
+            lambda: (
+                pl.read_csv(lineitem_csv, separator="|")
+                .filter(pl.col("l_shipdate") <= "1998-09-02")
+                .with_columns([
+                    (pl.col("l_extendedprice") * (1.0 - pl.col("l_discount"))).alias("disc_price"),
+                    (pl.col("l_extendedprice") * (1.0 - pl.col("l_discount")) * (1.0 + pl.col("l_tax"))).alias("charge")
+                ])
+                .group_by(["l_returnflag", "l_linestatus"])
+                .agg([
+                    pl.col("l_quantity").sum().alias("sum_qty"),
+                    pl.col("l_extendedprice").sum().alias("sum_base_price"),
+                    pl.col("disc_price").sum().alias("sum_disc_price"),
+                    pl.col("charge").sum().alias("sum_charge"),
+                    pl.col("l_quantity").mean().alias("avg_qty"),
+                    pl.col("l_extendedprice").mean().alias("avg_price"),
+                    pl.col("l_discount").mean().alias("avg_disc"),
+                    pl.col("l_quantity").count().alias("count_order")
+                ])
+                .sort(["l_returnflag", "l_linestatus"])
+            )
+        ))
+
+        results.append(run_timed_benchmark(
+            "TpchAnalyticalBenchmark.q01_pricingSummaryReportLazy", rows, tpch_bytes, args.warmup, args.iterations,
+            lambda: (
+                pl.scan_csv(lineitem_csv, separator="|")
+                .filter(pl.col("l_shipdate") <= "1998-09-02")
+                .group_by(["l_returnflag", "l_linestatus"])
+                .agg([
+                    pl.col("l_quantity").sum().alias("sum_qty"),
+                    pl.col("l_extendedprice").sum().alias("sum_base_price"),
+                    pl.col("l_quantity").mean().alias("avg_qty"),
+                    pl.col("l_extendedprice").mean().alias("avg_price"),
+                    pl.col("l_discount").mean().alias("avg_disc"),
+                    pl.col("l_quantity").count().alias("count_order")
+                ])
+                .sort(["l_returnflag", "l_linestatus"])
+                .collect()
+            )
+        ))
+
+        # Q3 Polars Lazy
+        results.append(run_timed_benchmark(
+            "TpchAnalyticalBenchmark.q03_shippingPriority", rows, tpch_bytes, args.warmup, args.iterations,
+            lambda: (
+                pl.scan_csv(customer_csv, separator="|")
+                .filter(pl.col("c_mktsegment") == "BUILDING")
+                .join(
+                    pl.scan_csv(orders_csv, separator="|").filter(pl.col("o_orderdate") < "1995-03-15"),
+                    left_on="c_custkey", right_on="o_custkey"
+                )
+                .join(
+                    pl.scan_csv(lineitem_csv, separator="|").filter(pl.col("l_shipdate") > "1995-03-15"),
+                    left_on="o_orderkey", right_on="l_orderkey"
+                )
+                .with_columns((pl.col("l_extendedprice") * (1.0 - pl.col("l_discount"))).alias("revenue"))
+                .group_by(["o_orderkey", "o_orderdate", "o_shippriority"])
+                .agg(pl.col("revenue").sum().alias("revenue"))
+                .sort(["revenue", "o_orderdate"], descending=[True, False])
+                .collect()
+            )
+        ))
+
+        # Q6 Polars Eager & Lazy
+        results.append(run_timed_benchmark(
+            "TpchAnalyticalBenchmark.q06_forecastingRevenueChange", rows, tpch_bytes, args.warmup, args.iterations,
+            lambda: (
+                pl.read_csv(lineitem_csv, separator="|")
+                .filter(
+                    (pl.col("l_shipdate") >= "1994-01-01") &
+                    (pl.col("l_shipdate") < "1995-01-01") &
+                    (pl.col("l_discount") >= 0.05) &
+                    (pl.col("l_discount") <= 0.07) &
+                    (pl.col("l_quantity") < 24.0)
+                )
+                .select((pl.col("l_extendedprice") * pl.col("l_discount")).sum().alias("revenue"))
+            )
+        ))
+
+        results.append(run_timed_benchmark(
+            "TpchAnalyticalBenchmark.q06_forecastingRevenueChangeLazy", rows, tpch_bytes, args.warmup, args.iterations,
+            lambda: (
+                pl.scan_csv(lineitem_csv, separator="|")
+                .filter(
+                    (pl.col("l_shipdate") >= "1994-01-01") &
+                    (pl.col("l_shipdate") < "1995-01-01") &
+                    (pl.col("l_discount") >= 0.05) &
+                    (pl.col("l_discount") <= 0.07) &
+                    (pl.col("l_quantity") < 24.0)
+                )
+                .select((pl.col("l_extendedprice") * pl.col("l_discount")).sum().alias("revenue"))
+                .collect()
+            )
+        ))
+
+        # Q9 Polars Lazy
+        results.append(run_timed_benchmark(
+            "TpchAnalyticalBenchmark.q09_productTypeProfitMeasure", rows, tpch_bytes, args.warmup, args.iterations,
+            lambda: (
+                pl.scan_csv(part_csv, separator="|")
+                .filter(pl.col("p_name").str.contains("green"))
+                .join(pl.scan_csv(lineitem_csv, separator="|"), left_on="p_partkey", right_on="l_partkey")
+                .join(pl.scan_csv(supplier_csv, separator="|"), left_on="l_suppkey", right_on="s_suppkey")
+                .join(pl.scan_csv(nation_csv, separator="|"), left_on="s_nationkey", right_on="n_nationkey")
+                .join(
+                    pl.scan_csv(orders_csv, separator="|")
+                    .with_columns(pl.col("o_orderdate").str.slice(0, 4).alias("o_year")),
+                    left_on="l_orderkey", right_on="o_orderkey"
+                )
+                .join(pl.scan_csv(partsupp_csv, separator="|"), left_on="p_partkey", right_on="ps_partkey")
+                .with_columns((
+                    (pl.col("l_extendedprice") * (1.0 - pl.col("l_discount"))) -
+                    (pl.col("ps_supplycost") * pl.col("l_quantity"))
+                ).alias("amount"))
+                .group_by(["n_name", "o_year"])
+                .agg(pl.col("amount").sum().alias("sum_profit"))
+                .sort(["n_name", "o_year"], descending=[False, True])
+                .collect()
+            )
+        ))
+
+        # Q18 Polars Lazy
+        results.append(run_timed_benchmark(
+            "TpchAnalyticalBenchmark.q18_largeVolumeCustomer", rows, tpch_bytes, args.warmup, args.iterations,
+            lambda: (
+                pl.scan_csv(lineitem_csv, separator="|")
+                .group_by("l_orderkey")
+                .agg(pl.col("l_quantity").sum().alias("sum_qty"))
+                .filter(pl.col("sum_qty") > 100.0)
+                .join(pl.scan_csv(orders_csv, separator="|"), left_on="l_orderkey", right_on="o_orderkey")
+                .join(pl.scan_csv(customer_csv, separator="|"), left_on="o_custkey", right_on="c_custkey")
+                .sort(["o_totalprice", "o_orderdate"], descending=[True, False])
+                .collect()
+            )
+        ))
+
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w", encoding="utf-8") as f:
         json.dump({

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] - 2026-11-05
+
+### Added
+
+- Implement standard TPC-H analytical queries (Q1-Q22) benchmark suite ([#284](https://github.com/cupoftea-labs/cupoftea/issues/284)):
+  - Added deterministic synthetic TPC-H data generator (`TpchDataGenerator`) supporting scale factors SF 0.01, SF 0.1, SF 1, and beyond across all standard TPC-H relations (`lineitem`, `orders`, `customer`, `part`, `supplier`, `partsupp`, `nation`, `region`) with repeatable seeded PRNG.
+  - Implemented the complete analytical query suite (`TpchAnalyticalBenchmark`, Q1 through Q22) covering star/snowflake multi-joins, correlated subqueries, multi-column group-by aggregations, and complex date/numeric predicates across parallel eager and lazy streaming execution plans.
+  - Added comparative Polars benchmarks for key TPC-H queries in `benchmarks/polars/run_polars_benchmarks.py` using both Eager and Lazy Streaming (`scan_csv() -> collect()`) execution.
+  - Extended `BenchmarkRunner` and `run_benchmarks.sh` with the `tpch` preset target for automated benchmarking and dataset generation.
+
 ## [0.23.0] - 2026-11-05
 
 ### Added

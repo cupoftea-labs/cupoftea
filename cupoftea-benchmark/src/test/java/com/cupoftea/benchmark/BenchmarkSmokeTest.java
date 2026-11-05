@@ -26,6 +26,8 @@ import com.cupoftea.benchmark.polars.PolarsIngestBenchmark;
 import com.cupoftea.benchmark.polars.PolarsJoinBenchmark;
 import com.cupoftea.benchmark.polars.PolarsWindowBenchmark;
 import com.cupoftea.benchmark.profile.HardwareCountersProfiler;
+import com.cupoftea.benchmark.tpch.TpchAnalyticalBenchmark;
+import com.cupoftea.benchmark.tpch.TpchDataGenerator;
 import com.cupoftea.benchmark.scaling.CompetitiveBaselineBenchmark;
 import com.cupoftea.benchmark.scaling.DatasetScaleBenchmark;
 import com.cupoftea.benchmark.scaling.MultiCoreScalingBenchmark;
@@ -417,7 +419,41 @@ public class BenchmarkSmokeTest {
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-filter")).contains("PolarsFilterVectorBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-window")).contains("PolarsWindowBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("window")).contains("PolarsWindowBenchmark");
+        assertThat(BenchmarkRunner.resolvePresetPattern("tpch")).contains("TpchAnalyticalBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("1brc")).contains("OneBrcStandardBenchmark");
+    }
+
+    @Test
+    @DisplayName("Should execute all 22 TPC-H analytical benchmark queries without error")
+    void testTpchAnalyticalBenchmark() {
+        TpchAnalyticalBenchmark bench = new TpchAnalyticalBenchmark();
+        bench.scaleFactor = 0.005; // very small scale for quick smoke verification
+        bench.setupTrial();
+
+        bench.q01_pricingSummaryReport(noopBlackhole);
+        bench.q01_pricingSummaryReportLazy(noopBlackhole);
+        bench.q02_minimumCostSupplier(noopBlackhole);
+        bench.q03_shippingPriority(noopBlackhole);
+        bench.q04_orderPriorityChecking(noopBlackhole);
+        bench.q05_localSupplierVolume(noopBlackhole);
+        bench.q06_forecastingRevenueChange(noopBlackhole);
+        bench.q06_forecastingRevenueChangeLazy(noopBlackhole);
+        bench.q07_volumeShipping(noopBlackhole);
+        bench.q08_nationalMarketShare(noopBlackhole);
+        bench.q09_productTypeProfitMeasure(noopBlackhole);
+        bench.q10_returnedItemReporting(noopBlackhole);
+        bench.q11_importantStockIdentification(noopBlackhole);
+        bench.q12_shippingModesAndOrderPriority(noopBlackhole);
+        bench.q13_customerDistribution(noopBlackhole);
+        bench.q14_promotionEffect(noopBlackhole);
+        bench.q15_topSupplier(noopBlackhole);
+        bench.q16_partsSupplierRelationship(noopBlackhole);
+        bench.q17_smallQuantityOrderRevenue(noopBlackhole);
+        bench.q18_largeVolumeCustomer(noopBlackhole);
+        bench.q19_discountedRevenue(noopBlackhole);
+        bench.q20_potentialPartPromotion(noopBlackhole);
+        bench.q21_suppliersWhoKeptOrdersWaiting(noopBlackhole);
+        bench.q22_globalSalesOpportunity(noopBlackhole);
     }
 
     @Test
