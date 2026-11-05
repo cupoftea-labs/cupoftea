@@ -885,6 +885,24 @@ public abstract class IDataFrame {
     public abstract IDataFrame cummin(String... columns);
     public abstract IDataFrame cummax(String... columns);
 
+    public IDataFrame rolling_mean(String column, int windowSize, String outputColumn) {
+        rolling(windowSize).mean(column, outputColumn);
+        return this;
+    }
+
+    public IDataFrame rolling_mean(String column, int windowSize) {
+        return rolling_mean(column, windowSize, column);
+    }
+
+    public IDataFrame rolling_sum(String column, int windowSize, String outputColumn) {
+        rolling(windowSize).sum(column, outputColumn);
+        return this;
+    }
+
+    public IDataFrame rolling_sum(String column, int windowSize) {
+        return rolling_sum(column, windowSize, column);
+    }
+
     public abstract IDataFrame lead(String column, int offset, String outputColumn);
     public IDataFrame lead(String column, int offset) {
         return lead(column, offset, column);

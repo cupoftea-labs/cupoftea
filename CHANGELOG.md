@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.0] - 2026-11-05
+
+### Added
+
+- Support Window Functions and comparative Polars window benchmarks ([#282](https://github.com/cupoftea-labs/cupoftea/issues/282)):
+  - Added fluent convenience methods `rolling_mean(column, windowSize, outputColumn)` and `rolling_sum(column, windowSize, outputColumn)` directly on `CupOfTea` and `IDataFrame` to match Polars `rolling_*` expressions for fixed-size sliding windows.
+  - Implemented `PolarsWindowBenchmark` JMH suite measuring latency and IPC across essential window operations: shift functions (`lag`, `lead`), cumulative functions (`cumsum`, `cumprod`, `cummin`, `cummax`), fixed-size rolling windows (`rolling_mean`, `rolling_sum`), and ranking operations (`row_number`, `rank`, `dense_rank`), as well as partitioned analytical window operations (`window().partitionBy().orderBy()`).
+  - Added corresponding Polars benchmark implementations in `benchmarks/polars/run_polars_benchmarks.py` evaluating `pl.col().over()` and `pl.col().rolling_*()`.
+  - Added `polars-window` and `window` preset patterns to `BenchmarkRunner` and orchestrator `run_benchmarks.sh`.
+
 ## [0.21.16] - 2026-11-05
 
 ### Performance
