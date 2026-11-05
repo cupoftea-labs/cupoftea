@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.1] - 2026-11-05
+
+### Fixed
+
+- Exclude heavy internal benchmark artifacts (`benchmarks.jar` and `cupoftea-benchmark`) from GitHub Release assets upload to prevent release HTTP 500 timeouts ([#294](https://github.com/cupoftea-labs/cupoftea/issues/294)).
+
 ## [0.24.0] - 2026-11-05
 
 ### Added
