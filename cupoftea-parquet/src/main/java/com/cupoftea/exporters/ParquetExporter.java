@@ -2,8 +2,13 @@ package com.cupoftea.exporters;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -34,13 +39,18 @@ import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
 import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.ParallelVectorEngine;
 import com.cupoftea.table.vector.StringColumnVector;
 
 /**
  * High-performance Parquet exporter that consumes primitive ColumnVectors directly
- * without Avro or Hadoop GenericRecord row-by-row object allocations.
+ * without Avro or Hadoop GenericRecord row-by-row object allocations,
+ * and parallelizes row group encoding across available cores.
  */
 public class ParquetExporter implements IParquetExporter {
+
+    private static final int PARALLEL_ROW_THRESHOLD = 16_384;
+    private static final int MIN_CHUNK_ROW_SIZE = 16_384;
 
     private final CupOfTea dataFrame;
 
@@ -93,129 +103,21 @@ public class ParquetExporter implements IParquetExporter {
             fileWriter.start();
 
             ParquetProperties props = ParquetProperties.builder().build();
-            Configuration conf = new Configuration();
-            CodecFactory codecFactory = new CodecFactory(conf, props.getPageSizeThreshold());
-            CodecFactory.BytesCompressor compressor = codecFactory.getCompressor(CompressionCodecName.SNAPPY);
 
-            ColumnChunkPageWriteStore pageStore = new ColumnChunkPageWriteStore(
-                    compressor,
-                    schema,
-                    props.getAllocator(),
-                    props.getColumnIndexTruncateLength(),
-                    props.getPageWriteChecksumEnabled()
-            );
-
-            ColumnWriteStore columnStore = props.newColumnWriteStore(schema, pageStore);
-
-            int colIdx = 0;
-            for (Column col : headers) {
-                ColumnDescriptor cd = schema.getColumns().get(colIdx++);
-                ColumnWriter cw = columnStore.getColumnWriter(cd);
-                ColumnVector vec = df.getColumnVector(col.columnName());
-
-                if (vec instanceof IntColumnVector iv) {
-                    int[] data = iv.getRawData();
-                    for (int r = 0; r < rowCount; r++) {
-                        if (iv.isNull(r)) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            cw.write(data[r], 0, 1);
-                        }
-                    }
-                } else if (vec instanceof LongColumnVector lv) {
-                    long[] data = lv.getRawData();
-                    for (int r = 0; r < rowCount; r++) {
-                        if (lv.isNull(r)) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            cw.write(data[r], 0, 1);
-                        }
-                    }
-                } else if (vec instanceof DoubleColumnVector dv) {
-                    double[] data = dv.getRawData();
-                    for (int r = 0; r < rowCount; r++) {
-                        if (dv.isNull(r)) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            cw.write(data[r], 0, 1);
-                        }
-                    }
-                } else if (vec instanceof FloatColumnVector fv) {
-                    float[] data = fv.getRawData();
-                    for (int r = 0; r < rowCount; r++) {
-                        if (fv.isNull(r)) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            cw.write(data[r], 0, 1);
-                        }
-                    }
-                } else if (vec instanceof BooleanColumnVector bv) {
-                    for (int r = 0; r < rowCount; r++) {
-                        if (bv.isNull(r)) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            cw.write(bv.getBoolean(r), 0, 1);
-                        }
-                    }
-                } else if (vec instanceof DictionaryColumnVector dcv) {
-                    int dictSize = dcv.getDictionarySize();
-                    Binary[] dictBinaries = new Binary[dictSize];
-                    String[] rawDict = dcv.getDictionary();
-                    for (int d = 0; d < dictSize; d++) {
-                        String s = rawDict[d];
-                        dictBinaries[d] = s != null ? Binary.fromString(s) : null;
-                    }
-                    for (int r = 0; r < rowCount; r++) {
-                        if (dcv.isNull(r)) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            int code = dcv.getCodeUnchecked(r);
-                            Binary bin = dictBinaries[code];
-                            if (bin != null) {
-                                cw.write(bin, 0, 1);
-                            } else {
-                                cw.writeNull(0, 0);
-                            }
-                        }
-                    }
-                } else if (vec instanceof StringColumnVector sv) {
-                    byte[] rawBytes = sv.getValues();
-                    int[] offsets = sv.getOffsets();
-                    for (int r = 0; r < rowCount; r++) {
-                        if (sv.isNull(r)) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            int start = offsets[r];
-                            int len = offsets[r + 1] - start;
-                            cw.write(Binary.fromByteArray(rawBytes, start, len), 0, 1);
-                        }
-                    }
-                } else {
-                    for (int r = 0; r < rowCount; r++) {
-                        Object val = vec != null ? vec.getObject(r) : null;
-                        if (val == null) {
-                            cw.writeNull(0, 0);
-                        } else {
-                            cw.write(Binary.fromString(val.toString()), 0, 1);
-                        }
-                    }
-                }
+            ExecutorService executor = df != null ? df.getExecutor() : null;
+            if (executor == null) {
+                executor = ForkJoinPool.commonPool();
             }
 
-            for (int r = 0; r < rowCount; r++) {
-                columnStore.endRecord();
+            int parallelism = ParallelVectorEngine.getParallelism(executor);
+            if (rowCount >= PARALLEL_ROW_THRESHOLD && parallelism > 1) {
+                exportParallelRowGroups(df, headers, schema, props, rowCount, fileWriter, executor, parallelism);
+            } else {
+                exportSingleRowGroup(df, headers, schema, props, 0, rowCount, fileWriter);
             }
-
-            fileWriter.startBlock(rowCount);
-            columnStore.flush();
-            pageStore.flushToFileWriter(fileWriter);
-            fileWriter.endBlock();
 
             fileWriter.end(Collections.emptyMap());
-            columnStore.close();
-            pageStore.close();
             fileWriter.close();
-            codecFactory.release();
 
         } catch (IOException e) {
             throw new ExportException("Failed to export to Parquet file: " + file.getPath(), e);
@@ -226,4 +128,205 @@ public class ParquetExporter implements IParquetExporter {
             throw new ExportException("Failed to export to Parquet file: " + file.getPath(), e);
         }
     }
+
+    private static class EncodedRowGroup {
+        final ColumnChunkPageWriteStore pageStore;
+        final ColumnWriteStore columnStore;
+        final CodecFactory codecFactory;
+        final int startRow;
+        final int endRow;
+
+        EncodedRowGroup(ColumnChunkPageWriteStore pageStore, ColumnWriteStore columnStore, CodecFactory codecFactory, int startRow, int endRow) {
+            this.pageStore = pageStore;
+            this.columnStore = columnStore;
+            this.codecFactory = codecFactory;
+            this.startRow = startRow;
+            this.endRow = endRow;
+        }
+
+        void close() {
+            try {
+                columnStore.close();
+                pageStore.close();
+                codecFactory.release();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private void exportParallelRowGroups(IDataFrame df, List<Column> headers, MessageType schema,
+                                         ParquetProperties props, int rowCount, ParquetFileWriter fileWriter,
+                                         ExecutorService executor, int parallelism) throws IOException {
+        int chunkSize = Math.max(MIN_CHUNK_ROW_SIZE, (rowCount + parallelism - 1) / parallelism);
+        int numChunks = (rowCount + chunkSize - 1) / chunkSize;
+        List<Callable<EncodedRowGroup>> tasks = new ArrayList<>(numChunks);
+
+        for (int i = 0; i < numChunks; i++) {
+            final int start = i * chunkSize;
+            final int end = Math.min(rowCount, (i + 1) * chunkSize);
+            if (start >= end) continue;
+
+            tasks.add(new Callable<EncodedRowGroup>() {
+                @Override
+                public EncodedRowGroup call() throws IOException {
+                    return encodeRowGroup(df, headers, schema, props, start, end);
+                }
+            });
+        }
+
+        try {
+            List<Future<EncodedRowGroup>> futures = executor.invokeAll(tasks);
+            for (Future<EncodedRowGroup> future : futures) {
+                EncodedRowGroup rg = future.get();
+                try {
+                    int count = rg.endRow - rg.startRow;
+                    fileWriter.startBlock(count);
+                    rg.pageStore.flushToFileWriter(fileWriter);
+                    fileWriter.endBlock();
+                } finally {
+                    rg.close();
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Parquet row group encoding interrupted", e);
+        } catch (Exception e) {
+            throw new IOException("Failed to encode Parquet row groups in parallel", e);
+        }
+    }
+
+    private EncodedRowGroup encodeRowGroup(IDataFrame df, List<Column> headers, MessageType schema,
+                                           ParquetProperties props, int start, int end) {
+        Configuration conf = new Configuration();
+        CodecFactory codecFactory = new CodecFactory(conf, props.getPageSizeThreshold());
+        CodecFactory.BytesCompressor compressor = codecFactory.getCompressor(CompressionCodecName.SNAPPY);
+
+        ColumnChunkPageWriteStore pageStore = new ColumnChunkPageWriteStore(
+                compressor,
+                schema,
+                props.getAllocator(),
+                props.getColumnIndexTruncateLength(),
+                props.getPageWriteChecksumEnabled()
+        );
+
+        ColumnWriteStore columnStore = props.newColumnWriteStore(schema, pageStore);
+        int count = end - start;
+
+        int colIdx = 0;
+        for (Column col : headers) {
+            ColumnDescriptor cd = schema.getColumns().get(colIdx++);
+            ColumnWriter cw = columnStore.getColumnWriter(cd);
+            ColumnVector vec = df.getColumnVector(col.columnName());
+
+            if (vec instanceof IntColumnVector iv) {
+                int[] data = iv.getRawData();
+                for (int r = start; r < end; r++) {
+                    if (iv.isNull(r)) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        cw.write(data[r], 0, 1);
+                    }
+                }
+            } else if (vec instanceof LongColumnVector lv) {
+                long[] data = lv.getRawData();
+                for (int r = start; r < end; r++) {
+                    if (lv.isNull(r)) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        cw.write(data[r], 0, 1);
+                    }
+                }
+            } else if (vec instanceof DoubleColumnVector dv) {
+                double[] data = dv.getRawData();
+                for (int r = start; r < end; r++) {
+                    if (dv.isNull(r)) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        cw.write(data[r], 0, 1);
+                    }
+                }
+            } else if (vec instanceof FloatColumnVector fv) {
+                float[] data = fv.getRawData();
+                for (int r = start; r < end; r++) {
+                    if (fv.isNull(r)) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        cw.write(data[r], 0, 1);
+                    }
+                }
+            } else if (vec instanceof BooleanColumnVector bv) {
+                for (int r = start; r < end; r++) {
+                    if (bv.isNull(r)) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        cw.write(bv.getBoolean(r), 0, 1);
+                    }
+                }
+            } else if (vec instanceof DictionaryColumnVector dcv) {
+                int dictSize = dcv.getDictionarySize();
+                Binary[] dictBinaries = new Binary[dictSize];
+                String[] rawDict = dcv.getDictionary();
+                for (int d = 0; d < dictSize; d++) {
+                    String s = rawDict[d];
+                    dictBinaries[d] = s != null ? Binary.fromString(s) : null;
+                }
+                for (int r = start; r < end; r++) {
+                    if (dcv.isNull(r)) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        int code = dcv.getCodeUnchecked(r);
+                        Binary bin = dictBinaries[code];
+                        if (bin != null) {
+                            cw.write(bin, 0, 1);
+                        } else {
+                            cw.writeNull(0, 0);
+                        }
+                    }
+                }
+            } else if (vec instanceof StringColumnVector sv) {
+                byte[] rawBytes = sv.getValues();
+                int[] offsets = sv.getOffsets();
+                for (int r = start; r < end; r++) {
+                    if (sv.isNull(r)) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        int s = offsets[r];
+                        int len = offsets[r + 1] - s;
+                        cw.write(Binary.fromByteArray(rawBytes, s, len), 0, 1);
+                    }
+                }
+            } else {
+                for (int r = start; r < end; r++) {
+                    Object val = vec != null ? vec.getObject(r) : null;
+                    if (val == null) {
+                        cw.writeNull(0, 0);
+                    } else {
+                        cw.write(Binary.fromString(val.toString()), 0, 1);
+                    }
+                }
+            }
+        }
+
+        for (int r = 0; r < count; r++) {
+            columnStore.endRecord();
+        }
+        columnStore.flush();
+
+        return new EncodedRowGroup(pageStore, columnStore, codecFactory, start, end);
+    }
+
+    private void exportSingleRowGroup(IDataFrame df, List<Column> headers, MessageType schema,
+                                      ParquetProperties props, int start, int end,
+                                      ParquetFileWriter fileWriter) throws IOException {
+        EncodedRowGroup rg = encodeRowGroup(df, headers, schema, props, start, end);
+        try {
+            int count = end - start;
+            fileWriter.startBlock(count);
+            rg.pageStore.flushToFileWriter(fileWriter);
+            fileWriter.endBlock();
+        } finally {
+            rg.close();
+        }
+    }
 }
+
