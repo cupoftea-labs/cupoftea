@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.13] - 2026-11-04
+
+### Performance
+
+- Direct off-heap columnar Parquet page decompression and lazy predicate pushdown ([#277](https://github.com/cupoftea-labs/cupoftea/issues/277)):
+  - Implemented `NioChannelInputFile` using Java NIO `FileChannel` with direct `ByteBuffer` reads to eliminate `RandomAccessFile` and heap buffer copy bottlenecks.
+  - Configured off-heap memory allocation and decompression (`DirectByteBufferAllocator.getInstance()` and `useOffHeapDecryptBuffer(true)`) in both `ParquetImporter` and `ParquetLazySource`.
+  - Added statistics-based row group pruning in `ParquetLazySource.ParquetPartitionReader` to evaluate filter predicates against block-level min/max column chunk statistics and skip unmatching row groups before decompressing pages.
+  - Implemented columnar vector batch decoding directly into unboxed contiguous arrays and zero-copy string UTF-8 byte buffers.
+  - Maintained full roundtrip fidelity across all primitive types and dictionary encodings.
+
 ## [0.21.12] - 2026-11-04
 
 ### Performance

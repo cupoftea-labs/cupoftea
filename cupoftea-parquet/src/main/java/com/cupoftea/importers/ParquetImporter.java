@@ -5,12 +5,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ColumnReader;
 import org.apache.parquet.column.impl.ColumnReaderImpl;
 import org.apache.parquet.column.page.PageReadStore;
 import org.apache.parquet.hadoop.ParquetFileReader;
-import org.apache.parquet.io.LocalInputFile;
+import org.apache.parquet.ParquetReadOptions;
 import org.apache.parquet.io.api.PrimitiveConverter;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
@@ -20,6 +21,7 @@ import org.apache.parquet.schema.PrimitiveType;
 import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.importers.interfaces.IParquetImporter;
+import com.cupoftea.parquet.NioChannelInputFile;
 import com.cupoftea.table.DataFrame;
 import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
@@ -53,8 +55,12 @@ public class ParquetImporter implements IParquetImporter {
             throw new ImportException("File does not exist: " + file.getPath());
         }
 
-        LocalInputFile inputFile = new LocalInputFile(file.toPath());
-        try (ParquetFileReader reader = ParquetFileReader.open(inputFile)) {
+        NioChannelInputFile inputFile = new NioChannelInputFile(file);
+        ParquetReadOptions options = ParquetReadOptions.builder()
+                .withAllocator(DirectByteBufferAllocator.getInstance())
+                .useOffHeapDecryptBuffer(true)
+                .build();
+        try (ParquetFileReader reader = ParquetFileReader.open(inputFile, options)) {
             MessageType schema = reader.getFileMetaData().getSchema();
             int totalRows = (int) reader.getRecordCount();
             List<ColumnDescriptor> descriptors = schema.getColumns();

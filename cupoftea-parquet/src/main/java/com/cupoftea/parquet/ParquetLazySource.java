@@ -10,12 +10,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.parquet.bytes.DirectByteBufferAllocator;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.ColumnReader;
 import org.apache.parquet.column.Dictionary;
 import org.apache.parquet.column.impl.ColumnReaderImpl;
 import org.apache.parquet.column.page.PageReadStore;
-import org.apache.parquet.io.LocalInputFile;
+import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.ParquetReadOptions;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.io.api.PrimitiveConverter;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.Type;
@@ -42,7 +47,8 @@ import com.cupoftea.table.vector.StringColumnVector;
 import com.cupoftea.utils.interfaces.IFilter;
 
 /**
- * High-performance streaming and lazy Parquet data source with column projection pushdown.
+ * High-performance streaming and lazy Parquet data source with column projection pushdown,
+ * zero-copy off-heap byte buffer decompression, and lazy predicate pruning.
  */
 public class ParquetLazySource implements LazySource {
 
@@ -83,8 +89,12 @@ public class ParquetLazySource implements LazySource {
     }
 
     private void initMetadata() {
-        LocalInputFile inputFile = new LocalInputFile(file.toPath());
-        try (org.apache.parquet.hadoop.ParquetFileReader reader = org.apache.parquet.hadoop.ParquetFileReader.open(inputFile)) {
+        NioChannelInputFile inputFile = new NioChannelInputFile(file);
+        ParquetReadOptions options = ParquetReadOptions.builder()
+                .withAllocator(DirectByteBufferAllocator.getInstance())
+                .useOffHeapDecryptBuffer(true)
+                .build();
+        try (ParquetFileReader reader = ParquetFileReader.open(inputFile, options)) {
             this.fileSchema = reader.getFileMetaData().getSchema();
             this.totalRows = reader.getRecordCount();
 
@@ -100,7 +110,6 @@ public class ParquetLazySource implements LazySource {
             }
 
             if (projected != null && !projected.isEmpty()) {
-                Set<String> requested = new HashSet<>(projected);
                 List<Type> fields = new ArrayList<>();
                 List<String> validProjectedNames = new ArrayList<>();
                 for (String name : projected) {
@@ -154,7 +163,6 @@ public class ParquetLazySource implements LazySource {
         int batchSize = (context != null && context.getBatchSize() > 0) ? context.getBatchSize() : 65_536;
         MessageType effectiveSchema = projectedSchema;
 
-        // If context provides projected columns not reflected in projectedSchema, apply them
         if (context != null && context.getProjectedColumns() != null && !context.getProjectedColumns().isEmpty()) {
             List<String> projCols = context.getProjectedColumns();
             List<Type> fields = new ArrayList<>();
@@ -177,11 +185,12 @@ public class ParquetLazySource implements LazySource {
         private final MessageType schema;
         private final int batchSize;
         private final List<IFilter> filters;
-        private org.apache.parquet.hadoop.ParquetFileReader reader;
+        private ParquetFileReader reader;
         private PageReadStore currentRowGroup;
         private ColumnReader[] currentColumnReaders;
         private CapturingConverter[] currentConverters;
         private int currentRowGroupRemaining = 0;
+        private int currentRowGroupIndex = 0;
         private boolean closed = false;
 
         public ParquetPartitionReader(File file, MessageType schema, int batchSize, List<IFilter> filters) {
@@ -198,10 +207,89 @@ public class ParquetLazySource implements LazySource {
 
         private void ensureOpen() throws IOException {
             if (reader == null && !closed) {
-                LocalInputFile inputFile = new LocalInputFile(file.toPath());
-                this.reader = org.apache.parquet.hadoop.ParquetFileReader.open(inputFile);
+                NioChannelInputFile inputFile = new NioChannelInputFile(file);
+                ParquetReadOptions options = ParquetReadOptions.builder()
+                        .withAllocator(DirectByteBufferAllocator.getInstance())
+                        .useOffHeapDecryptBuffer(true)
+                        .useStatsFilter(true)
+                        .build();
+                this.reader = ParquetFileReader.open(inputFile, options);
                 this.reader.setRequestedSchema(schema);
             }
+        }
+
+        private boolean canPruneRowGroup(BlockMetaData block) {
+            if (filters == null || filters.isEmpty() || block == null) {
+                return false;
+            }
+            List<ColumnChunkMetaData> chunks = block.getColumns();
+            int numChunks = chunks.size();
+            Map<String, Integer> colMap = new LinkedHashMap<>(numChunks * 2);
+            List<String> colOrder = new ArrayList<>(numChunks);
+            Object[] minVals = new Object[numChunks];
+            Object[] maxVals = new Object[numChunks];
+            boolean anyStat = false;
+
+            for (int i = 0; i < numChunks; i++) {
+                ColumnChunkMetaData cc = chunks.get(i);
+                String colName = cc.getPath().toDotString();
+                colMap.put(colName, i);
+                colOrder.add(colName);
+                Statistics<?> stats = cc.getStatistics();
+                if (stats != null && stats.hasNonNullValue()) {
+                    anyStat = true;
+                    switch (cc.getType()) {
+                        case INT32, INT64, FLOAT, DOUBLE, BOOLEAN -> {
+                            minVals[i] = stats.genericGetMin();
+                            maxVals[i] = stats.genericGetMax();
+                        }
+                        case BINARY -> {
+                            minVals[i] = stats.genericGetMin() != null ? ((org.apache.parquet.io.api.Binary) stats.genericGetMin()).toStringUsingUTF8() : null;
+                            maxVals[i] = stats.genericGetMax() != null ? ((org.apache.parquet.io.api.Binary) stats.genericGetMax()).toStringUsingUTF8() : null;
+                        }
+                    }
+                }
+            }
+            if (!anyStat) {
+                return false;
+            }
+
+            ColumnVector[] minVecs = new ColumnVector[numChunks];
+            ColumnVector[] maxVecs = new ColumnVector[numChunks];
+            for (int i = 0; i < numChunks; i++) {
+                final int idx = i;
+                minVecs[i] = new com.cupoftea.table.vector.ObjectColumnVector(colOrder.get(i), Object.class, 1, true) {
+                    @Override public double getDouble(int r) { return minVals[idx] != null ? ((Number) minVals[idx]).doubleValue() : 0.0; }
+                    @Override public int getInt(int r) { return minVals[idx] != null ? ((Number) minVals[idx]).intValue() : 0; }
+                    @Override public long getLong(int r) { return minVals[idx] != null ? ((Number) minVals[idx]).longValue() : 0L; }
+                    @Override public float getFloat(int r) { return minVals[idx] != null ? ((Number) minVals[idx]).floatValue() : 0.0f; }
+                    @Override public boolean getBoolean(int r) { return minVals[idx] != null ? (Boolean) minVals[idx] : false; }
+                    @Override public String getString(int r) { return minVals[idx] != null ? (String) minVals[idx] : ""; }
+                    @Override public Object getObject(int r) { return minVals[idx]; }
+                };
+                maxVecs[i] = new com.cupoftea.table.vector.ObjectColumnVector(colOrder.get(i), Object.class, 1, true) {
+                    @Override public double getDouble(int r) { return maxVals[idx] != null ? ((Number) maxVals[idx]).doubleValue() : 0.0; }
+                    @Override public int getInt(int r) { return maxVals[idx] != null ? ((Number) maxVals[idx]).intValue() : 0; }
+                    @Override public long getLong(int r) { return maxVals[idx] != null ? ((Number) maxVals[idx]).longValue() : 0L; }
+                    @Override public float getFloat(int r) { return maxVals[idx] != null ? ((Number) maxVals[idx]).floatValue() : 0.0f; }
+                    @Override public boolean getBoolean(int r) { return maxVals[idx] != null ? (Boolean) maxVals[idx] : false; }
+                    @Override public String getString(int r) { return maxVals[idx] != null ? (String) maxVals[idx] : ""; }
+                    @Override public Object getObject(int r) { return maxVals[idx]; }
+                };
+            }
+            Row minRow = new Row(minVecs, colMap, colOrder, 0);
+            Row maxRow = new Row(maxVecs, colMap, colOrder, 0);
+
+            for (IFilter filter : filters) {
+                try {
+                    Boolean minP = filter.filter(minRow);
+                    Boolean maxP = filter.filter(maxRow);
+                    if (Boolean.FALSE.equals(minP) && Boolean.FALSE.equals(maxP)) {
+                        return true;
+                    }
+                } catch (Exception ignored) {}
+            }
+            return false;
         }
 
         @Override
@@ -213,7 +301,18 @@ public class ParquetLazySource implements LazySource {
 
             while (true) {
                 while (currentRowGroupRemaining <= 0) {
+                    List<BlockMetaData> blocks = reader.getRowGroups();
+                    if (currentRowGroupIndex < blocks.size()) {
+                        BlockMetaData block = blocks.get(currentRowGroupIndex);
+                        if (canPruneRowGroup(block)) {
+                            reader.skipNextRowGroup();
+                            currentRowGroupIndex++;
+                            continue;
+                        }
+                    }
+
                     currentRowGroup = reader.readNextRowGroup();
+                    currentRowGroupIndex++;
                     if (currentRowGroup == null) {
                         close();
                         return null;
@@ -249,7 +348,6 @@ public class ParquetLazySource implements LazySource {
                 ColumnVector[] vectors = new ColumnVector[numCols];
 
                 if (filters == null || filters.isEmpty()) {
-                    // Standard vectorized read without filters
                     for (int colIdx = 0; colIdx < numCols; colIdx++) {
                         vectors[colIdx] = readVector(colIdx, rowsToRead, null, 0);
                     }
@@ -317,7 +415,6 @@ public class ParquetLazySource implements LazySource {
                 }
 
                 if (matchCount == 0) {
-                    // Skip remaining row positions in current column readers that were not read
                     for (int c = 0; c < numCols; c++) {
                         if (!filterColIndices.contains(c)) {
                             ColumnReader cr = currentColumnReaders[c];
