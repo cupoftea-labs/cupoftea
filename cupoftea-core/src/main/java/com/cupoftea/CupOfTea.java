@@ -2150,6 +2150,22 @@ public class CupOfTea {
         return target;
     }
 
+    public CupOfTea rolling_mean(String column, int windowSize, String outputColumn) {
+        return rolling(windowSize).mean(column, outputColumn);
+    }
+
+    public CupOfTea rolling_mean(String column, int windowSize) {
+        return rolling(windowSize).mean(column);
+    }
+
+    public CupOfTea rolling_sum(String column, int windowSize, String outputColumn) {
+        return rolling(windowSize).sum(column, outputColumn);
+    }
+
+    public CupOfTea rolling_sum(String column, int windowSize) {
+        return rolling(windowSize).sum(column);
+    }
+
     public CupOfTea lead(String column, int offset, String outputColumn) {
         CupOfTea target = targetForMutation();
         target.dataFrame.lead(column, offset, outputColumn);

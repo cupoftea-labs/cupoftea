@@ -37,7 +37,7 @@ chmod +x benchmarks/run_benchmarks.sh benchmarks/scripts/*.sh
 # Build the shaded JMH JAR
 mvn clean package -pl cupoftea-benchmark -am -DskipTests
 
-# Run all Polars comparative benchmarks (Ingest, GroupBy, Join, Filter, 1BRC)
+# Run all Polars comparative benchmarks (Ingest, Egress, GroupBy, Join, Filter, Window, 1BRC)
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar polars
 
@@ -45,11 +45,15 @@ java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vect
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar polars-ingest
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
+     -jar cupoftea-benchmark/target/benchmarks.jar polars-egress
+java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar polars-groupby
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar polars-join
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar polars-filter
+java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
+     -jar cupoftea-benchmark/target/benchmarks.jar polars-window
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar 1brc
 ```

@@ -101,6 +101,7 @@ public class BenchmarkRunner {
             case "polars-groupby" -> "com.cupoftea.benchmark.polars.PolarsGroupByBenchmark.*";
             case "polars-join" -> "com.cupoftea.benchmark.polars.PolarsJoinBenchmark.*";
             case "polars-filter" -> "com.cupoftea.benchmark.polars.PolarsFilterVectorBenchmark.*";
+            case "polars-window", "window" -> "com.cupoftea.benchmark.polars.PolarsWindowBenchmark.*";
             case "1brc" -> "com.cupoftea.benchmark.polars.OneBrcStandardBenchmark.*";
             case "all" -> "com.cupoftea.benchmark.*";
             default -> null;

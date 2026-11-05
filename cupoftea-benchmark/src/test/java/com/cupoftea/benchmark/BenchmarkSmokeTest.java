@@ -24,6 +24,7 @@ import com.cupoftea.benchmark.polars.PolarsFilterVectorBenchmark;
 import com.cupoftea.benchmark.polars.PolarsGroupByBenchmark;
 import com.cupoftea.benchmark.polars.PolarsIngestBenchmark;
 import com.cupoftea.benchmark.polars.PolarsJoinBenchmark;
+import com.cupoftea.benchmark.polars.PolarsWindowBenchmark;
 import com.cupoftea.benchmark.profile.HardwareCountersProfiler;
 import com.cupoftea.benchmark.scaling.CompetitiveBaselineBenchmark;
 import com.cupoftea.benchmark.scaling.DatasetScaleBenchmark;
@@ -308,6 +309,28 @@ public class BenchmarkSmokeTest {
     }
 
     @Test
+    @DisplayName("Should execute PolarsWindowBenchmark across shift, cumulative, rolling, and ranking operations")
+    void testPolarsWindowBenchmark() {
+        PolarsWindowBenchmark bench = new PolarsWindowBenchmark();
+        bench.rows = 500;
+        bench.setupTrial();
+
+        bench.lagShift(noopBlackhole);
+        bench.leadShift(noopBlackhole);
+        bench.cumsum(noopBlackhole);
+        bench.cumprod(noopBlackhole);
+        bench.cummin(noopBlackhole);
+        bench.cummax(noopBlackhole);
+        bench.rollingMeanFixedWindow(noopBlackhole);
+        bench.rollingSumFixedWindow(noopBlackhole);
+        bench.rowNumber(noopBlackhole);
+        bench.rank(noopBlackhole);
+        bench.denseRank(noopBlackhole);
+        bench.windowPartitionedRank(noopBlackhole);
+        bench.windowPartitionedLag(noopBlackhole);
+    }
+
+    @Test
     @DisplayName("Should execute OneBrcStandardBenchmark across 1-decimal, 2-decimal, and 3-decimal hybrid fallback modes")
     void testOneBrcStandardBenchmark() throws IOException {
         OneBrcStandardBenchmark bench = new OneBrcStandardBenchmark();
@@ -389,6 +412,8 @@ public class BenchmarkSmokeTest {
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-groupby")).contains("PolarsGroupByBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-join")).contains("PolarsJoinBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-filter")).contains("PolarsFilterVectorBenchmark");
+        assertThat(BenchmarkRunner.resolvePresetPattern("polars-window")).contains("PolarsWindowBenchmark");
+        assertThat(BenchmarkRunner.resolvePresetPattern("window")).contains("PolarsWindowBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("1brc")).contains("OneBrcStandardBenchmark");
     }
 

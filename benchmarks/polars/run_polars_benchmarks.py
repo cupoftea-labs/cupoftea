@@ -424,6 +424,60 @@ def main():
             lambda: base_df.with_columns((pl.col("val_fixed") * 1.15 + pl.col("val_fixed").abs().sqrt()).alias("val_fixed"))
         ))
 
+        # --- Window Functions Benchmarks (Issue #282) ---
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.lagShift", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").shift(1).alias("lag_val"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.leadShift", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").shift(-1).alias("lead_val"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.cumsum", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").cum_sum().alias("val_fixed"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.cumprod", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").cum_prod().alias("val_fixed"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.cummin", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").cum_min().alias("val_fixed"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.cummax", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").cum_max().alias("val_fixed"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.rollingMeanFixedWindow", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").rolling_mean(window_size=5).alias("roll_mean"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.rollingSumFixedWindow", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").rolling_sum(window_size=5).alias("roll_sum"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.rowNumber", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.int_range(1, pl.len() + 1).alias("row_num"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.rank", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").rank("min").alias("rank_val"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.denseRank", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").rank("dense").alias("dense_rank_val"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.windowPartitionedRank", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").rank("min").over("k_low").alias("part_rank"))
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsWindowBenchmark.windowPartitionedLag", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.with_columns(pl.col("val_fixed").shift(1).over("k_low").alias("part_lag"))
+        ))
+
     left_1to1, right_1to1 = build_synthetic_join_frames(rows, rows, "1:1")
     join_bytes = int(left_1to1.estimated_size() + right_1to1.estimated_size())
     results.append(run_timed_benchmark(
