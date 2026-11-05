@@ -621,4 +621,69 @@ public final class SyntheticDataGenerator {
         }
         return file;
     }
+
+    /**
+     * Generates a deterministic time-series trades DataFrame for As-Of Join benchmarks.
+     */
+    public static CupOfTea createAsOfTradesDataFrame(int rows, int tickerCount) {
+        SplittableRandom rng = new SplittableRandom(DEFAULT_SEED ^ 0x3333L);
+        int tickers = Math.max(1, tickerCount);
+
+        long[] times = new long[rows];
+        String[] tickerCol = new String[rows];
+        double[] prices = new double[rows];
+
+        String[] tickerPool = new String[tickers];
+        for (int i = 0; i < tickers; i++) {
+            tickerPool[i] = String.format(Locale.ROOT, "TICKER_%04d", i);
+        }
+
+        long curTime = 1_700_000_000_000L;
+        for (int i = 0; i < rows; i++) {
+            curTime += rng.nextInt(1, 10);
+            times[i] = curTime;
+            tickerCol[i] = tickerPool[rng.nextInt(0, tickers)];
+            prices[i] = 100.0 + rng.nextDouble(0.0, 50.0);
+        }
+
+        List<ColumnVector> vectors = List.of(
+            new LongColumnVector("time", times, new BitSet(), rows),
+            new StringColumnVector("ticker", tickerCol, new BitSet(), rows),
+            new DoubleColumnVector("price", prices, new BitSet(), rows)
+        );
+        return CupOfTea.fromVectors(vectors).withMutationMode(MutationMode.COPY_ON_WRITE);
+    }
+
+    /**
+     * Generates a deterministic time-series quotes DataFrame for As-Of Join benchmarks.
+     */
+    public static CupOfTea createAsOfQuotesDataFrame(int rows, int tickerCount) {
+        SplittableRandom rng = new SplittableRandom(DEFAULT_SEED ^ 0x4444L);
+        int tickers = Math.max(1, tickerCount);
+
+        long[] times = new long[rows];
+        String[] tickerCol = new String[rows];
+        double[] bids = new double[rows];
+
+        String[] tickerPool = new String[tickers];
+        for (int i = 0; i < tickers; i++) {
+            tickerPool[i] = String.format(Locale.ROOT, "TICKER_%04d", i);
+        }
+
+        long curTime = 1_700_000_000_000L;
+        for (int i = 0; i < rows; i++) {
+            curTime += rng.nextInt(1, 15);
+            times[i] = curTime;
+            tickerCol[i] = tickerPool[rng.nextInt(0, tickers)];
+            bids[i] = 99.0 + rng.nextDouble(0.0, 50.0);
+        }
+
+        List<ColumnVector> vectors = List.of(
+            new LongColumnVector("time", times, new BitSet(), rows),
+            new StringColumnVector("ticker", tickerCol, new BitSet(), rows),
+            new DoubleColumnVector("bid", bids, new BitSet(), rows)
+        );
+        return CupOfTea.fromVectors(vectors).withMutationMode(MutationMode.COPY_ON_WRITE);
+    }
+
 }

@@ -37,6 +37,7 @@ import com.cupoftea.table.DataFrame;
 import com.cupoftea.table.DataFrameConcatenator;
 import com.cupoftea.table.GroupBy;
 import com.cupoftea.table.ILoc;
+import com.cupoftea.table.AsOfDirection;
 import com.cupoftea.table.JoinType;
 import com.cupoftea.table.Keep;
 import com.cupoftea.table.Loc;
@@ -1682,6 +1683,43 @@ public class CupOfTea {
         return new CupOfTea(this.dataFrame.crossJoin(other.getDataFrame()), this.mutationMode);
     }
 
+    // --- As-Of Join Operations (Issue #283) ---
+
+    public CupOfTea asOfJoin(CupOfTea right, String on) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, String by) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, by), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, String by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, List<String> by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String leftOn, String rightOn, String leftBy, String rightBy, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), leftOn, rightOn, leftBy, rightBy, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String leftOn, String rightOn, List<String> leftBy, List<String> rightBy, AsOfDirection direction, String leftSuffix, String rightSuffix) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix), this.mutationMode);
+    }
+
     // --- Overloads accepting IDataFrame ---
 
     public CupOfTea join(IDataFrame other) {
@@ -1806,6 +1844,41 @@ public class CupOfTea {
 
     public CupOfTea crossJoin(IDataFrame other) {
         return new CupOfTea(this.dataFrame.crossJoin(other), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, String by) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, by), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, String by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, List<String> by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String leftOn, String rightOn, String leftBy, String rightBy, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, leftOn, rightOn, leftBy, rightBy, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String leftOn, String rightOn, List<String> leftBy, List<String> rightBy, AsOfDirection direction, String leftSuffix, String rightSuffix) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix), this.mutationMode);
     }
 
     // --- Concat Operations ---

@@ -189,6 +189,28 @@ def run_timed_benchmark(name: str, rows: int, data_bytes: int, warmup: int, iter
     }
 
 
+def build_synthetic_asof_frames(rows: int, tickers: int = 100):
+    t_start = 1_700_000_000_000
+    times_trades = [t_start + i * 5 for i in range(rows)]
+    tickers_trades = [f"TICKER_{(i % tickers):04d}" for i in range(rows)]
+    prices = [100.0 + ((i * 13) % 500) * 0.1 for i in range(rows)]
+    trades_df = pl.DataFrame({
+        "time": times_trades,
+        "ticker": tickers_trades,
+        "price": prices,
+    })
+
+    times_quotes = [t_start + i * 7 for i in range(rows)]
+    tickers_quotes = [f"TICKER_{(i % tickers):04d}" for i in range(rows)]
+    bids = [99.0 + ((i * 17) % 500) * 0.1 for i in range(rows)]
+    quotes_df = pl.DataFrame({
+        "time": times_quotes,
+        "ticker": tickers_quotes,
+        "bid": bids,
+    })
+    return trades_df, quotes_df
+
+
 def build_synthetic_join_frames(left_rows: int, card: int, mode: str):
     left_df = pl.DataFrame({
         "key_int": [i % card for i in range(left_rows)],
@@ -520,6 +542,21 @@ def main():
     results.append(run_timed_benchmark(
         "PolarsJoinBenchmark.leftJoinStringNtoM", rows, int(left_ntom.estimated_size() * 2), args.warmup, args.iterations,
         lambda: left_ntom.join(right_ntom, on="key_str", how="left")
+    ))
+
+    trades_df, quotes_df = build_synthetic_asof_frames(rows, 100)
+    asof_bytes = int(trades_df.estimated_size() + quotes_df.estimated_size())
+    results.append(run_timed_benchmark(
+        "PolarsJoinBenchmark.asOfJoinBackward", rows, asof_bytes, args.warmup, args.iterations,
+        lambda: trades_df.join_asof(quotes_df, on="time", by="ticker", strategy="backward")
+    ))
+    results.append(run_timed_benchmark(
+        "PolarsJoinBenchmark.asOfJoinForward", rows, asof_bytes, args.warmup, args.iterations,
+        lambda: trades_df.join_asof(quotes_df, on="time", by="ticker", strategy="forward")
+    ))
+    results.append(run_timed_benchmark(
+        "PolarsJoinBenchmark.asOfJoinNearest", rows, asof_bytes, args.warmup, args.iterations,
+        lambda: trades_df.join_asof(quotes_df, on="time", by="ticker", strategy="nearest")
     ))
 
     for bench_name, brc_path in [

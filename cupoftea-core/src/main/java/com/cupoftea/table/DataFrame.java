@@ -2638,6 +2638,23 @@ public class DataFrame extends IDataFrame {
         return result;
     }
 
+    @Override
+    public IDataFrame asOfJoin(
+            IDataFrame right,
+            String leftOn,
+            String rightOn,
+            List<String> leftBy,
+            List<String> rightBy,
+            AsOfDirection direction,
+            String leftSuffix,
+            String rightSuffix) {
+        IDataFrame result = DataFrameJoiner.asOfJoin(this, right, leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix);
+        if (result instanceof DataFrame dfResult) {
+            copyParallelConfigTo(dfResult);
+        }
+        return result;
+    }
+
     private int compareNumbers(Number numA, Number numB) {
         if (numA instanceof Double || numB instanceof Double || numA instanceof Float || numB instanceof Float) {
             double dA = numA.doubleValue();

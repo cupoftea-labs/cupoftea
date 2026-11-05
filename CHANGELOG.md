@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-11-05
+
+### Added
+
+- Support Vectorized As-Of Join and add comparative benchmarks ([#283](https://github.com/cupoftea-labs/cupoftea/issues/283)):
+  - Added temporal join engine `asOfJoin` to `IDataFrame`, `DataFrame`, and `CupOfTea` APIs supporting `asOfJoin(right, on)`, `asOfJoin(right, on, direction)`, `asOfJoin(right, on, by)`, and full multi-key/aliased variants.
+  - Implemented `AsOfDirection` enum supporting `BACKWARD` (<= timestamp), `FORWARD` (>= timestamp), and `NEAREST` (closest timestamp with equidistant tie-break preference).
+  - Optimized execution with specialized zero-boxing binary search and two-pointer pass over sorted primitive long/int/double vectors and partitioned by-group index lookup.
+  - Added As-Of Join scenarios (`asOfJoinBackward`, `asOfJoinForward`, `asOfJoinNearest`) to `PolarsJoinBenchmark` JMH suite and comparative Python Polars benchmarks (`polars.join_asof()`).
+
 ## [0.22.0] - 2026-11-05
 
 ### Added

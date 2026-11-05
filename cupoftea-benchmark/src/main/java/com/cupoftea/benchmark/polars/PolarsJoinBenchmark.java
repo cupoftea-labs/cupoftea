@@ -17,6 +17,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
 
 import com.cupoftea.CupOfTea;
+import com.cupoftea.table.AsOfDirection;
 import com.cupoftea.benchmark.data.SyntheticDataGenerator;
 
 /**
@@ -38,7 +39,7 @@ import com.cupoftea.benchmark.data.SyntheticDataGenerator;
 })
 public class PolarsJoinBenchmark {
 
-    @Param({"100000", "500000"})
+    @Param({"100000", "500000", "1000000"})
     public int rows;
 
     public CupOfTea left1to1;
@@ -49,6 +50,9 @@ public class PolarsJoinBenchmark {
 
     public CupOfTea leftNtoM;
     public CupOfTea rightNtoM;
+
+    public CupOfTea asOfTrades;
+    public CupOfTea asOfQuotes;
 
     @Setup(Level.Trial)
     public void setupTrial() {
@@ -66,6 +70,10 @@ public class PolarsJoinBenchmark {
         int nmCard = Math.max(250, nmRows / 2);
         leftNtoM = SyntheticDataGenerator.createJoinLeftDataFrame(nmRows, nmCard).asParallel();
         rightNtoM = SyntheticDataGenerator.createJoinRightDataFrame(nmRows, nmCard, "N:M").asParallel();
+
+        // As-Of Join (Trades against Quotes by time and ticker)
+        asOfTrades = SyntheticDataGenerator.createAsOfTradesDataFrame(rows, 100).asParallel();
+        asOfQuotes = SyntheticDataGenerator.createAsOfQuotesDataFrame(rows, 100).asParallel();
     }
 
     @Benchmark
@@ -115,4 +123,25 @@ public class PolarsJoinBenchmark {
         CupOfTea res = leftNtoM.leftJoin(rightNtoM, "key_str");
         bh.consume(res.size());
     }
+
+    // --- AS-OF JOIN (Issue #283) ---
+
+    @Benchmark
+    public void asOfJoinBackward(Blackhole bh) {
+        CupOfTea res = asOfTrades.asOfJoin(asOfQuotes, "time", "ticker", AsOfDirection.BACKWARD);
+        bh.consume(res.size());
+    }
+
+    @Benchmark
+    public void asOfJoinForward(Blackhole bh) {
+        CupOfTea res = asOfTrades.asOfJoin(asOfQuotes, "time", "ticker", AsOfDirection.FORWARD);
+        bh.consume(res.size());
+    }
+
+    @Benchmark
+    public void asOfJoinNearest(Blackhole bh) {
+        CupOfTea res = asOfTrades.asOfJoin(asOfQuotes, "time", "ticker", AsOfDirection.NEAREST);
+        bh.consume(res.size());
+    }
+
 }
