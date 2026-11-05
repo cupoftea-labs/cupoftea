@@ -79,7 +79,7 @@
         <commons-io.version>2.18.0</commons-io.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <org.json.version>20250107</org.json.version>
-        <arrow.version>18.2.0</arrow.version>
+        <arrow.version>19.0.0</arrow.version>
         <jmh.version>1.37</jmh.version>
         <tablesaw.version>0.43.1</tablesaw.version>
     </properties>
