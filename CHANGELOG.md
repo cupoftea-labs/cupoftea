@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.17] - 2026-11-05
+
+### Added
+
+- Arrow RecordBatch & C Data Interface zero-copy conversion and benchmark suite ([#281](https://github.com/cupoftea-labs/cupoftea/issues/281)):
+  - Implemented direct bulk buffer memory transfers in `ArrowVectorMapper` between Arrow off-heap memory buffers (`IntVector`, `BigIntVector`, `Float8Vector`, `Float4Vector`, `VarCharVector`) and CupOfTea columnar vectors (`IntColumnVector`, `LongColumnVector`, `DoubleColumnVector`, `FloatColumnVector`, `StringColumnVector`), avoiding intermediate JVM arrays or per-element boxing.
+  - Added zero-copy `StringColumnVector` conversion using contiguous byte and offset buffers, eliminating per-row `byte[]` allocations and `String` instantiations.
+  - Implemented bidirectional conversion methods for `VectorSchemaRoot`, `ArrowRecordBatch`, and Arrow C Data Interface (`ArrowArray` and `ArrowSchema`).
+  - Added JMH comparative benchmark suite `PolarsArrowBenchmark` and integrated it with `BenchmarkRunner` preset flags (`polars-arrow`, `arrow`) and `BenchmarkSmokeTest`.
+  - Added Arrow round-trip conversion benchmark tests in `benchmarks/polars/run_polars_benchmarks.py` comparing CupOfTea and Polars Arrow throughput.
+
 ## [0.21.16] - 2026-11-05
 
 ### Performance
