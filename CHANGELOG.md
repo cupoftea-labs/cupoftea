@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.15] - 2026-11-04
+
+### Performance
+
+- Optimize DataFrame materialization from CSV/TSV LazyScan ([#279](https://github.com/cupoftea-labs/cupoftea/issues/279)):
+  - Added vectorized columnar bulk concatenation in `DataFrameConcatenator.tryConcatColumnVectorDirect` for homogeneous columns, replacing row-by-row boxing/unboxing and intermediate String object instantiation with `System.arraycopy` of contiguous arrays.
+  - Implemented direct contiguous UTF-8 byte array block copying and slice offset arithmetic for `StringColumnVector` concatenation, preallocating total byte storage and eliminating heap `java.lang.String` instances during partition merging.
+  - Optimized `LazyCupOfTea.collectRows` during parallel partition scans by flattening parsed batch chunks directly into a single unified list, eliminating intermediate partition DataFrame copies.
+  - Reduced Lazy CSV Scan latency from ~36.3 ms down to ~5.2 ms and Lazy TSV Scan latency from ~74.9 ms down to ~7.8 ms (matching/surpassing eager ingestion at ~8.0 ms), while decreasing memory allocation from ~1274 B/row down to ~372 B/row.
+
 ## [0.21.14] - 2026-11-04
 
 ### Performance

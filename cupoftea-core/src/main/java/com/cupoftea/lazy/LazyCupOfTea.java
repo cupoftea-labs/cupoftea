@@ -511,7 +511,7 @@ public class LazyCupOfTea implements LazyDataFrame {
 
         if (parallel && partitions.size() > 1 && filters.isEmpty() && limit < 0) {
             ExecutorService exec = executor != null ? executor : ForkJoinPool.commonPool();
-            List<Future<CupOfTea>> futures = new ArrayList<>(partitions.size());
+            List<Future<List<CupOfTea>>> futures = new ArrayList<>(partitions.size());
             for (PartitionReader partition : partitions) {
                 futures.add(exec.submit(() -> {
                     List<CupOfTea> partCollected = new ArrayList<>();
@@ -526,15 +526,19 @@ public class LazyCupOfTea implements LazyDataFrame {
                     } catch (IOException e) {
                         throw new CupOfTeaException("I/O error during parallel lazy collect", e);
                     }
-                    return partCollected.isEmpty() ? null : (partCollected.size() == 1 ? partCollected.get(0) : CupOfTea.concat(partCollected));
+                    return partCollected;
                 }));
             }
 
-            for (Future<CupOfTea> f : futures) {
+            for (Future<List<CupOfTea>> f : futures) {
                 try {
-                    CupOfTea res = f.get();
-                    if (res != null && res.size() > 0) {
-                        collected.add(res);
+                    List<CupOfTea> batches = f.get();
+                    if (batches != null && !batches.isEmpty()) {
+                        for (CupOfTea b : batches) {
+                            if (b != null && b.size() > 0) {
+                                collected.add(b);
+                            }
+                        }
                     }
                 } catch (InterruptedException | ExecutionException e) {
                     throw new CupOfTeaException("Parallel partition collect error", e);

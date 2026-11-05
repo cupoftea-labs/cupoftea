@@ -2,6 +2,8 @@ package com.cupoftea.table;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,7 +16,15 @@ import java.util.Set;
 
 import com.cupoftea.table.interfaces.IDataFrame;
 import com.cupoftea.table.interfaces.IDataTypeConverter;
+import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
+import com.cupoftea.table.vector.DoubleColumnVector;
+import com.cupoftea.table.vector.FloatColumnVector;
+import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.ObjectColumnVector;
+import com.cupoftea.table.vector.StringColumnVector;
 
 /**
  * High-performance columnar concatenation engine for CupOfTea DataFrames.
@@ -145,42 +155,38 @@ public final class DataFrameConcatenator {
         // 4. Create result DataFrame and allocate column vectors
         DataFrame result = new DataFrame();
         List<ColumnVector> vectors = new ArrayList<>(outputHeaders.size());
-        for (Column col : outputHeaders) {
-            vectors.add(ColumnVector.create(col.columnName(), col.columnType(), Math.max(16, totalRows), col.nullable()));
-        }
 
-        // 5. Fill vectors column by column, frame by frame
-        for (IDataFrame frame : frames) {
-            int frameRows = frame.size();
-            if (frameRows == 0) {
-                continue;
-            }
-
-            for (int colIdx = 0; colIdx < outputHeaders.size(); colIdx++) {
-                Column outCol = outputHeaders.get(colIdx);
-                ColumnVector targetVec = vectors.get(colIdx);
-                ColumnVector srcVec = frame.getColumnVector(outCol.columnName());
-
-                if (srcVec == null) {
-                    for (int r = 0; r < frameRows; r++) {
-                        targetVec.appendNull();
-                    }
-                } else {
-                    Class<?> targetType = targetVec.getType();
-                    for (int r = 0; r < frameRows; r++) {
-                        if (srcVec.isNull(r)) {
-                            targetVec.appendNull();
-                        } else {
-                            Object val = srcVec.getObject(r);
-                            if (NA.isNA(val)) {
-                                targetVec.appendNull();
+        for (int colIdx = 0; colIdx < outputHeaders.size(); colIdx++) {
+            Column outCol = outputHeaders.get(colIdx);
+            ColumnVector vec = tryConcatColumnVectorDirect(frames, outCol, totalRows);
+            if (vec == null) {
+                vec = ColumnVector.create(outCol.columnName(), outCol.columnType(), Math.max(16, totalRows), outCol.nullable());
+                Class<?> targetType = vec.getType();
+                for (IDataFrame frame : frames) {
+                    int frameRows = frame.size();
+                    if (frameRows == 0) continue;
+                    ColumnVector srcVec = frame.getColumnVector(outCol.columnName());
+                    if (srcVec == null) {
+                        for (int r = 0; r < frameRows; r++) {
+                            vec.appendNull();
+                        }
+                    } else {
+                        for (int r = 0; r < frameRows; r++) {
+                            if (srcVec.isNull(r)) {
+                                vec.appendNull();
                             } else {
-                                appendConvertedValue(targetVec, targetType, val);
+                                Object val = srcVec.getObject(r);
+                                if (NA.isNA(val)) {
+                                    vec.appendNull();
+                                } else {
+                                    appendConvertedValue(vec, targetType, val);
+                                }
                             }
                         }
                     }
                 }
             }
+            vectors.add(vec);
         }
 
         result.setHeaders(new ArrayList<>(outputHeaders));
@@ -611,5 +617,214 @@ public final class DataFrameConcatenator {
 
     private static boolean isNumeric(Class<?> type) {
         return Number.class.isAssignableFrom(type);
+    }
+
+    /**
+     * Attempts direct vectorized columnar concatenation for homogeneous columns across frames.
+     * Returns null if fallback to row-by-row conversion is required.
+     */
+    private static ColumnVector tryConcatColumnVectorDirect(
+            List<? extends IDataFrame> frames,
+            Column targetCol,
+            int totalRows) {
+
+        String colName = targetCol.columnName();
+        Class<?> targetType = targetCol.columnType();
+        boolean nullable = targetCol.nullable();
+
+        // 1. Verify all non-empty frames have matching ColumnVector class and type
+        Class<? extends ColumnVector> commonVecClass = null;
+        for (IDataFrame frame : frames) {
+            if (frame.size() == 0) continue;
+            ColumnVector srcVec = frame.getColumnVector(colName);
+            if (srcVec == null) {
+                // Column missing in one of the frames -> requires padding with nulls/fallback
+                return null;
+            }
+            if (!targetType.equals(srcVec.getType())) {
+                // Type widening/coercion needed -> fallback
+                return null;
+            }
+            if (commonVecClass == null) {
+                commonVecClass = srcVec.getClass();
+            } else if (!commonVecClass.equals(srcVec.getClass())) {
+                // Vector class mismatch -> fallback
+                return null;
+            }
+        }
+
+        if (commonVecClass == null) {
+            return ColumnVector.create(colName, targetType, Math.max(16, totalRows), nullable);
+        }
+
+        // 2. Direct vectorized copy per vector type
+        if (commonVecClass == IntColumnVector.class) {
+            int[] dst = new int[totalRows];
+            BitSet nulls = new BitSet(totalRows);
+            int currRow = 0;
+            for (IDataFrame frame : frames) {
+                int frameRows = frame.size();
+                if (frameRows == 0) continue;
+                IntColumnVector src = (IntColumnVector) frame.getColumnVector(colName);
+                System.arraycopy(src.getRawData(), 0, dst, currRow, frameRows);
+                if (src.hasNulls()) {
+                    BitSet srcNulls = src.getNulls();
+                    for (int r = srcNulls.nextSetBit(0); r >= 0 && r < frameRows; r = srcNulls.nextSetBit(r + 1)) {
+                        nulls.set(currRow + r);
+                    }
+                }
+                currRow += frameRows;
+            }
+            return new IntColumnVector(colName, nullable, dst, nulls, totalRows);
+        }
+
+        if (commonVecClass == LongColumnVector.class) {
+            long[] dst = new long[totalRows];
+            BitSet nulls = new BitSet(totalRows);
+            int currRow = 0;
+            for (IDataFrame frame : frames) {
+                int frameRows = frame.size();
+                if (frameRows == 0) continue;
+                LongColumnVector src = (LongColumnVector) frame.getColumnVector(colName);
+                System.arraycopy(src.getRawData(), 0, dst, currRow, frameRows);
+                if (src.hasNulls()) {
+                    BitSet srcNulls = src.getNulls();
+                    for (int r = srcNulls.nextSetBit(0); r >= 0 && r < frameRows; r = srcNulls.nextSetBit(r + 1)) {
+                        nulls.set(currRow + r);
+                    }
+                }
+                currRow += frameRows;
+            }
+            return new LongColumnVector(colName, nullable, dst, nulls, totalRows);
+        }
+
+        if (commonVecClass == DoubleColumnVector.class) {
+            double[] dst = new double[totalRows];
+            BitSet nulls = new BitSet(totalRows);
+            int currRow = 0;
+            for (IDataFrame frame : frames) {
+                int frameRows = frame.size();
+                if (frameRows == 0) continue;
+                DoubleColumnVector src = (DoubleColumnVector) frame.getColumnVector(colName);
+                System.arraycopy(src.getRawData(), 0, dst, currRow, frameRows);
+                if (src.hasNulls()) {
+                    BitSet srcNulls = src.getNulls();
+                    for (int r = srcNulls.nextSetBit(0); r >= 0 && r < frameRows; r = srcNulls.nextSetBit(r + 1)) {
+                        nulls.set(currRow + r);
+                    }
+                }
+                currRow += frameRows;
+            }
+            return new DoubleColumnVector(colName, nullable, dst, nulls, totalRows);
+        }
+
+        if (commonVecClass == FloatColumnVector.class) {
+            float[] dst = new float[totalRows];
+            BitSet nulls = new BitSet(totalRows);
+            int currRow = 0;
+            for (IDataFrame frame : frames) {
+                int frameRows = frame.size();
+                if (frameRows == 0) continue;
+                FloatColumnVector src = (FloatColumnVector) frame.getColumnVector(colName);
+                System.arraycopy(src.getRawData(), 0, dst, currRow, frameRows);
+                if (src.hasNulls()) {
+                    BitSet srcNulls = src.getNulls();
+                    for (int r = srcNulls.nextSetBit(0); r >= 0 && r < frameRows; r = srcNulls.nextSetBit(r + 1)) {
+                        nulls.set(currRow + r);
+                    }
+                }
+                currRow += frameRows;
+            }
+            return new FloatColumnVector(colName, nullable, dst, nulls, totalRows);
+        }
+
+        if (commonVecClass == BooleanColumnVector.class) {
+            boolean[] dst = new boolean[totalRows];
+            BitSet nulls = new BitSet(totalRows);
+            int currRow = 0;
+            for (IDataFrame frame : frames) {
+                int frameRows = frame.size();
+                if (frameRows == 0) continue;
+                BooleanColumnVector src = (BooleanColumnVector) frame.getColumnVector(colName);
+                System.arraycopy(src.getRawData(), 0, dst, currRow, frameRows);
+                if (src.hasNulls()) {
+                    BitSet srcNulls = src.getNulls();
+                    for (int r = srcNulls.nextSetBit(0); r >= 0 && r < frameRows; r = srcNulls.nextSetBit(r + 1)) {
+                        nulls.set(currRow + r);
+                    }
+                }
+                currRow += frameRows;
+            }
+            return new BooleanColumnVector(colName, nullable, dst, nulls, totalRows);
+        }
+
+        if (commonVecClass == StringColumnVector.class) {
+            long totalBytes = 0;
+            for (IDataFrame frame : frames) {
+                if (frame.size() == 0) continue;
+                StringColumnVector src = (StringColumnVector) frame.getColumnVector(colName);
+                totalBytes += src.getValuesCount();
+            }
+
+            if (totalBytes > Integer.MAX_VALUE - 8) {
+                // Exceeds single array limit -> fallback
+                return null;
+            }
+
+            byte[] values = new byte[(int) totalBytes];
+            int[] offsets = new int[totalRows + 1];
+            BitSet nulls = new BitSet(totalRows);
+
+            int currRow = 0;
+            int currByte = 0;
+            for (IDataFrame frame : frames) {
+                int frameRows = frame.size();
+                if (frameRows == 0) continue;
+                StringColumnVector src = (StringColumnVector) frame.getColumnVector(colName);
+                int bBytes = src.getValuesCount();
+                if (bBytes > 0) {
+                    System.arraycopy(src.getValues(), 0, values, currByte, bBytes);
+                }
+                int[] srcOffsets = src.getOffsets();
+                if (currByte == 0) {
+                    System.arraycopy(srcOffsets, 1, offsets, 1, frameRows);
+                } else {
+                    for (int r = 1; r <= frameRows; r++) {
+                        offsets[currRow + r] = srcOffsets[r] + currByte;
+                    }
+                }
+                if (src.hasNulls()) {
+                    BitSet srcNulls = src.getNulls();
+                    for (int r = srcNulls.nextSetBit(0); r >= 0 && r < frameRows; r = srcNulls.nextSetBit(r + 1)) {
+                        nulls.set(currRow + r);
+                    }
+                }
+                currRow += frameRows;
+                currByte += bBytes;
+            }
+            return new StringColumnVector(colName, nullable, values, (int) totalBytes, offsets, nulls, totalRows);
+        }
+
+        if (commonVecClass == ObjectColumnVector.class) {
+            Object[] dst = new Object[totalRows];
+            BitSet nulls = new BitSet(totalRows);
+            int currRow = 0;
+            for (IDataFrame frame : frames) {
+                int frameRows = frame.size();
+                if (frameRows == 0) continue;
+                ObjectColumnVector src = (ObjectColumnVector) frame.getColumnVector(colName);
+                System.arraycopy(src.getRawData(), 0, dst, currRow, frameRows);
+                if (src.hasNulls()) {
+                    BitSet srcNulls = src.getNulls();
+                    for (int r = srcNulls.nextSetBit(0); r >= 0 && r < frameRows; r = srcNulls.nextSetBit(r + 1)) {
+                        nulls.set(currRow + r);
+                    }
+                }
+                currRow += frameRows;
+            }
+            return new ObjectColumnVector(colName, targetType, nullable, dst, nulls, totalRows);
+        }
+
+        return null;
     }
 }
