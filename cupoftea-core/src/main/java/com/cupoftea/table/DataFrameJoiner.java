@@ -1,5 +1,8 @@
 package com.cupoftea.table;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -906,6 +909,12 @@ public final class DataFrameJoiner {
             if (bVec instanceof DictionaryColumnVector bDict && pVec instanceof DictionaryColumnVector pDict) {
                 return new DictionaryHashJoinIndex(bDict, pDict, buildSize);
             }
+            if (bVec instanceof DictionaryColumnVector bDict && pVec instanceof StringColumnVector pStr) {
+                return new DictBuildStringProbeHashJoinIndex(bDict, pStr, buildSize);
+            }
+            if (bVec instanceof StringColumnVector bStr && pVec instanceof DictionaryColumnVector pDict) {
+                return new StringBuildDictProbeHashJoinIndex(bStr, pDict, buildSize, parallel, executor, threshold);
+            }
         }
         return new GeneralColumnarHashJoinIndex(buildKeyVecs, probeKeyVecs, buildSize);
     }
@@ -1319,9 +1328,17 @@ public final class DataFrameJoiner {
     // -------------------------------------------------------------------------
 
     private static final class StringHashJoinIndex extends HashJoinIndex {
+        private static final int SSO_MAX_LEN = 16;
+        private static final VarHandle LONG_LE =
+                MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+
         private final byte[] buildValues;
         private final int[] buildOffsets;
         private final int[] buildHashes;
+        private final int[] buildLengths;
+        private final long[] buildP1;
+        private final long[] buildP2;
+
         private final byte[] probeValues;
         private final int[] probeOffsets;
         private final BitSet probeNulls;
@@ -1329,6 +1346,26 @@ public final class DataFrameJoiner {
         private final int mask;
         private final int[] bucketHead;
         private final int[] nextRowIdx;
+
+        private static long loadWord(byte[] b, int off, int len, int wordIdx) {
+            int start = wordIdx << 3;
+            int n = len - start;
+            if (n <= 0) {
+                return 0L;
+            }
+            int idx = off + start;
+            if (n >= 8) {
+                return (long) LONG_LE.get(b, idx);
+            }
+            if (idx + 8 <= b.length) {
+                return ((long) LONG_LE.get(b, idx)) & (~0L >>> ((8 - n) << 3));
+            }
+            long v = 0L;
+            for (int i = n - 1; i >= 0; i--) {
+                v = (v << 8) | (b[idx + i] & 0xFFL);
+            }
+            return v;
+        }
 
         StringHashJoinIndex(
                 StringColumnVector buildVec,
@@ -1344,35 +1381,49 @@ public final class DataFrameJoiner {
             BitSet bNulls = buildVec.getNulls();
 
             int[] bHashes = new int[buildSize];
+            int[] bLengths = new int[buildSize];
+            long[] bP1 = new long[buildSize];
+            long[] bP2 = new long[buildSize];
+
             if (parallel && buildSize >= threshold && buildSize > 1) {
                 ParallelVectorEngine.executeChunks(buildSize, executor, (chunkIdx, start, end) -> {
-                    if (!bHasNulls) {
-                        for (int r = start; r < end; r++) {
+                    for (int r = start; r < end; r++) {
+                        if (!bHasNulls || !bNulls.get(r)) {
                             int s = bOffsets[r];
-                            bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
-                        }
-                    } else {
-                        for (int r = start; r < end; r++) {
-                            if (!bNulls.get(r)) {
-                                int s = bOffsets[r];
-                                bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
+                            int len = bOffsets[r + 1] - s;
+                            bLengths[r] = len;
+                            if (len <= SSO_MAX_LEN) {
+                                long p1 = loadWord(bValues, s, len, 0);
+                                long p2 = loadWord(bValues, s, len, 1);
+                                bP1[r] = p1;
+                                bP2[r] = p2;
+                                bHashes[r] = StringColumnVector.hashShortWords(p1, p2, len);
+                            } else {
+                                bHashes[r] = StringColumnVector.hashBytes(bValues, s, len);
                             }
+                        } else {
+                            bLengths[r] = -1;
                         }
                     }
                     return null;
                 });
             } else {
-                if (!bHasNulls) {
-                    for (int r = 0; r < buildSize; r++) {
+                for (int r = 0; r < buildSize; r++) {
+                    if (!bHasNulls || !bNulls.get(r)) {
                         int s = bOffsets[r];
-                        bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
-                    }
-                } else {
-                    for (int r = 0; r < buildSize; r++) {
-                        if (!bNulls.get(r)) {
-                            int s = bOffsets[r];
-                            bHashes[r] = StringColumnVector.hashBytes(bValues, s, bOffsets[r + 1] - s);
+                        int len = bOffsets[r + 1] - s;
+                        bLengths[r] = len;
+                        if (len <= SSO_MAX_LEN) {
+                            long p1 = loadWord(bValues, s, len, 0);
+                            long p2 = loadWord(bValues, s, len, 1);
+                            bP1[r] = p1;
+                            bP2[r] = p2;
+                            bHashes[r] = StringColumnVector.hashShortWords(p1, p2, len);
+                        } else {
+                            bHashes[r] = StringColumnVector.hashBytes(bValues, s, len);
                         }
+                    } else {
+                        bLengths[r] = -1;
                     }
                 }
             }
@@ -1393,15 +1444,24 @@ public final class DataFrameJoiner {
                 int b = h & m;
                 int head = heads[b];
                 if (unique && head != -1) {
-                    int rStart = bOffsets[r];
-                    int rLen = bOffsets[r + 1] - rStart;
+                    int rLen = bLengths[r];
+                    long rP1 = bP1[r];
+                    long rP2 = bP2[r];
+                    int rStart = (rLen > SSO_MAX_LEN) ? bOffsets[r] : 0;
+
                     for (int c = head; c != -1; c = next[c]) {
-                        if (bHashes[c] == h) {
-                            int cStart = bOffsets[c];
-                            int cLen = bOffsets[c + 1] - cStart;
-                            if (cLen == rLen && Arrays.equals(bValues, rStart, rStart + rLen, bValues, cStart, cStart + cLen)) {
-                                unique = false;
-                                break;
+                        if (bHashes[c] == h && bLengths[c] == rLen) {
+                            if (rLen <= SSO_MAX_LEN) {
+                                if (bP1[c] == rP1 && bP2[c] == rP2) {
+                                    unique = false;
+                                    break;
+                                }
+                            } else {
+                                int cStart = bOffsets[c];
+                                if (Arrays.equals(bValues, rStart, rStart + rLen, bValues, cStart, cStart + rLen)) {
+                                    unique = false;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -1414,6 +1474,9 @@ public final class DataFrameJoiner {
             this.buildValues = bValues;
             this.buildOffsets = bOffsets;
             this.buildHashes = bHashes;
+            this.buildLengths = bLengths;
+            this.buildP1 = bP1;
+            this.buildP2 = bP2;
             this.probeValues = probeVec.getValues();
             this.probeOffsets = probeVec.getOffsets();
             this.probeHasNulls = probeVec.hasNulls();
@@ -1430,6 +1493,9 @@ public final class DataFrameJoiner {
             byte[] bValues = this.buildValues;
             int[] bOffsets = this.buildOffsets;
             int[] bHashes = this.buildHashes;
+            int[] bLengths = this.buildLengths;
+            long[] bP1 = this.buildP1;
+            long[] bP2 = this.buildP2;
             int[] heads = this.bucketHead;
             int[] next = this.nextRowIdx;
             int m = this.mask;
@@ -1438,15 +1504,32 @@ public final class DataFrameJoiner {
                 for (int l = start; l < end; l++) {
                     int pStart = pOffsets[l];
                     int pLen = pOffsets[l + 1] - pStart;
-                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    int h;
+                    long p1 = 0L;
+                    long p2 = 0L;
+                    if (pLen <= SSO_MAX_LEN) {
+                        p1 = loadWord(pValues, pStart, pLen, 0);
+                        p2 = loadWord(pValues, pStart, pLen, 1);
+                        h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                    } else {
+                        h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    }
                     int matched = -1;
-                    for (int r = heads[h & m]; r != -1; r = next[r]) {
-                        if (bHashes[r] == h) {
-                            int bStart = bOffsets[r];
-                            int bLen = bOffsets[r + 1] - bStart;
-                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                    if (pLen <= SSO_MAX_LEN) {
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2) {
                                 matched = r;
                                 break;
+                            }
+                        }
+                    } else {
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen) {
+                                int bStart = bOffsets[r];
+                                if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                    matched = r;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -1461,15 +1544,32 @@ public final class DataFrameJoiner {
                     }
                     int pStart = pOffsets[l];
                     int pLen = pOffsets[l + 1] - pStart;
-                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    int h;
+                    long p1 = 0L;
+                    long p2 = 0L;
+                    if (pLen <= SSO_MAX_LEN) {
+                        p1 = loadWord(pValues, pStart, pLen, 0);
+                        p2 = loadWord(pValues, pStart, pLen, 1);
+                        h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                    } else {
+                        h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    }
                     int matched = -1;
-                    for (int r = heads[h & m]; r != -1; r = next[r]) {
-                        if (bHashes[r] == h) {
-                            int bStart = bOffsets[r];
-                            int bLen = bOffsets[r + 1] - bStart;
-                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                    if (pLen <= SSO_MAX_LEN) {
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2) {
                                 matched = r;
                                 break;
+                            }
+                        }
+                    } else {
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen) {
+                                int bStart = bOffsets[r];
+                                if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                    matched = r;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -1490,6 +1590,9 @@ public final class DataFrameJoiner {
             byte[] bValues = this.buildValues;
             int[] bOffsets = this.buildOffsets;
             int[] bHashes = this.buildHashes;
+            int[] bLengths = this.buildLengths;
+            long[] bP1 = this.buildP1;
+            long[] bP2 = this.buildP2;
             int[] heads = this.bucketHead;
             int[] next = this.nextRowIdx;
             int m = this.mask;
@@ -1498,16 +1601,32 @@ public final class DataFrameJoiner {
                 for (int l = start; l < end; l++) {
                     int pStart = pOffsets[l];
                     int pLen = pOffsets[l + 1] - pStart;
-                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
-                    for (int r = heads[h & m]; r != -1; r = next[r]) {
-                        if (bHashes[r] == h) {
-                            int bStart = bOffsets[r];
-                            int bLen = bOffsets[r + 1] - bStart;
-                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                    int h;
+                    long p1 = 0L;
+                    long p2 = 0L;
+                    if (pLen <= SSO_MAX_LEN) {
+                        p1 = loadWord(pValues, pStart, pLen, 0);
+                        p2 = loadWord(pValues, pStart, pLen, 1);
+                        h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2) {
                                 leftIdx[count] = l;
                                 rightIdx[count] = r;
                                 count++;
                                 break;
+                            }
+                        }
+                    } else {
+                        h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen) {
+                                int bStart = bOffsets[r];
+                                if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                    leftIdx[count] = l;
+                                    rightIdx[count] = r;
+                                    count++;
+                                    break;
+                                }
                             }
                         }
                     }
@@ -1521,12 +1640,15 @@ public final class DataFrameJoiner {
                     }
                     int pStart = pOffsets[l];
                     int pLen = pOffsets[l + 1] - pStart;
-                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
-                    for (int r = heads[h & m]; r != -1; r = next[r]) {
-                        if (bHashes[r] == h) {
-                            int bStart = bOffsets[r];
-                            int bLen = bOffsets[r + 1] - bStart;
-                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                    int h;
+                    long p1 = 0L;
+                    long p2 = 0L;
+                    if (pLen <= SSO_MAX_LEN) {
+                        p1 = loadWord(pValues, pStart, pLen, 0);
+                        p2 = loadWord(pValues, pStart, pLen, 1);
+                        h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2) {
                                 if (count == leftIdx.length) {
                                     int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
                                     leftIdx = Arrays.copyOf(leftIdx, newCap);
@@ -1535,6 +1657,23 @@ public final class DataFrameJoiner {
                                 leftIdx[count] = l;
                                 rightIdx[count] = r;
                                 count++;
+                            }
+                        }
+                    } else {
+                        h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen) {
+                                int bStart = bOffsets[r];
+                                if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                    if (count == leftIdx.length) {
+                                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                                    }
+                                    leftIdx[count] = l;
+                                    rightIdx[count] = r;
+                                    count++;
+                                }
                             }
                         }
                     }
@@ -1555,6 +1694,9 @@ public final class DataFrameJoiner {
             byte[] bValues = this.buildValues;
             int[] bOffsets = this.buildOffsets;
             int[] bHashes = this.buildHashes;
+            int[] bLengths = this.buildLengths;
+            long[] bP1 = this.buildP1;
+            long[] bP2 = this.buildP2;
             int[] heads = this.bucketHead;
             int[] next = this.nextRowIdx;
             int m = this.mask;
@@ -1566,12 +1708,15 @@ public final class DataFrameJoiner {
                 if (!pHasNulls || !pNulls.get(l)) {
                     int pStart = pOffsets[l];
                     int pLen = pOffsets[l + 1] - pStart;
-                    int h = StringColumnVector.hashBytes(pValues, pStart, pLen);
-                    for (int r = heads[h & m]; r != -1; r = next[r]) {
-                        if (bHashes[r] == h) {
-                            int bStart = bOffsets[r];
-                            int bLen = bOffsets[r + 1] - bStart;
-                            if (bLen == pLen && Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + bLen)) {
+                    int h;
+                    long p1 = 0L;
+                    long p2 = 0L;
+                    if (pLen <= SSO_MAX_LEN) {
+                        p1 = loadWord(pValues, pStart, pLen, 0);
+                        p2 = loadWord(pValues, pStart, pLen, 1);
+                        h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2) {
                                 if (count == leftIdx.length) {
                                     int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
                                     leftIdx = Arrays.copyOf(leftIdx, newCap);
@@ -1583,6 +1728,27 @@ public final class DataFrameJoiner {
                                 matchedAny = true;
                                 if (buildMatched != null) {
                                     buildMatched[r] = true;
+                                }
+                            }
+                        }
+                    } else {
+                        h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen) {
+                                int bStart = bOffsets[r];
+                                if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                    if (count == leftIdx.length) {
+                                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                                    }
+                                    leftIdx[count] = l;
+                                    rightIdx[count] = r;
+                                    count++;
+                                    matchedAny = true;
+                                    if (buildMatched != null) {
+                                        buildMatched[r] = true;
+                                    }
                                 }
                             }
                         }
@@ -1742,7 +1908,192 @@ public final class DataFrameJoiner {
     }
 
     // -------------------------------------------------------------------------
-    // 5. General / Multi-Column / Cross-Type Columnar Hash Join Index
+    // 5. Mixed DictionaryColumnVector & StringColumnVector Specialized Hash Join Indexes
+    // -------------------------------------------------------------------------
+
+    private static final class DictBuildStringProbeHashJoinIndex extends HashJoinIndex {
+        private final DictionaryColumnVector buildVec;
+        private final StringColumnVector probeVec;
+        private final int dictSize;
+        private final int[] codeHead;
+        private final int[] nextRowIdx;
+
+        DictBuildStringProbeHashJoinIndex(DictionaryColumnVector buildVec, StringColumnVector probeVec, int buildSize) {
+            super(buildSize);
+            this.buildVec = buildVec;
+            this.probeVec = probeVec;
+            int dSize = buildVec.getDictionarySize();
+            this.dictSize = dSize;
+
+            int[] heads = new int[Math.max(1, dSize)];
+            Arrays.fill(heads, -1);
+            int[] next = new int[buildSize];
+            boolean unique = true;
+
+            for (int r = buildSize - 1; r >= 0; r--) {
+                int bCode = buildVec.getCode(r);
+                if (bCode < 0) {
+                    next[r] = -1;
+                    continue;
+                }
+                int head = heads[bCode];
+                if (head != -1) {
+                    unique = false;
+                }
+                next[r] = head;
+                heads[bCode] = r;
+            }
+
+            this.uniqueBuildKeys = unique;
+            this.codeHead = heads;
+            this.nextRowIdx = next;
+        }
+
+        @Override
+        void probeUniqueLeft(int start, int end, int[] outRightIdx) {
+            StringColumnVector pVec = this.probeVec;
+            DictionaryColumnVector bVec = this.buildVec;
+            int dSize = this.dictSize;
+            int[] heads = this.codeHead;
+            boolean pHasNulls = pVec.hasNulls();
+            BitSet pNulls = pVec.getNulls();
+
+            for (int l = start; l < end; l++) {
+                if (pHasNulls && pNulls.get(l)) {
+                    outRightIdx[l - start] = -1;
+                    continue;
+                }
+                String s = pVec.getString(l);
+                int code = (s != null) ? bVec.encode(s) : -1;
+                outRightIdx[l - start] = (code >= 0 && code < dSize) ? heads[code] : -1;
+            }
+        }
+
+        @Override
+        ProbeChunk probeInner(int start, int end) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            StringColumnVector pVec = this.probeVec;
+            DictionaryColumnVector bVec = this.buildVec;
+            int dSize = this.dictSize;
+            int[] heads = this.codeHead;
+            int[] next = this.nextRowIdx;
+            boolean pHasNulls = pVec.hasNulls();
+            BitSet pNulls = pVec.getNulls();
+
+            for (int l = start; l < end; l++) {
+                if (pHasNulls && pNulls.get(l)) {
+                    continue;
+                }
+                String s = pVec.getString(l);
+                int code = (s != null) ? bVec.encode(s) : -1;
+                if (code >= 0 && code < dSize) {
+                    for (int r = heads[code]; r != -1; r = next[r]) {
+                        if (count == leftIdx.length) {
+                            int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                            leftIdx = Arrays.copyOf(leftIdx, newCap);
+                            rightIdx = Arrays.copyOf(rightIdx, newCap);
+                        }
+                        leftIdx[count] = l;
+                        rightIdx[count] = r;
+                        count++;
+                    }
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+
+        @Override
+        ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched) {
+            int len = end - start;
+            int[] leftIdx = new int[len];
+            int[] rightIdx = new int[len];
+            int count = 0;
+
+            StringColumnVector pVec = this.probeVec;
+            DictionaryColumnVector bVec = this.buildVec;
+            int dSize = this.dictSize;
+            int[] heads = this.codeHead;
+            int[] next = this.nextRowIdx;
+            boolean pHasNulls = pVec.hasNulls();
+            BitSet pNulls = pVec.getNulls();
+
+            for (int l = start; l < end; l++) {
+                boolean matchedAny = false;
+                if (!pHasNulls || !pNulls.get(l)) {
+                    String s = pVec.getString(l);
+                    int code = (s != null) ? bVec.encode(s) : -1;
+                    if (code >= 0 && code < dSize) {
+                        for (int r = heads[code]; r != -1; r = next[r]) {
+                            if (count == leftIdx.length) {
+                                int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                                leftIdx = Arrays.copyOf(leftIdx, newCap);
+                                rightIdx = Arrays.copyOf(rightIdx, newCap);
+                            }
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                            matchedAny = true;
+                            if (buildMatched != null) {
+                                buildMatched[r] = true;
+                            }
+                        }
+                    }
+                }
+                if (!matchedAny && emitUnmatchedProbe) {
+                    if (count == leftIdx.length) {
+                        int newCap = leftIdx.length + (leftIdx.length >> 1) + 16;
+                        leftIdx = Arrays.copyOf(leftIdx, newCap);
+                        rightIdx = Arrays.copyOf(rightIdx, newCap);
+                    }
+                    leftIdx[count] = l;
+                    rightIdx[count] = -1;
+                    count++;
+                }
+            }
+            return new ProbeChunk(leftIdx, rightIdx, count);
+        }
+    }
+
+    private static final class StringBuildDictProbeHashJoinIndex extends HashJoinIndex {
+        private final StringHashJoinIndex delegate;
+        private final DictionaryColumnVector probeVec;
+
+        StringBuildDictProbeHashJoinIndex(
+                StringColumnVector buildVec,
+                DictionaryColumnVector probeVec,
+                int buildSize,
+                boolean parallel,
+                ExecutorService executor,
+                int threshold) {
+            super(buildSize);
+            this.probeVec = probeVec;
+            StringColumnVector probeAsStr = probeVec.toStringColumnVector();
+            this.delegate = new StringHashJoinIndex(buildVec, probeAsStr, buildSize, parallel, executor, threshold);
+            this.uniqueBuildKeys = delegate.uniqueBuildKeys;
+        }
+
+        @Override
+        void probeUniqueLeft(int start, int end, int[] outRightIdx) {
+            delegate.probeUniqueLeft(start, end, outRightIdx);
+        }
+
+        @Override
+        ProbeChunk probeInner(int start, int end) {
+            return delegate.probeInner(start, end);
+        }
+
+        @Override
+        ProbeChunk probeOuter(int start, int end, boolean emitUnmatchedProbe, boolean[] buildMatched) {
+            return delegate.probeOuter(start, end, emitUnmatchedProbe, buildMatched);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. General / Multi-Column / Cross-Type Columnar Hash Join Index
     // -------------------------------------------------------------------------
 
     private static final class GeneralColumnarHashJoinIndex extends HashJoinIndex {

@@ -773,4 +773,58 @@ public class JoinTest {
             }
         }
     }
+
+    @Test
+    @DisplayName("Join with Short String SSO, Long Strings (>16 bytes), Nulls, and Dictionary keys")
+    void testStringAndDictionaryJoinVariations() {
+        // Strings <= 16 bytes (SSO) and > 16 bytes (fallback), plus nulls
+        String shortA = "short_key_1";
+        String shortB = "short_key_2";
+        String longA = "this_is_a_very_long_string_key_exceeding_16_bytes_A";
+        String longB = "this_is_a_very_long_string_key_exceeding_16_bytes_B";
+
+        CupOfTea left = new CupOfTea();
+        left.addColumn("key", String.class);
+        left.addColumn("l_val", Integer.class);
+        left.addRow(Map.of("key", shortA, "l_val", 1));
+        left.addRow(Map.of("key", shortB, "l_val", 2));
+        left.addRow(Map.of("key", longA, "l_val", 3));
+        left.addRow(Map.of("key", longB, "l_val", 4));
+        left.addRow(Map.of("l_val", 5)); // null key
+
+        CupOfTea right = new CupOfTea();
+        right.addColumn("key", String.class);
+        right.addColumn("r_val", String.class);
+        right.addRow(Map.of("key", shortA, "r_val", "MATCH_SHORT_A"));
+        right.addRow(Map.of("key", longA, "r_val", "MATCH_LONG_A"));
+        right.addRow(Map.of("key", "unmatched_right", "r_val", "NO_MATCH"));
+        right.addRow(Map.of("r_val", "NULL_RIGHT")); // null key
+
+        // 1. String to String Inner Join
+        CupOfTea inner = left.innerJoin(right, "key");
+        assertThat(inner.size()).isEqualTo(2);
+        assertThat(inner.getRows()).extracting(r -> r.get("l_val")).containsExactlyInAnyOrder(1, 3);
+        assertThat(inner.getRows()).extracting(r -> r.get("r_val")).containsExactlyInAnyOrder("MATCH_SHORT_A", "MATCH_LONG_A");
+
+        // 2. String to String Left Join
+        CupOfTea leftRes = left.leftJoin(right, "key");
+        assertThat(leftRes.size()).isEqualTo(5);
+
+        // 3. Mixed: Left is Dictionary, Right is String
+        CupOfTea leftDict = left.withColumn("key", left.getColumnVector("key").toDictionary());
+        CupOfTea mixedInner1 = leftDict.innerJoin(right, "key");
+        assertThat(mixedInner1.size()).isEqualTo(2);
+        assertThat(mixedInner1.getRows()).extracting(r -> r.get("l_val")).containsExactlyInAnyOrder(1, 3);
+
+        // 4. Mixed: Left is String, Right is Dictionary
+        CupOfTea rightDict = right.withColumn("key", right.getColumnVector("key").toDictionary());
+        CupOfTea mixedInner2 = left.innerJoin(rightDict, "key");
+        assertThat(mixedInner2.size()).isEqualTo(2);
+        assertThat(mixedInner2.getRows()).extracting(r -> r.get("l_val")).containsExactlyInAnyOrder(1, 3);
+
+        // 5. Dictionary to Dictionary
+        CupOfTea dictInner = leftDict.innerJoin(rightDict, "key");
+        assertThat(dictInner.size()).isEqualTo(2);
+        assertThat(dictInner.getRows()).extracting(r -> r.get("l_val")).containsExactlyInAnyOrder(1, 3);
+    }
 }

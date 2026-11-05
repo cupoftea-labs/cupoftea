@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.16] - 2026-11-05
+
+### Performance
+
+- Optimize String Hash Join using dictionary keys and compact hashing ([#280](https://github.com/cupoftea-labs/cupoftea/issues/280)):
+  - Implemented Short String Optimization (SSO) with 64-bit word register comparisons in `StringHashJoinIndex` for UTF-8 byte slice keys $\le 16$ bytes, using little-endian `VarHandle` word loading (`p1` and `p2`) and compact SWAR hashing via `StringColumnVector.hashShortWords`.
+  - Replaced repetitive `Arrays.equals` byte slice comparisons during build uniqueness checks and probe phase with CPU register comparisons (`buildLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2`), reserving array equality checks only for strings $> 16$ bytes.
+  - Added specialized zero-boxing join paths for mixed `DictionaryColumnVector` and `StringColumnVector` keys (`DictBuildStringProbeHashJoinIndex` and `StringBuildDictProbeHashJoinIndex`), avoiding general multi-column fallback overhead.
+  - Reduced string hash join latencies across 1:1 and 1:N benchmarks (e.g. 100k `leftJoinString1toN` down to 0.82 ms, 500k `innerJoinString1to1` down to 12.60 ms, and 500k `leftJoinString1to1` down to 13.50 ms), beating Polars.
+
 ## [0.21.15] - 2026-11-04
 
 ### Performance
