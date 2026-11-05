@@ -153,6 +153,9 @@ public class StringAccessor implements Serializable {
         if (vector instanceof StringColumnVector scv) {
             return scv.contains(sub);
         }
+        if (vector instanceof DictionaryColumnVector dcv) {
+            return dcv.contains(sub);
+        }
         Objects.requireNonNull(sub, "Substring cannot be null");
         int size = vector.size();
         BooleanColumnVector res = new BooleanColumnVector(vector.getName(), size, true);
@@ -175,6 +178,9 @@ public class StringAccessor implements Serializable {
         if (vector instanceof StringColumnVector scv) {
             return scv.startsWith(prefix);
         }
+        if (vector instanceof DictionaryColumnVector dcv) {
+            return dcv.startsWith(prefix);
+        }
         Objects.requireNonNull(prefix, "Prefix cannot be null");
         int size = vector.size();
         BooleanColumnVector res = new BooleanColumnVector(vector.getName(), size, true);
@@ -196,6 +202,9 @@ public class StringAccessor implements Serializable {
     public BooleanColumnVector endsWith(String suffix) {
         if (vector instanceof StringColumnVector scv) {
             return scv.endsWith(suffix);
+        }
+        if (vector instanceof DictionaryColumnVector dcv) {
+            return dcv.endsWith(suffix);
         }
         Objects.requireNonNull(suffix, "Suffix cannot be null");
         int size = vector.size();
@@ -252,6 +261,9 @@ public class StringAccessor implements Serializable {
     public ObjectColumnVector split(String regex, int n) {
         if (vector instanceof StringColumnVector scv) {
             return scv.split(regex, n);
+        }
+        if (vector instanceof DictionaryColumnVector dcv) {
+            return dcv.split(regex, n);
         }
         Objects.requireNonNull(regex, "Regex cannot be null");
         int size = vector.size();
@@ -324,6 +336,9 @@ public class StringAccessor implements Serializable {
     public IntColumnVector length() {
         if (vector instanceof StringColumnVector scv) {
             return scv.length();
+        }
+        if (vector instanceof DictionaryColumnVector dcv) {
+            return dcv.length();
         }
         int size = vector.size();
         IntColumnVector res = new IntColumnVector(vector.getName(), size, true);
@@ -465,6 +480,9 @@ public class StringAccessor implements Serializable {
     }
 
     private StringColumnVector transformStrings(boolean inPlace, StringTransformer transformer) {
+        if (vector instanceof DictionaryColumnVector dcv) {
+            return dcv.applyStringTransform(inPlace, transformer);
+        }
         int size = vector.size();
         StringColumnVector target;
         if (inPlace && vector instanceof StringColumnVector scv) {

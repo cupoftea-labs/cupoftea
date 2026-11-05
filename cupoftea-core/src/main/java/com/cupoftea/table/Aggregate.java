@@ -14,6 +14,13 @@ public interface Aggregate {
     Class<?> getResultType(List<Column> sourceHeaders);
 
     /**
+     * Returns the high-level {@link Aggregation} type, or {@code null} if custom.
+     */
+    default Aggregation getAggregationType() {
+        return null;
+    }
+
+    /**
      * Computes this aggregate directly over a {@link ColumnVector} (sequentially or in parallel).
      */
     default Object computeVector(
@@ -42,5 +49,19 @@ public interface Aggregate {
      */
     default boolean supportsVectorizedExecution() {
         return false;
+    }
+
+    /**
+     * Indicates whether this aggregate supports single-pass accumulation across groups.
+     */
+    default boolean supportsSinglePass() {
+        return false;
+    }
+
+    /**
+     * Creates an accumulator for single-pass accumulation across {@code numGroups} groups.
+     */
+    default GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+        return null;
     }
 }

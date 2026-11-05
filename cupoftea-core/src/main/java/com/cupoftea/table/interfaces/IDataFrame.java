@@ -3,6 +3,7 @@ package com.cupoftea.table.interfaces;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +23,8 @@ import com.cupoftea.plot.Plot;
 import com.cupoftea.plot.PlotRegistry;
 import com.cupoftea.table.Aggregate;
 import com.cupoftea.table.Aggregation;
+import com.cupoftea.table.AsOfDirection;
+import com.cupoftea.table.DataFrameJoiner;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.ColumnRef;
 import com.cupoftea.table.ConcatAxis;
@@ -272,6 +275,65 @@ public abstract class IDataFrame {
     public abstract IDataFrame filter(IFilter filter);
     public abstract IDataFrame update(Map<String, Object> updateColumns);
     public abstract IDataFrame orderBy(Orderer... orderer);
+
+    // Dictionary / Categorical Encoding & Code-Accelerated Filtering
+
+    public IDataFrame encodeDictionary(String... columnNames) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame encodeDictionary(boolean useShortCodes, String... columnNames) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame encodeDictionary() {
+        return encodeDictionary(false);
+    }
+
+    public IDataFrame encodeDictionary(boolean useShortCodes) {
+        return encodeDictionary(useShortCodes, (String[]) null);
+    }
+
+    public IDataFrame decodeDictionary(String... columnNames) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame decodeDictionary() {
+        return decodeDictionary((String[]) null);
+    }
+
+    public IDataFrame categorize(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public IDataFrame toCategorical(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public boolean isDictionaryEncoded(String columnName) {
+        ColumnVector vec = getColumnVector(columnName);
+        return vec != null && vec.isDictionaryEncoded();
+    }
+
+    public boolean isCategorical(String columnName) {
+        return isDictionaryEncoded(columnName);
+    }
+
+    public IDataFrame filterEquals(String columnName, Object value) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame filterNotEquals(String columnName, Object value) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame filterIn(String columnName, Collection<?> values) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    public IDataFrame filterIn(String columnName, Object... values) {
+        return filterIn(columnName, values != null ? Arrays.asList(values) : Collections.emptyList());
+    }
 
     // Vectorized Map / Transformations
 
@@ -581,6 +643,48 @@ public abstract class IDataFrame {
         return join(other, JoinType.CROSS, null, null, "_left", "_right");
     }
 
+    // --- As-Of Join Operations (Issue #283) ---
+
+    public IDataFrame asOfJoin(IDataFrame right, String on) {
+        return asOfJoin(right, on, (String) null, AsOfDirection.BACKWARD);
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, AsOfDirection direction) {
+        return asOfJoin(right, on, (String) null, direction);
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, String by) {
+        return asOfJoin(right, on, by, AsOfDirection.BACKWARD);
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, String by, AsOfDirection direction) {
+        List<String> byList = by != null && !by.isBlank() ? Collections.singletonList(by) : Collections.emptyList();
+        return asOfJoin(right, on, on, byList, byList, direction, "_left", "_right");
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String on, List<String> by, AsOfDirection direction) {
+        List<String> byList = by != null ? by : Collections.emptyList();
+        return asOfJoin(right, on, on, byList, byList, direction, "_left", "_right");
+    }
+
+    public IDataFrame asOfJoin(IDataFrame right, String leftOn, String rightOn, String leftBy, String rightBy, AsOfDirection direction) {
+        List<String> lBy = leftBy != null && !leftBy.isBlank() ? Collections.singletonList(leftBy) : Collections.emptyList();
+        List<String> rBy = rightBy != null && !rightBy.isBlank() ? Collections.singletonList(rightBy) : Collections.emptyList();
+        return asOfJoin(right, leftOn, rightOn, lBy, rBy, direction, "_left", "_right");
+    }
+
+    public IDataFrame asOfJoin(
+            IDataFrame right,
+            String leftOn,
+            String rightOn,
+            List<String> leftBy,
+            List<String> rightBy,
+            AsOfDirection direction,
+            String leftSuffix,
+            String rightSuffix) {
+        return DataFrameJoiner.asOfJoin(this, right, leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix);
+    }
+
     // --- Concat Operations ---
 
     /**
@@ -824,6 +928,24 @@ public abstract class IDataFrame {
     public abstract IDataFrame cumprod(String... columns);
     public abstract IDataFrame cummin(String... columns);
     public abstract IDataFrame cummax(String... columns);
+
+    public IDataFrame rolling_mean(String column, int windowSize, String outputColumn) {
+        rolling(windowSize).mean(column, outputColumn);
+        return this;
+    }
+
+    public IDataFrame rolling_mean(String column, int windowSize) {
+        return rolling_mean(column, windowSize, column);
+    }
+
+    public IDataFrame rolling_sum(String column, int windowSize, String outputColumn) {
+        rolling(windowSize).sum(column, outputColumn);
+        return this;
+    }
+
+    public IDataFrame rolling_sum(String column, int windowSize) {
+        return rolling_sum(column, windowSize, column);
+    }
 
     public abstract IDataFrame lead(String column, int offset, String outputColumn);
     public IDataFrame lead(String column, int offset) {

@@ -5,6 +5,7 @@ import java.util.Objects;
 
 import com.cupoftea.table.interfaces.IDataFrame;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 import com.cupoftea.table.vector.StringAccessor;
 import com.cupoftea.table.vector.TemporalAccessor;
 
@@ -93,6 +94,29 @@ public class ColumnRef implements Serializable {
 
     public boolean getBoolean(int row) {
         return this.vector.getBoolean(row);
+    }
+
+    public boolean isDictionaryEncoded() {
+        return this.vector.isDictionaryEncoded();
+    }
+
+    public DictionaryColumnVector toDictionary() {
+        return this.vector.toDictionary();
+    }
+
+    public DictionaryColumnVector toDictionary(boolean useShortCodes) {
+        return this.vector.toDictionary(useShortCodes);
+    }
+
+    public DictionaryColumnVector toCategorical() {
+        return this.vector.toCategorical();
+    }
+
+    public int getCode(int row) {
+        if (this.vector instanceof DictionaryColumnVector dcv) {
+            return dcv.getCode(row);
+        }
+        throw new UnsupportedOperationException("Column '" + columnName + "' is not dictionary-encoded");
     }
 
     @Override

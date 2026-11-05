@@ -130,6 +130,7 @@ public class ExcelImporter implements IExcelImporter {
                 return;
             }
 
+            Schema explicitSchema = config.getSchema() != null ? config.getSchema() : this.dataFrame.getSchema();
             String[] columnNames = new String[maxCols];
             for (int c = 0; c < maxCols; c++) {
                 if (config.isHasHeaders() && headerRow != null) {
@@ -140,7 +141,11 @@ public class ExcelImporter implements IExcelImporter {
                         columnNames[c] = String.valueOf(c);
                     }
                 } else {
-                    columnNames[c] = String.valueOf(c);
+                    if (explicitSchema != null && c < explicitSchema.size()) {
+                        columnNames[c] = explicitSchema.getColumn(c).columnName();
+                    } else {
+                        columnNames[c] = String.valueOf(c);
+                    }
                 }
             }
 
@@ -161,8 +166,6 @@ public class ExcelImporter implements IExcelImporter {
                     rawRows.add(rowValues);
                 }
             }
-
-            Schema explicitSchema = config.getSchema() != null ? config.getSchema() : this.dataFrame.getSchema();
             Class<?>[] columnTypes = new Class<?>[maxCols];
 
             for (int c = 0; c < maxCols; c++) {

@@ -3,32 +3,46 @@ package com.cupoftea.importers;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
 
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericRecord;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.parquet.avro.AvroParquetReader;
-import org.apache.parquet.hadoop.ParquetReader;
-import org.apache.parquet.hadoop.util.HadoopInputFile;
-import org.apache.parquet.io.InputFile;
+import org.apache.parquet.bytes.DirectByteBufferAllocator;
+import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.column.ColumnReader;
+import org.apache.parquet.column.impl.ColumnReaderImpl;
+import org.apache.parquet.column.page.PageReadStore;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.ParquetReadOptions;
+import org.apache.parquet.io.api.PrimitiveConverter;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
+import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
 
 import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.importers.interfaces.IParquetImporter;
-import com.cupoftea.table.Column;
+import com.cupoftea.parquet.NioChannelInputFile;
+import com.cupoftea.table.DataFrame;
+import com.cupoftea.table.vector.BooleanColumnVector;
+import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DoubleColumnVector;
+import com.cupoftea.table.vector.FloatColumnVector;
+import com.cupoftea.table.vector.IntColumnVector;
+import com.cupoftea.table.vector.LongColumnVector;
+import com.cupoftea.table.vector.StringColumnVector;
 
 public class ParquetImporter implements IParquetImporter {
 
+    private static final PrimitiveConverter DUMMY_CONVERTER = new PrimitiveConverter() {};
+
     private final CupOfTea dataFrame;
 
-    public ParquetImporter(final CupOfTea dataFrame){
+    public ParquetImporter(final CupOfTea dataFrame) {
         this.dataFrame = dataFrame;
     }
 
     /**
-     * Dumps the Data from a Parquet file into the CupOfTea data frame.
+     * Dumps data from a Parquet file into the CupOfTea data frame using columnar vectorized reading.
      * 
      * @param file Parquet file.
      */
@@ -37,65 +51,63 @@ public class ParquetImporter implements IParquetImporter {
         if (file == null) {
             throw new ImportException("File cannot be null");
         }
+        if (!file.exists()) {
+            throw new ImportException("File does not exist: " + file.getPath());
+        }
 
-        try {
-            Path path = new Path(file.toString());
-            Configuration conf = new Configuration();
-            InputFile iptf = HadoopInputFile.fromPath(path, conf);
+        NioChannelInputFile inputFile = new NioChannelInputFile(file);
+        ParquetReadOptions options = ParquetReadOptions.builder()
+                .withAllocator(DirectByteBufferAllocator.getInstance())
+                .useOffHeapDecryptBuffer(true)
+                .build();
+        try (ParquetFileReader reader = ParquetFileReader.open(inputFile, options)) {
+            MessageType schema = reader.getFileMetaData().getSchema();
+            int totalRows = (int) reader.getRecordCount();
+            List<ColumnDescriptor> descriptors = schema.getColumns();
+            List<ColumnVector> vectors = new ArrayList<>(descriptors.size());
 
-            try (ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(iptf).build()) {
-                GenericRecord record;
-                Boolean setHeaders = true;
-                while ((record = reader.read()) != null) {
-                    ArrayList<Column> headers = new ArrayList<>();
-                    HashMap<String, Object> row = new HashMap<>();
-                    Schema schema = record.getSchema();
-                    for (Schema.Field field : schema.getFields()) {
-                        Schema fieldSchema = field.schema();
-                        Schema.Type fieldType = fieldSchema.getType();
+            for (ColumnDescriptor cd : descriptors) {
+                String colName = cd.getPath()[0];
+                vectors.add(createColumnVector(colName, cd, totalRows));
+            }
 
-                        if(setHeaders){
-                            Class<?> columnType;
-                            
-                            switch(fieldType){
-                                case NULL -> columnType = null;
-                                case BOOLEAN -> columnType = Boolean.class;
-                                case INT -> columnType = Integer.class;
-                                case LONG -> columnType = Long.class;
-                                case FLOAT -> columnType = Float.class;
-                                case DOUBLE -> columnType = Double.class;
-                                case BYTES -> columnType = Byte.class;
-                                case STRING -> columnType = String.class;
-                                case RECORD -> columnType = null; // Not Implemented Yet
-                                case ENUM -> columnType = null; // Not Implemented Yet
-                                case ARRAY -> columnType = null; // Not Implemented Yet
-                                case MAP -> columnType = null; // Not Implemented Yet
-                                case UNION -> columnType = Object.class; 
-                                case FIXED -> columnType = null; // Not Implemented Yet
-                                default -> columnType = null;
+            PageReadStore rowGroup;
+            while ((rowGroup = reader.readNextRowGroup()) != null) {
+                int rgRows = (int) rowGroup.getRowCount();
+                for (int colIdx = 0; colIdx < descriptors.size(); colIdx++) {
+                    ColumnDescriptor cd = descriptors.get(colIdx);
+                    ColumnVector vec = vectors.get(colIdx);
+                    ColumnReader cr = new ColumnReaderImpl(cd, rowGroup.getPageReader(cd), DUMMY_CONVERTER, null);
+                    int maxDl = cd.getMaxDefinitionLevel();
+
+                    for (int r = 0; r < rgRows; r++) {
+                        if (cr.getCurrentDefinitionLevel() < maxDl) {
+                            vec.appendNull();
+                        } else {
+                            switch (cd.getType()) {
+                                case INT32 -> ((IntColumnVector) vec).appendInt(cr.getInteger());
+                                case INT64 -> ((LongColumnVector) vec).appendLong(cr.getLong());
+                                case FLOAT -> ((FloatColumnVector) vec).appendFloat(cr.getFloat());
+                                case DOUBLE -> ((DoubleColumnVector) vec).appendDouble(cr.getDouble());
+                                case BOOLEAN -> ((BooleanColumnVector) vec).appendBoolean(cr.getBoolean());
+                                case BINARY -> {
+                                    byte[] bytes = cr.getBinary().getBytes();
+                                    ((StringColumnVector) vec).appendUtf8Bytes(bytes, 0, bytes.length);
+                                }
+                                default -> {
+                                    byte[] bytes = cr.getBinary().getBytes();
+                                    ((StringColumnVector) vec).appendUtf8Bytes(bytes, 0, bytes.length);
+                                }
                             }
-
-                            headers.add(new Column(field.name(), columnType));
                         }
-
-                        Object value;
-
-                        switch(fieldType){
-                            case INT -> value = record.get(field.name());
-                            case STRING -> value = record.get(field.name()) != null ? record.get(field.name()).toString() : null;
-                            default -> value = record.get(field.name()) != null ? record.get(field.name()).toString() : null;
-                        }
-
-                        row.put(field.name(), value);
-
+                        cr.consume();
                     }
-                    if(setHeaders){
-                        this.dataFrame.getDataFrame().setHeaders(headers);
-                        setHeaders = false;
-                    }
-                    this.dataFrame.getDataFrame().addRow(row);
-
                 }
+            }
+
+            DataFrame loaded = DataFrame.fromVectors(vectors);
+            if (this.dataFrame != null) {
+                this.dataFrame.setDataFrame(loaded);
             }
         } catch (IOException e) {
             throw new ImportException("Failed to read Parquet file: " + file.getPath(), e);
@@ -103,8 +115,54 @@ public class ParquetImporter implements IParquetImporter {
             if (e instanceof ImportException) {
                 throw (ImportException) e;
             }
-            throw new ImportException("Failed to parse Parquet file: " + file.getPath(), e);
+            throw new ImportException("Failed to read Parquet file: " + file.getPath(), e);
         }
     }
 
+    public static Class<?> resolveColumnClass(ColumnDescriptor cd) {
+        PrimitiveType pt = cd.getPrimitiveType();
+        LogicalTypeAnnotation lta = pt.getLogicalTypeAnnotation();
+        if (lta instanceof LogicalTypeAnnotation.DateLogicalTypeAnnotation) {
+            return java.time.LocalDate.class;
+        }
+        if (lta instanceof LogicalTypeAnnotation.TimestampLogicalTypeAnnotation) {
+            return java.time.Instant.class;
+        }
+        if (lta instanceof LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) {
+            return java.math.BigDecimal.class;
+        }
+
+        OriginalType ot = pt.getOriginalType();
+        if (ot != null) {
+            switch (ot) {
+                case UTF8, JSON, BSON, ENUM -> { return String.class; }
+                case DATE -> { return java.time.LocalDate.class; }
+                case TIME_MILLIS, TIME_MICROS, TIMESTAMP_MILLIS, TIMESTAMP_MICROS -> { return java.time.Instant.class; }
+                case DECIMAL -> { return java.math.BigDecimal.class; }
+                default -> {}
+            }
+        }
+
+        switch (cd.getType()) {
+            case INT32 -> { return Integer.class; }
+            case INT64 -> { return Long.class; }
+            case FLOAT -> { return Float.class; }
+            case DOUBLE -> { return Double.class; }
+            case BOOLEAN -> { return Boolean.class; }
+            case BINARY -> { return String.class; }
+            default -> { return String.class; }
+        }
+    }
+
+    public static ColumnVector createColumnVector(String colName, ColumnDescriptor cd, int initialCapacity) {
+        switch (cd.getType()) {
+            case INT32 -> { return new IntColumnVector(colName, initialCapacity, true); }
+            case INT64 -> { return new LongColumnVector(colName, initialCapacity, true); }
+            case FLOAT -> { return new FloatColumnVector(colName, initialCapacity, true); }
+            case DOUBLE -> { return new DoubleColumnVector(colName, initialCapacity, true); }
+            case BOOLEAN -> { return new BooleanColumnVector(colName, initialCapacity, true); }
+            case BINARY -> { return new StringColumnVector(colName, initialCapacity, true); }
+            default -> { return new StringColumnVector(colName, initialCapacity, true); }
+        }
+    }
 }

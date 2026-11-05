@@ -17,6 +17,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 import com.cupoftea.CupOfTea;
+import com.cupoftea.csv.fast.FastCsvReader;
 import com.cupoftea.exceptions.CsvParseException;
 import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.importers.configurations.CSVImporterConfiguration;
@@ -66,6 +67,22 @@ public class CSVImporter implements ICSVImporter {
             throw new ImportException("File cannot be null");
         }
 
+        if (FastCsvReader.isEligible(file, this.configuration)) {
+            try {
+                FastCsvReader fastReader = new FastCsvReader(this.configuration);
+                fastReader.readInto(file, this.dataFrame);
+                return;
+            } catch (Exception e) {
+                if (e instanceof CsvParseException) {
+                    throw (CsvParseException) e;
+                }
+                if (e instanceof ImportException) {
+                    throw (ImportException) e;
+                }
+                // Fall back to standard OpenCSV reader if FastCsvReader encounters an unhandled edge case
+            }
+        }
+
         this.dataFrame.clear();
 
         CSVParser parser = new CSVParserBuilder()
@@ -73,6 +90,10 @@ public class CSVImporter implements ICSVImporter {
             .withQuoteChar(this.configuration.getQuoteChar())
             .withEscapeChar(this.configuration.getEscapeChar())
             .build();
+
+        Schema explicitSchema = this.configuration.getSchema() != null
+                ? this.configuration.getSchema()
+                : this.dataFrame.getSchema();
 
         List<String[]> rawRows = new ArrayList<>();
         String[] headerNames;
@@ -96,7 +117,11 @@ public class CSVImporter implements ICSVImporter {
             } else {
                 headerNames = new String[columnCount];
                 for (int i = 0; i < columnCount; i++) {
-                    headerNames[i] = String.valueOf(i);
+                    if (explicitSchema != null && i < explicitSchema.size()) {
+                        headerNames[i] = explicitSchema.getColumn(i).columnName();
+                    } else {
+                        headerNames[i] = String.valueOf(i);
+                    }
                 }
                 rawRows.add(firstLine);
             }
@@ -121,10 +146,6 @@ public class CSVImporter implements ICSVImporter {
             }
             throw new CsvParseException("Failed to parse CSV file: " + file.getPath(), e);
         }
-
-        Schema explicitSchema = this.configuration.getSchema() != null
-                ? this.configuration.getSchema()
-                : this.dataFrame.getSchema();
 
         Class<?>[] columnTypes = new Class<?>[columnCount];
         for (int i = 0; i < columnCount; i++) {

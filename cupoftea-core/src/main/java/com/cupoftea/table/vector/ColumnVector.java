@@ -13,6 +13,7 @@ import java.util.function.Function;
 import java.util.function.IntPredicate;
 
 import com.cupoftea.table.Aggregations;
+import com.cupoftea.table.Categorical;
 import com.cupoftea.table.Column;
 import com.cupoftea.table.NA;
 
@@ -67,6 +68,8 @@ public abstract class ColumnVector implements Serializable {
             return new BooleanColumnVector(name, initialCapacity, nullable);
         } else if (type == String.class) {
             return new StringColumnVector(name, initialCapacity, nullable);
+        } else if (type == Categorical.class || (type != null && DictionaryColumnVector.class.isAssignableFrom(type))) {
+            return new DictionaryColumnVector(name, initialCapacity, nullable);
         } else {
             return new ObjectColumnVector(name, type != null ? type : Object.class, initialCapacity, nullable);
         }
@@ -216,6 +219,19 @@ public abstract class ColumnVector implements Serializable {
         }
     }
 
+    /**
+     * Copies values (without modifying the shared null BitSet) at {@code srcIndices[0 .. count)} from {@code src}
+     * into {@code this} starting at {@code dstOffset}, where negative indices ({@code -1}) represent unmatched/null rows.
+     */
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        for (int i = 0; i < count; i++) {
+            int srcIdx = srcIndices[i];
+            if (srcIdx >= 0 && !src.isNull(srcIdx)) {
+                this.setObjectValueOnly(dstOffset + i, src.getObject(srcIdx));
+            }
+        }
+    }
+
     protected void setObjectValueOnly(int row, Object value) {
         setObject(row, value);
     }
@@ -231,6 +247,28 @@ public abstract class ColumnVector implements Serializable {
         for (int i = 0; i < count; i++) {
             if (srcNulls.get(srcIndices[i])) {
                 this.nulls.set(dstOffset + i);
+            }
+        }
+    }
+
+    /**
+     * Copies null bit flags at {@code srcIndices[0 .. count)} from {@code src} into {@code this.nulls} starting at {@code dstOffset},
+     * marking any row with {@code srcIndices[i] < 0} as null as well.
+     */
+    public void applyNullsFromNullableIndexed(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (!src.hasNulls()) {
+            for (int i = 0; i < count; i++) {
+                if (srcIndices[i] < 0) {
+                    this.nulls.set(dstOffset + i);
+                }
+            }
+        } else {
+            BitSet srcNulls = src.nulls;
+            for (int i = 0; i < count; i++) {
+                int idx = srcIndices[i];
+                if (idx < 0 || srcNulls.get(idx)) {
+                    this.nulls.set(dstOffset + i);
+                }
             }
         }
     }
@@ -275,6 +313,43 @@ public abstract class ColumnVector implements Serializable {
     }
 
     /**
+     * Creates an empty {@link ColumnVector} with the same column name, logical type, nullability,
+     * and physical encoding (e.g., preserving dictionary encoding and its lookup dictionary).
+     */
+    public ColumnVector createEmptyWithSameEncoding(int initialCapacity) {
+        return ColumnVector.create(this.name, this.type, initialCapacity, this.nullable);
+    }
+
+    /**
+     * Returns {@code true} if this column vector uses dictionary / categorical encoding.
+     */
+    public boolean isDictionaryEncoded() {
+        return false;
+    }
+
+    /**
+     * Converts this column vector into a {@link DictionaryColumnVector} backed by {@code int[]} codes.
+     */
+    public DictionaryColumnVector toDictionary() {
+        return DictionaryColumnVector.fromVector(this, false);
+    }
+
+    /**
+     * Converts this column vector into a {@link DictionaryColumnVector}, optionally using {@code short[]} codes
+     * when the number of unique values fits within {@link Short#MAX_VALUE}.
+     */
+    public DictionaryColumnVector toDictionary(boolean useShortCodes) {
+        return DictionaryColumnVector.fromVector(this, useShortCodes);
+    }
+
+    /**
+     * Alias for {@link #toDictionary()}.
+     */
+    public DictionaryColumnVector toCategorical() {
+        return toDictionary();
+    }
+
+    /**
      * Consolidates per-chunk matching row indices into a single contiguous {@link ColumnVector} using prefix-sum offsets.
      */
     public ColumnVector filterFromChunks(
@@ -284,7 +359,7 @@ public abstract class ColumnVector implements Serializable {
             int totalMatched,
             int[][] ranges,
             ExecutorService pool) {
-        ColumnVector target = ColumnVector.create(this.name, this.type, Math.max(16, totalMatched), this.nullable);
+        ColumnVector target = createEmptyWithSameEncoding(Math.max(16, totalMatched));
         target.setSizeUnchecked(totalMatched);
 
         if (totalMatched == 0) {

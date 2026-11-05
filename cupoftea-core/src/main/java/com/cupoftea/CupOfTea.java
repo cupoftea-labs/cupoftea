@@ -4,6 +4,7 @@ import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -23,7 +24,9 @@ import com.cupoftea.exceptions.ExportException;
 import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.io.DataFrameReader;
+import com.cupoftea.io.DataFrameScanner;
 import com.cupoftea.io.DataFrameWriter;
+import com.cupoftea.lazy.LazyCupOfTea;
 import com.cupoftea.plot.Plot;
 import com.cupoftea.table.Aggregate;
 import com.cupoftea.table.Aggregation;
@@ -34,6 +37,7 @@ import com.cupoftea.table.DataFrame;
 import com.cupoftea.table.DataFrameConcatenator;
 import com.cupoftea.table.GroupBy;
 import com.cupoftea.table.ILoc;
+import com.cupoftea.table.AsOfDirection;
 import com.cupoftea.table.JoinType;
 import com.cupoftea.table.Keep;
 import com.cupoftea.table.Loc;
@@ -49,6 +53,7 @@ import com.cupoftea.utils.configurations.PrinterConfiguration;
 import com.cupoftea.utils.configurations.TableHtmlConfiguration;
 import com.cupoftea.utils.interfaces.IColumnCreator;
 import com.cupoftea.utils.interfaces.IFilter;
+import com.cupoftea.utils.interfaces.Order;
 import com.cupoftea.utils.interfaces.Orderer;
 
 public class CupOfTea {
@@ -236,6 +241,66 @@ public class CupOfTea {
      */
     public static DataFrameReader read() {
         return new DataFrameReader();
+    }
+
+    /**
+     * Entry point for scanning and lazy evaluation of tabular data formats.
+     * Evaluates execution plans over streaming chunks without materializing full datasets into memory.
+     * Example: {@code CupOfTea result = CupOfTea.scan().csv("measurements.txt").groupBy("station").agg(min("temp"), mean("temp"), max("temp")).collect();}
+     */
+    public static DataFrameScanner scan() {
+        return new DataFrameScanner();
+    }
+
+    public static LazyCupOfTea scanCsv(String path) {
+        return scan().csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file) {
+        return scan().csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(String path, boolean hasHeaders) {
+        return scan().hasHeaders(hasHeaders).csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, boolean hasHeaders) {
+        return scan().hasHeaders(hasHeaders).csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(String path, Schema schema) {
+        return scan().schema(schema).csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, Schema schema) {
+        return scan().schema(schema).csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(String path, boolean hasHeaders, Schema schema) {
+        return scan().hasHeaders(hasHeaders).schema(schema).csv(path);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, boolean hasHeaders, Schema schema) {
+        return scan().hasHeaders(hasHeaders).schema(schema).csv(file);
+    }
+
+    public static LazyCupOfTea scanCsv(String path, com.cupoftea.spi.ScanOptions options) {
+        return scan().csv(new File(path), options);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, com.cupoftea.spi.ScanOptions options) {
+        return scan().csv(file, options);
+    }
+
+    public static LazyCupOfTea scanCsv(File file, Object configuration) {
+        return scan().csv(file, configuration);
+    }
+
+    /**
+     * Converts this in-memory DataFrame into a {@link LazyCupOfTea} for lazy streaming pipeline evaluation.
+     */
+    public LazyCupOfTea lazy() {
+        return LazyCupOfTea.fromDataFrame(this);
     }
 
     /**
@@ -497,6 +562,70 @@ public class CupOfTea {
         return new CupOfTea(this.dataFrame.filter(filter), this.mutationMode);
     }
 
+    // --- Dictionary / Categorical Encoding & Code-Accelerated Filtering ---
+
+    public CupOfTea encodeDictionary(String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.encodeDictionary(columnNames);
+        return target;
+    }
+
+    public CupOfTea encodeDictionary(boolean useShortCodes, String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.encodeDictionary(useShortCodes, columnNames);
+        return target;
+    }
+
+    public CupOfTea encodeDictionary() {
+        return encodeDictionary(false);
+    }
+
+    public CupOfTea encodeDictionary(boolean useShortCodes) {
+        return encodeDictionary(useShortCodes, (String[]) null);
+    }
+
+    public CupOfTea decodeDictionary(String... columnNames) {
+        CupOfTea target = targetForMutation();
+        target.dataFrame.decodeDictionary(columnNames);
+        return target;
+    }
+
+    public CupOfTea decodeDictionary() {
+        return decodeDictionary((String[]) null);
+    }
+
+    public CupOfTea categorize(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public CupOfTea toCategorical(String... columnNames) {
+        return encodeDictionary(columnNames);
+    }
+
+    public boolean isDictionaryEncoded(String columnName) {
+        return this.dataFrame.isDictionaryEncoded(columnName);
+    }
+
+    public boolean isCategorical(String columnName) {
+        return this.dataFrame.isCategorical(columnName);
+    }
+
+    public CupOfTea filterEquals(String columnName, Object value) {
+        return new CupOfTea(this.dataFrame.filterEquals(columnName, value), this.mutationMode);
+    }
+
+    public CupOfTea filterNotEquals(String columnName, Object value) {
+        return new CupOfTea(this.dataFrame.filterNotEquals(columnName, value), this.mutationMode);
+    }
+
+    public CupOfTea filterIn(String columnName, Collection<?> values) {
+        return new CupOfTea(this.dataFrame.filterIn(columnName, values), this.mutationMode);
+    }
+
+    public CupOfTea filterIn(String columnName, Object... values) {
+        return new CupOfTea(this.dataFrame.filterIn(columnName, values), this.mutationMode);
+    }
+
     // --- Vectorized Map / Transformations ---
 
     public CupOfTea map(String columnName, IColumnCreator columnCreator) {
@@ -586,6 +715,17 @@ public class CupOfTea {
         CupOfTea target = targetForMutation();
         target.dataFrame.orderBy(orderer);
         return target;
+    }
+
+    public CupOfTea orderBy(String... columns) {
+        if (columns == null || columns.length == 0) {
+            return this;
+        }
+        Orderer[] orderers = new Orderer[columns.length];
+        for (int i = 0; i < columns.length; i++) {
+            orderers[i] = new Orderer(columns[i], Order.ASCENDING);
+        }
+        return orderBy(orderers);
     }
 
     // --- Core pandas-like ops ---
@@ -1181,6 +1321,14 @@ public class CupOfTea {
         return this;
     }
 
+    public CupOfTea exportToJson(File file, Object configuration) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().json(file, configuration);
+        return this;
+    }
+
     public Object exportToJson() {
         return this.dataFrame.getRows();
     }
@@ -1535,6 +1683,43 @@ public class CupOfTea {
         return new CupOfTea(this.dataFrame.crossJoin(other.getDataFrame()), this.mutationMode);
     }
 
+    // --- As-Of Join Operations (Issue #283) ---
+
+    public CupOfTea asOfJoin(CupOfTea right, String on) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, String by) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, by), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, String by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String on, List<String> by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String leftOn, String rightOn, String leftBy, String rightBy, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), leftOn, rightOn, leftBy, rightBy, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(CupOfTea right, String leftOn, String rightOn, List<String> leftBy, List<String> rightBy, AsOfDirection direction, String leftSuffix, String rightSuffix) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right.getDataFrame(), leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix), this.mutationMode);
+    }
+
     // --- Overloads accepting IDataFrame ---
 
     public CupOfTea join(IDataFrame other) {
@@ -1659,6 +1844,41 @@ public class CupOfTea {
 
     public CupOfTea crossJoin(IDataFrame other) {
         return new CupOfTea(this.dataFrame.crossJoin(other), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, String by) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, by), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, String by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String on, List<String> by, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, on, by, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String leftOn, String rightOn, String leftBy, String rightBy, AsOfDirection direction) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, leftOn, rightOn, leftBy, rightBy, direction), this.mutationMode);
+    }
+
+    public CupOfTea asOfJoin(IDataFrame right, String leftOn, String rightOn, List<String> leftBy, List<String> rightBy, AsOfDirection direction, String leftSuffix, String rightSuffix) {
+        if (right == null) throw new IllegalArgumentException("Right DataFrame cannot be null");
+        return new CupOfTea(this.dataFrame.asOfJoin(right, leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix), this.mutationMode);
     }
 
     // --- Concat Operations ---
@@ -2001,6 +2221,22 @@ public class CupOfTea {
         CupOfTea target = targetForMutation();
         target.dataFrame.cummax(columns);
         return target;
+    }
+
+    public CupOfTea rolling_mean(String column, int windowSize, String outputColumn) {
+        return rolling(windowSize).mean(column, outputColumn);
+    }
+
+    public CupOfTea rolling_mean(String column, int windowSize) {
+        return rolling(windowSize).mean(column);
+    }
+
+    public CupOfTea rolling_sum(String column, int windowSize, String outputColumn) {
+        return rolling(windowSize).sum(column, outputColumn);
+    }
+
+    public CupOfTea rolling_sum(String column, int windowSize) {
+        return rolling(windowSize).sum(column);
     }
 
     public CupOfTea lead(String column, int offset, String outputColumn) {

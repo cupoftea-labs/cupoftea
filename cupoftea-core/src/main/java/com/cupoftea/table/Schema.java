@@ -26,6 +26,8 @@ public final class Schema implements Iterable<Column>, Serializable {
     public static final DataType LONG = DataType.LONG;
     public static final DataType BOOLEAN = DataType.BOOLEAN;
     public static final DataType STRING = DataType.STRING;
+    public static final DataType CATEGORICAL = DataType.CATEGORICAL;
+    public static final DataType DICTIONARY = DataType.CATEGORICAL;
     public static final DataType DATE = DataType.DATE;
     public static final DataType DATETIME = DataType.DATETIME;
     public static final DataType INSTANT = DataType.INSTANT;

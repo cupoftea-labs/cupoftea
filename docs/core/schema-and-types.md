@@ -15,7 +15,7 @@ The enum `com.cupoftea.table.DataType` specifies the supported logical types:
 | `DOUBLE` | `java.lang.Double` | `DoubleColumnVector` (`double[]`) | 64-bit floating point |
 | `FLOAT` | `java.lang.Float` | `FloatColumnVector` (`float[]`) | 32-bit floating point |
 | `BOOLEAN` | `java.lang.Boolean` | `BooleanColumnVector` (`boolean[]`) | Logical boolean |
-| `STRING` | `java.lang.String` | `StringColumnVector` (`String[]`) | Text data |
+| `STRING` | `java.lang.String` | `StringColumnVector` (`byte[] values` + `int[] offsets`) | Contiguous Arrow-style UTF-8 text data |
 | `DECIMAL` | `java.math.BigDecimal` | `ObjectColumnVector` | High-precision / financial calculations |
 | `DATE` | `java.time.LocalDate` | `ObjectColumnVector` | Calendar dates (`YYYY-MM-DD`) |
 | `DATETIME` | `java.time.LocalDateTime` | `ObjectColumnVector` | Date and time without timezone |

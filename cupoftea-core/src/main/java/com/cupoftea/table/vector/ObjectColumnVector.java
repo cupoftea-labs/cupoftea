@@ -242,6 +242,25 @@ public class ObjectColumnVector extends ColumnVector {
         }
     }
 
+    @Override
+    public void copyNullableIndexedValuesOnly(ColumnVector src, int[] srcIndices, int count, int dstOffset) {
+        if (src instanceof ObjectColumnVector objSrc) {
+            Object[] srcData = objSrc.data;
+            Object[] dstData = this.data;
+            for (int i = 0; i < count; i++) {
+                int idx = srcIndices[i];
+                if (idx >= 0) {
+                    Object val = srcData[idx];
+                    dstData[dstOffset + i] = (val instanceof Group group) ? new Group(group) : val;
+                } else {
+                    dstData[dstOffset + i] = null;
+                }
+            }
+        } else {
+            super.copyNullableIndexedValuesOnly(src, srcIndices, count, dstOffset);
+        }
+    }
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
     public int compareRows(int rowA, int rowB) {

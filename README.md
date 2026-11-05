@@ -42,7 +42,7 @@ Add the core dependency to your `pom.xml`:
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-core</artifactId>
-    <version>0.14.0</version>
+    <version>0.24.0</version>
 </dependency>
 ```
 
@@ -53,12 +53,12 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, Arrow, Plot, S
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-csv</artifactId>
-    <version>0.14.0</version>
+    <version>0.24.0</version>
 </dependency>
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-json</artifactId>
-    <version>0.14.0</version>
+    <version>0.24.0</version>
 </dependency>
 
 <!-- Or import all formats with the aggregator module: -->
@@ -66,7 +66,7 @@ Add optional format modules as needed (CSV, JSON, Excel, Parquet, Arrow, Plot, S
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-all</artifactId>
-    <version>0.14.0</version>
+    <version>0.24.0</version>
 </dependency>
 -->
 ```
@@ -79,28 +79,28 @@ For more details on releases and publishing, see [docs/community/releasing.md](d
 
 ```groovy
 // Core library
-implementation 'io.github.cupoftea-labs:cupoftea-core:0.5.0'
+implementation 'io.github.cupoftea-labs:cupoftea-core:0.24.0'
 
 // Optional format modules
-implementation 'io.github.cupoftea-labs:cupoftea-csv:0.5.0'
-implementation 'io.github.cupoftea-labs:cupoftea-json:0.5.0'
+implementation 'io.github.cupoftea-labs:cupoftea-csv:0.24.0'
+implementation 'io.github.cupoftea-labs:cupoftea-json:0.24.0'
 
 // Or all formats at once:
-// implementation 'io.github.cupoftea-labs:cupoftea-all:0.5.0'
+// implementation 'io.github.cupoftea-labs:cupoftea-all:0.24.0'
 ```
 
 **Kotlin DSL (`build.gradle.kts`):**
 
 ```kotlin
 // Core library
-implementation("io.github.cupoftea-labs:cupoftea-core:0.5.0")
+implementation("io.github.cupoftea-labs:cupoftea-core:0.24.0")
 
 // Optional format modules
-implementation("io.github.cupoftea-labs:cupoftea-csv:0.5.0")
-implementation("io.github.cupoftea-labs:cupoftea-json:0.5.0")
+implementation("io.github.cupoftea-labs:cupoftea-csv:0.24.0")
+implementation("io.github.cupoftea-labs:cupoftea-json:0.24.0")
 
 // Or all formats at once:
-// implementation("io.github.cupoftea-labs:cupoftea-all:0.5.0")
+// implementation("io.github.cupoftea-labs:cupoftea-all:0.24.0")
 ```
 
 ## Available Modules

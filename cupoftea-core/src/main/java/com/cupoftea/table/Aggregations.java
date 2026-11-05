@@ -17,10 +17,20 @@ import com.cupoftea.table.vector.ParallelVectorEngine;
 public class Aggregations {
 
     public static Aggregate sum(String column) {
-        return new BaseAggregate(column, column + "Sum") {
+        return new BaseAggregate(column, column + "Sum", Aggregation.SUM) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createSumAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
             }
 
             @Override
@@ -106,10 +116,20 @@ public class Aggregations {
     }
 
     private static Aggregate createMeanAggregate(String column, String defaultOutputName) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.MEAN) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createMeanAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
             }
 
             @Override
@@ -175,10 +195,20 @@ public class Aggregations {
     }
 
     public static Aggregate count(String column) {
-        return new BaseAggregate(column, column + "Count") {
+        return new BaseAggregate(column, column + "Count", Aggregation.COUNT) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createNonNullCountAccumulator(numGroups, vector, getOutputColumnName());
             }
 
             @Override
@@ -229,10 +259,20 @@ public class Aggregations {
     }
 
     public static Aggregate count() {
-        return new BaseAggregate(null, "count") {
+        return new BaseAggregate(null, "count", Aggregation.COUNT) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createCountAccumulator(numGroups, getOutputColumnName());
             }
 
             @Override
@@ -276,10 +316,20 @@ public class Aggregations {
     }
 
     private static Aggregate createMinAggregate(String column, String defaultOutputName) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.MIN) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createMinAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
             }
 
             @Override
@@ -340,10 +390,20 @@ public class Aggregations {
     }
 
     private static Aggregate createMaxAggregate(String column, String defaultOutputName) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.MAX) {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createMaxAccumulator(numGroups, vector, getOutputColumnName(), getResultType(sourceHeaders));
             }
 
             @Override
@@ -408,6 +468,16 @@ public class Aggregations {
             @Override
             public boolean supportsVectorizedExecution() {
                 return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createListAggAccumulator(numGroups, vector, separator, getOutputColumnName());
             }
 
             @Override
@@ -507,7 +577,7 @@ public class Aggregations {
     }
 
     public static Aggregate first(String column) {
-        return new BaseAggregate(column, column + "First") {
+        return new BaseAggregate(column, column + "First", Aggregation.FIRST) {
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 for (HashMap<String, Object> row : rows) {
@@ -528,7 +598,7 @@ public class Aggregations {
     }
 
     public static Aggregate last(String column) {
-        return new BaseAggregate(column, column + "Last") {
+        return new BaseAggregate(column, column + "Last", Aggregation.LAST) {
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 for (int i = rows.size() - 1; i >= 0; i--) {
@@ -602,7 +672,37 @@ public class Aggregations {
     }
 
     private static Aggregate createVarAggregate(String column, String defaultOutputName, boolean isSample) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.VAR) {
+            @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createVarianceAccumulator(numGroups, vector, getOutputColumnName(), isSample);
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                double v = vector.variance(isSample);
+                return Double.isNaN(v) ? null : v;
+            }
+
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 double[] vals = extractDoubleArray(rows, column);
@@ -634,7 +734,37 @@ public class Aggregations {
     }
 
     private static Aggregate createStdAggregate(String column, String defaultOutputName, boolean isSample) {
-        return new BaseAggregate(column, defaultOutputName) {
+        return new BaseAggregate(column, defaultOutputName, Aggregation.STD) {
+            @Override
+            public boolean supportsVectorizedExecution() {
+                return true;
+            }
+
+            @Override
+            public boolean supportsSinglePass() {
+                return true;
+            }
+
+            @Override
+            public GroupAccumulator createAccumulator(int numGroups, ColumnVector vector, List<Column> sourceHeaders) {
+                return GroupAccumulators.createStdAccumulator(numGroups, vector, getOutputColumnName(), isSample);
+            }
+
+            @Override
+            public Object computeVector(
+                    ColumnVector vector,
+                    int totalRows,
+                    List<Column> sourceHeaders,
+                    boolean parallel,
+                    ExecutorService executor,
+                    int parallelThreshold) {
+                if (vector == null || vector.size() == 0) {
+                    return null;
+                }
+                double s = vector.standardDeviation(isSample);
+                return Double.isNaN(s) ? null : s;
+            }
+
             @Override
             public Object compute(List<HashMap<String, Object>> rows, List<Column> sourceHeaders) {
                 double[] vals = extractDoubleArray(rows, column);
@@ -768,10 +898,21 @@ public class Aggregations {
     public static abstract class BaseAggregate implements Aggregate {
         protected final String column;
         protected String outputColumnName;
+        protected final Aggregation aggregationType;
 
         public BaseAggregate(String column, String defaultOutputName) {
+            this(column, defaultOutputName, null);
+        }
+
+        public BaseAggregate(String column, String defaultOutputName, Aggregation aggregationType) {
             this.column = column;
             this.outputColumnName = defaultOutputName;
+            this.aggregationType = aggregationType;
+        }
+
+        @Override
+        public Aggregation getAggregationType() {
+            return aggregationType;
         }
 
         @Override

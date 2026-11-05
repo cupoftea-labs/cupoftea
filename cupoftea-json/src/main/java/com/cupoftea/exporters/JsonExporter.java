@@ -6,6 +6,7 @@ import org.json.JSONArray;
 
 import com.cupoftea.CupOfTea;
 import com.cupoftea.exceptions.ExportException;
+import com.cupoftea.exporters.configurations.JsonExporterConfiguration;
 import com.cupoftea.exporters.interfaces.IJsonExporter;
 import com.cupoftea.json.JsonFormatWriter;
 import com.cupoftea.spi.WriteOptions;
@@ -21,10 +22,19 @@ public class JsonExporter implements IJsonExporter {
 
     @Override
     public void exportToJson(File file) {
+        exportToJson(file, null);
+    }
+
+    @Override
+    public void exportToJson(File file, JsonExporterConfiguration configuration) {
         if (file == null) {
             throw new ExportException("File cannot be null");
         }
-        writer.write(this.dataFrame.getDataFrame(), WriteOptions.builder().file(file).build());
+        WriteOptions.Builder builder = WriteOptions.builder().file(file);
+        if (configuration != null) {
+            builder.option("configuration", configuration);
+        }
+        writer.write(this.dataFrame.getDataFrame(), builder.build());
     }
 
     @Override

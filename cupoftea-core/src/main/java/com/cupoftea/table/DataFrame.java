@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -31,6 +32,7 @@ import com.cupoftea.exceptions.ConversionException;
 import com.cupoftea.exceptions.SchemaMismatchException;
 import com.cupoftea.table.converters.BigDecimalConverter;
 import com.cupoftea.table.converters.BooleanConverter;
+import com.cupoftea.table.converters.CategoricalConverter;
 import com.cupoftea.table.converters.DateConverter;
 import com.cupoftea.table.converters.DoubleConverter;
 import com.cupoftea.table.converters.FloatConverter;
@@ -44,6 +46,7 @@ import com.cupoftea.table.interfaces.IDataFrame;
 import com.cupoftea.table.interfaces.IDataTypeConverter;
 import com.cupoftea.table.vector.BooleanColumnVector;
 import com.cupoftea.table.vector.ColumnVector;
+import com.cupoftea.table.vector.DictionaryColumnVector;
 import com.cupoftea.table.vector.DoubleColumnVector;
 import com.cupoftea.table.vector.FloatColumnVector;
 import com.cupoftea.table.vector.IntColumnVector;
@@ -69,6 +72,7 @@ public class DataFrame extends IDataFrame {
     private static final LongConverter LONG_CONVERTER = new LongConverter();
     private static final BooleanConverter BOOLEAN_CONVERTER = new BooleanConverter();
     private static final StringConverter STRING_CONVERTER = new StringConverter();
+    private static final CategoricalConverter CATEGORICAL_CONVERTER = new CategoricalConverter();
     private static final DateConverter DATE_CONVERTER = new DateConverter();
     private static final LocalDateConverter LOCAL_DATE_CONVERTER = new LocalDateConverter();
     private static final LocalDateTimeConverter LOCAL_DATE_TIME_CONVERTER = new LocalDateTimeConverter();
@@ -87,6 +91,7 @@ public class DataFrame extends IDataFrame {
         Map.entry(Boolean.class, BOOLEAN_CONVERTER),
         Map.entry(boolean.class, BOOLEAN_CONVERTER),
         Map.entry(String.class, STRING_CONVERTER),
+        Map.entry(Categorical.class, CATEGORICAL_CONVERTER),
         Map.entry(Date.class, DATE_CONVERTER),
         Map.entry(LocalDate.class, LOCAL_DATE_CONVERTER),
         Map.entry(LocalDateTime.class, LOCAL_DATE_TIME_CONVERTER),
@@ -148,6 +153,17 @@ public class DataFrame extends IDataFrame {
             }
             df.header.addColumn(new Column(vec.getName(), vec.getType(), vec.isNullable()));
             df.columns.add(vec);
+        }
+        return df;
+    }
+
+    static DataFrame fromHeadersAndVectors(ArrayList<Column> headers, List<ColumnVector> vectors) {
+        DataFrame df = new DataFrame();
+        if (headers != null) {
+            df.header.setHeader(headers);
+        }
+        if (vectors != null) {
+            df.columns = new ArrayList<>(vectors);
         }
         return df;
     }
@@ -274,7 +290,12 @@ public class DataFrame extends IDataFrame {
         for (Column col : headers) {
             ColumnVector existing = getVector(col.columnName());
             if (existing != null) {
-                if (col.columnType() != null && !Objects.equals(col.columnType(), existing.getType())) {
+                if (col.columnType() == Categorical.class || (col.columnType() != null && DictionaryColumnVector.class.isAssignableFrom(col.columnType()))) {
+                    DictionaryColumnVector dictVec = (existing instanceof DictionaryColumnVector dcv) ? dcv : existing.toDictionary(false);
+                    dictVec.setName(col.columnName());
+                    dictVec.setNullable(col.nullable());
+                    newVectors.add(dictVec);
+                } else if (col.columnType() != null && !Objects.equals(col.columnType(), existing.getType())) {
                     IDataTypeConverter<?> converter = CONVERTERS.get(col.columnType());
                     ColumnVector converted = ColumnVector.create(col.columnName(), col.columnType(), currentSize, col.nullable());
                     for (int i = 0; i < currentSize; i++) {
@@ -868,6 +889,28 @@ public class DataFrame extends IDataFrame {
         }
         Class<?> oldColumnType = column.columnType();
 
+        if (newColumnType == Categorical.class || (newColumnType != null && DictionaryColumnVector.class.isAssignableFrom(newColumnType))) {
+            int vecIdx = findVectorIndex(columnName);
+            if (vecIdx != -1) {
+                ColumnVector oldVec = this.columns.get(vecIdx);
+                DictionaryColumnVector dictVec = (oldVec instanceof DictionaryColumnVector dcv) ? dcv : oldVec.toDictionary(false);
+                this.columns.set(vecIdx, dictVec);
+            }
+            this.pendingTypeInferenceColumns.remove(columnName);
+            this.header.alterColumnType(columnName, newColumnType);
+            return this;
+        }
+
+        if (newColumnType == String.class) {
+            int vecIdx = findVectorIndex(columnName);
+            if (vecIdx != -1 && this.columns.get(vecIdx) instanceof DictionaryColumnVector dcv) {
+                this.columns.set(vecIdx, dcv.toStringColumnVector());
+                this.pendingTypeInferenceColumns.remove(columnName);
+                this.header.alterColumnType(columnName, String.class);
+                return this;
+            }
+        }
+
         IDataTypeConverter<?> converter = CONVERTERS.get(newColumnType);
         if (converter == null) {
             throw new ConversionException("Column Type not Suported for Conversion");
@@ -973,6 +1016,9 @@ public class DataFrame extends IDataFrame {
         }
         if (vec instanceof StringColumnVector) {
             return val instanceof String;
+        }
+        if (vec instanceof DictionaryColumnVector) {
+            return val instanceof String || val instanceof Categorical || val instanceof CharSequence;
         }
         return true;
     }
@@ -1139,6 +1185,179 @@ public class DataFrame extends IDataFrame {
         return filteredDF;
     }
 
+    // --- Dictionary / Categorical Encoding & Code-Accelerated Filtering ---
+
+    @Override
+    public IDataFrame encodeDictionary(String... columnNames) {
+        return encodeDictionary(false, columnNames);
+    }
+
+    @Override
+    public IDataFrame encodeDictionary(boolean useShortCodes, String... columnNames) {
+        List<String> targets;
+        if (columnNames == null || columnNames.length == 0) {
+            targets = new ArrayList<>();
+            for (ColumnVector vec : this.columns) {
+                if (vec instanceof StringColumnVector || vec instanceof DictionaryColumnVector || vec.getType() == String.class || vec.getType() == Categorical.class) {
+                    targets.add(vec.getName());
+                }
+            }
+        } else {
+            targets = Arrays.asList(columnNames);
+            for (String col : targets) {
+                if (col == null || getVector(col) == null) {
+                    throw new SchemaMismatchException("Column '" + col + "' does not exist in DataFrame");
+                }
+            }
+        }
+
+        for (String col : targets) {
+            int idx = findVectorIndex(col);
+            if (idx != -1) {
+                ColumnVector vec = this.columns.get(idx);
+                DictionaryColumnVector dictVec = vec.toDictionary(useShortCodes);
+                this.columns.set(idx, dictVec);
+            }
+        }
+        return this;
+    }
+
+    @Override
+    public IDataFrame decodeDictionary(String... columnNames) {
+        List<String> targets;
+        if (columnNames == null || columnNames.length == 0) {
+            targets = new ArrayList<>();
+            for (ColumnVector vec : this.columns) {
+                if (vec instanceof DictionaryColumnVector) {
+                    targets.add(vec.getName());
+                }
+            }
+        } else {
+            targets = Arrays.asList(columnNames);
+            for (String col : targets) {
+                if (col == null || getVector(col) == null) {
+                    throw new SchemaMismatchException("Column '" + col + "' does not exist in DataFrame");
+                }
+            }
+        }
+
+        for (String col : targets) {
+            int idx = findVectorIndex(col);
+            if (idx != -1 && this.columns.get(idx) instanceof DictionaryColumnVector dcv) {
+                this.columns.set(idx, dcv.toStringColumnVector());
+                if (this.header.get(col) != null && this.header.get(col).columnType() == Categorical.class) {
+                    this.header.alterColumnType(col, String.class);
+                }
+            }
+        }
+        return this;
+    }
+
+    private DataFrame applyBitSetMaskFilter(BitSet matchMask, int matchCount) {
+        DataFrame filteredDF = new DataFrame();
+        copyParallelConfigTo(filteredDF);
+        filteredDF.header = this.header.copy();
+        filteredDF.columnCreators.putAll(this.columnCreators);
+        filteredDF.pendingTypeInferenceColumns.addAll(this.pendingTypeInferenceColumns);
+        filteredDF.index = this.index.copy();
+        filteredDF.indexColumn = this.indexColumn;
+
+        for (ColumnVector vec : this.columns) {
+            filteredDF.columns.add(vec.filter(matchMask, matchCount));
+        }
+        return filteredDF;
+    }
+
+    @Override
+    public IDataFrame filterEquals(String columnName, Object value) {
+        ColumnVector vec = requireVector(columnName);
+        if (vec instanceof DictionaryColumnVector dcv) {
+            String target = (value == null || NA.isNA(value)) ? null : value.toString();
+            BitSet mask = dcv.computeEqualsMask(target);
+            return applyBitSetMaskFilter(mask, mask.cardinality());
+        }
+        int total = this.size();
+        BitSet mask = new BitSet(total);
+        int matched = 0;
+        boolean targetIsNull = (value == null || NA.isNA(value));
+        for (int i = 0; i < total; i++) {
+            if (vec.isNull(i)) {
+                if (targetIsNull) {
+                    mask.set(i);
+                    matched++;
+                }
+            } else if (!targetIsNull && Objects.equals(vec.getObject(i), value)) {
+                mask.set(i);
+                matched++;
+            }
+        }
+        return applyBitSetMaskFilter(mask, matched);
+    }
+
+    @Override
+    public IDataFrame filterNotEquals(String columnName, Object value) {
+        ColumnVector vec = requireVector(columnName);
+        if (vec instanceof DictionaryColumnVector dcv) {
+            String target = (value == null || NA.isNA(value)) ? null : value.toString();
+            BitSet mask = dcv.computeNotEqualsMask(target);
+            return applyBitSetMaskFilter(mask, mask.cardinality());
+        }
+        int total = this.size();
+        BitSet mask = new BitSet(total);
+        int matched = 0;
+        boolean targetIsNull = (value == null || NA.isNA(value));
+        for (int i = 0; i < total; i++) {
+            if (vec.isNull(i)) {
+                if (!targetIsNull) {
+                    mask.set(i);
+                    matched++;
+                }
+            } else if (targetIsNull || !Objects.equals(vec.getObject(i), value)) {
+                mask.set(i);
+                matched++;
+            }
+        }
+        return applyBitSetMaskFilter(mask, matched);
+    }
+
+    @Override
+    public IDataFrame filterIn(String columnName, Collection<?> values) {
+        Objects.requireNonNull(values, "values collection cannot be null");
+        ColumnVector vec = requireVector(columnName);
+        if (vec instanceof DictionaryColumnVector dcv) {
+            List<String> strTargets = new ArrayList<>(values.size());
+            for (Object v : values) {
+                strTargets.add((v == null || NA.isNA(v)) ? null : v.toString());
+            }
+            BitSet mask = dcv.computeInMask(strTargets);
+            return applyBitSetMaskFilter(mask, mask.cardinality());
+        }
+        Set<Object> valueSet = new HashSet<>();
+        boolean matchNull = false;
+        for (Object v : values) {
+            if (v == null || NA.isNA(v)) {
+                matchNull = true;
+            } else {
+                valueSet.add(v);
+            }
+        }
+        int total = this.size();
+        BitSet mask = new BitSet(total);
+        int matched = 0;
+        for (int i = 0; i < total; i++) {
+            if (vec.isNull(i)) {
+                if (matchNull) {
+                    mask.set(i);
+                    matched++;
+                }
+            } else if (valueSet.contains(vec.getObject(i))) {
+                mask.set(i);
+                matched++;
+            }
+        }
+        return applyBitSetMaskFilter(mask, matched);
+    }
+
     /**
      * Evaluates a filter predicate across contiguous vector chunks in parallel, computes prefix sums (parallel scan),
      * and consolidates matching elements into new contiguous {@link ColumnVector} instances.
@@ -1147,9 +1366,22 @@ public class DataFrame extends IDataFrame {
         ExecutorService pool = getExecutor();
         int numChunks = ParallelVectorEngine.computeChunkCount(total, pool);
         int[][] ranges = ParallelVectorEngine.partitionRanges(total, numChunks);
-        int[] chunkCounts = new int[ranges.length];
+        int chunkCount = ranges.length;
+        int[] chunkCounts = new int[chunkCount];
+        int colCount = this.columns.size();
 
-        // Phase 1: Parallel predicate evaluation per chunk
+        int[][] stringChunkByteCounts = null;
+        for (int colIdx = 0; colIdx < colCount; colIdx++) {
+            if (this.columns.get(colIdx) instanceof StringColumnVector) {
+                if (stringChunkByteCounts == null) {
+                    stringChunkByteCounts = new int[colCount][];
+                }
+                stringChunkByteCounts[colIdx] = new int[chunkCount];
+            }
+        }
+        final int[][] finalStringChunkByteCounts = stringChunkByteCounts;
+
+        // Phase 1: Parallel predicate evaluation per chunk (+ per-chunk UTF-8 byte count for StringColumnVector)
         List<int[]> chunkIndices = ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
             int[] localMatches = new int[end - start];
             int count = 0;
@@ -1159,30 +1391,63 @@ public class DataFrame extends IDataFrame {
                 }
             }
             chunkCounts[chunkIdx] = count;
+            if (count > 0 && finalStringChunkByteCounts != null) {
+                for (int colIdx = 0; colIdx < colCount; colIdx++) {
+                    int[] colByteCounts = finalStringChunkByteCounts[colIdx];
+                    if (colByteCounts != null) {
+                        StringColumnVector srcStr = (StringColumnVector) this.columns.get(colIdx);
+                        colByteCounts[chunkIdx] = srcStr.computeIndexedByteCount(localMatches, count);
+                    }
+                }
+            }
             return localMatches;
         });
 
-        // Phase 2: Prefix-sum (parallel scan) offset calculation
-        int[] offsets = new int[ranges.length];
+        // Phase 2: Prefix-sum (parallel scan) offset calculation for rows and variable-width UTF-8 bytes
+        int[] offsets = new int[chunkCount];
         int totalMatched = ParallelVectorEngine.computePrefixSums(chunkCounts, offsets);
 
-        // Phase 3: Parallel vector compaction across chunks
-        int colCount = this.columns.size();
         List<ColumnVector> targetVectors = new ArrayList<>(colCount);
-        for (ColumnVector srcVec : this.columns) {
-            ColumnVector dstVec = ColumnVector.create(srcVec.getName(), srcVec.getType(), Math.max(16, totalMatched), srcVec.isNullable());
-            dstVec.setSizeUnchecked(totalMatched);
-            targetVectors.add(dstVec);
+        int[][] stringByteOffsets = null;
+        for (int colIdx = 0; colIdx < colCount; colIdx++) {
+            ColumnVector srcVec = this.columns.get(colIdx);
+            if (totalMatched > 0 && finalStringChunkByteCounts != null && finalStringChunkByteCounts[colIdx] != null) {
+                if (stringByteOffsets == null) {
+                    stringByteOffsets = new int[colCount][];
+                }
+                int[] byteOffsets = new int[chunkCount];
+                int totalBytes = ParallelVectorEngine.computePrefixSums(finalStringChunkByteCounts[colIdx], byteOffsets);
+                stringByteOffsets[colIdx] = byteOffsets;
+                targetVectors.add(StringColumnVector.allocateForCompaction(
+                        srcVec.getName(), srcVec.isNullable(), totalMatched, totalBytes));
+            } else {
+                ColumnVector dstVec = srcVec.createEmptyWithSameEncoding(Math.max(16, totalMatched));
+                dstVec.setSizeUnchecked(totalMatched);
+                targetVectors.add(dstVec);
+            }
         }
 
+        // Phase 3: Parallel lock-free vector compaction across chunks
         if (totalMatched > 0) {
+            final int[][] finalStringByteOffsets = stringByteOffsets;
             ParallelVectorEngine.executeRanges(ranges, pool, (chunkIdx, start, end) -> {
                 int count = chunkCounts[chunkIdx];
                 if (count > 0) {
                     int[] indices = chunkIndices.get(chunkIdx);
                     int dstOffset = offsets[chunkIdx];
                     for (int colIdx = 0; colIdx < colCount; colIdx++) {
-                        targetVectors.get(colIdx).copyIndexedValuesOnly(this.columns.get(colIdx), indices, count, dstOffset);
+                        ColumnVector dstVec = targetVectors.get(colIdx);
+                        ColumnVector srcVec = this.columns.get(colIdx);
+                        if (finalStringByteOffsets != null && finalStringByteOffsets[colIdx] != null) {
+                            ((StringColumnVector) dstVec).copyIndexedBytesLockFree(
+                                    (StringColumnVector) srcVec,
+                                    indices,
+                                    count,
+                                    dstOffset,
+                                    finalStringByteOffsets[colIdx][chunkIdx]);
+                        } else {
+                            dstVec.copyIndexedValuesOnly(srcVec, indices, count, dstOffset);
+                        }
                     }
                 }
                 return null;
@@ -1192,7 +1457,7 @@ public class DataFrame extends IDataFrame {
                 ColumnVector srcVec = this.columns.get(colIdx);
                 if (srcVec.hasNulls()) {
                     ColumnVector dstVec = targetVectors.get(colIdx);
-                    for (int c = 0; c < ranges.length; c++) {
+                    for (int c = 0; c < chunkCount; c++) {
                         int count = chunkCounts[c];
                         if (count > 0) {
                             dstVec.applyNullsFromIndexed(srcVec, chunkIndices.get(c), count, offsets[c]);
@@ -2223,6 +2488,24 @@ public class DataFrame extends IDataFrame {
                 if (vec == null) {
                     continue;
                 }
+                if (vec instanceof DictionaryColumnVector dcv) {
+                    boolean nullA = dcv.isNull(idxA);
+                    boolean nullB = dcv.isNull(idxB);
+                    if (nullA && nullB) {
+                        continue;
+                    }
+                    if (nullA) {
+                        return 1;
+                    }
+                    if (nullB) {
+                        return -1;
+                    }
+                    int cmp = dcv.compareRows(idxA, idxB);
+                    if (cmp != 0) {
+                        return order.type() == Order.DESCENDING ? -cmp : cmp;
+                    }
+                    continue;
+                }
                 Object valA = vec.getObject(idxA);
                 Object valB = vec.getObject(idxB);
 
@@ -2348,7 +2631,28 @@ public class DataFrame extends IDataFrame {
 
     @Override
     public IDataFrame join(IDataFrame other, JoinType how, List<String> leftOn, List<String> rightOn, String leftSuffix, String rightSuffix) {
-        return DataFrameJoiner.join(this, other, how, leftOn, rightOn, leftSuffix, rightSuffix);
+        IDataFrame result = DataFrameJoiner.join(this, other, how, leftOn, rightOn, leftSuffix, rightSuffix);
+        if (result instanceof DataFrame dfResult) {
+            copyParallelConfigTo(dfResult);
+        }
+        return result;
+    }
+
+    @Override
+    public IDataFrame asOfJoin(
+            IDataFrame right,
+            String leftOn,
+            String rightOn,
+            List<String> leftBy,
+            List<String> rightBy,
+            AsOfDirection direction,
+            String leftSuffix,
+            String rightSuffix) {
+        IDataFrame result = DataFrameJoiner.asOfJoin(this, right, leftOn, rightOn, leftBy, rightBy, direction, leftSuffix, rightSuffix);
+        if (result instanceof DataFrame dfResult) {
+            copyParallelConfigTo(dfResult);
+        }
+        return result;
     }
 
     private int compareNumbers(Number numA, Number numB) {
@@ -2833,7 +3137,11 @@ public class DataFrame extends IDataFrame {
     private List<Object> extractRowKey(List<ColumnVector> vectors, int row) {
         List<Object> key = new ArrayList<>(vectors.size());
         for (ColumnVector vec : vectors) {
-            key.add(vec.isNull(row) ? null : vec.getObject(row));
+            if (vec instanceof DictionaryColumnVector dcv) {
+                key.add(dcv.getCode(row));
+            } else {
+                key.add(vec.isNull(row) ? null : vec.getObject(row));
+            }
         }
         return key;
     }
@@ -3184,12 +3492,20 @@ public class DataFrame extends IDataFrame {
         sampled.indexColumn = this.indexColumn;
 
         for (ColumnVector vec : this.columns) {
-            ColumnVector newVec = ColumnVector.create(vec.getName(), vec.getType(), Math.max(16, n), vec.isNullable());
-            for (int idx : sampledIndices) {
-                if (vec.isNull(idx)) {
-                    newVec.appendNull();
-                } else {
-                    newVec.appendObject(vec.getObject(idx));
+            ColumnVector newVec = vec.createEmptyWithSameEncoding(Math.max(16, n));
+            if (vec instanceof DictionaryColumnVector srcDict && newVec instanceof DictionaryColumnVector dstDict) {
+                dstDict.setSizeUnchecked(n);
+                dstDict.copyIndexedValuesOnly(srcDict, sampledIndices, n, 0);
+                if (srcDict.hasNulls()) {
+                    dstDict.applyNullsFromIndexed(srcDict, sampledIndices, n, 0);
+                }
+            } else {
+                for (int idx : sampledIndices) {
+                    if (vec.isNull(idx)) {
+                        newVec.appendNull();
+                    } else {
+                        newVec.appendObject(vec.getObject(idx));
+                    }
                 }
             }
             sampled.columns.add(newVec);

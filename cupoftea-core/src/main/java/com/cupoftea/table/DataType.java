@@ -1,5 +1,7 @@
 package com.cupoftea.table;
 
+import com.cupoftea.table.vector.DictionaryColumnVector;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -17,6 +19,7 @@ public enum DataType {
     LONG(Long.class, long.class),
     BOOLEAN(Boolean.class, boolean.class),
     STRING(String.class),
+    CATEGORICAL(Categorical.class),
     DATE(LocalDate.class),
     DATETIME(LocalDateTime.class),
     INSTANT(Instant.class),
@@ -70,6 +73,9 @@ public enum DataType {
         }
         if (clazz == String.class) {
             return STRING;
+        }
+        if (clazz == Categorical.class || DictionaryColumnVector.class.isAssignableFrom(clazz)) {
+            return CATEGORICAL;
         }
         if (clazz == LocalDate.class) {
             return DATE;

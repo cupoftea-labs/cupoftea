@@ -8,15 +8,17 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.cupoftea.exceptions.ExportException;
 import com.cupoftea.exceptions.ImportException;
 import com.cupoftea.spi.FormatReader;
+import com.cupoftea.spi.FormatScanner;
 import com.cupoftea.spi.FormatWriter;
 
 /**
- * Registry and runtime discovery hub for format readers and writers using {@link ServiceLoader}.
+ * Registry and runtime discovery hub for format readers, writers, and scanners using {@link ServiceLoader}.
  */
 public final class FormatRegistry {
 
     private static final Map<String, FormatReader> READERS = new ConcurrentHashMap<>();
     private static final Map<String, FormatWriter> WRITERS = new ConcurrentHashMap<>();
+    private static final Map<String, FormatScanner> SCANNERS = new ConcurrentHashMap<>();
     private static volatile boolean loaded = false;
 
     private FormatRegistry() {
@@ -39,11 +41,15 @@ public final class FormatRegistry {
     public static synchronized void reload() {
         READERS.clear();
         WRITERS.clear();
+        SCANNERS.clear();
         for (FormatReader reader : ServiceLoader.load(FormatReader.class)) {
             READERS.put(reader.format().toLowerCase(), reader);
         }
         for (FormatWriter writer : ServiceLoader.load(FormatWriter.class)) {
             WRITERS.put(writer.format().toLowerCase(), writer);
+        }
+        for (FormatScanner scanner : ServiceLoader.load(FormatScanner.class)) {
+            SCANNERS.put(scanner.format().toLowerCase(), scanner);
         }
     }
 
@@ -84,6 +90,26 @@ public final class FormatRegistry {
     public static void registerWriter(FormatWriter writer) {
         if (writer != null && writer.format() != null) {
             WRITERS.put(writer.format().toLowerCase(), writer);
+        }
+    }
+
+    public static Optional<FormatScanner> getScanner(String format) {
+        if (format == null) {
+            return Optional.empty();
+        }
+        ensureLoaded();
+        return Optional.ofNullable(SCANNERS.get(format.toLowerCase()));
+    }
+
+    public static FormatScanner requireScanner(String format) {
+        return getScanner(format).orElseThrow(() -> new ImportException(
+                "No format scanner found for format '" + format +
+                "'. Ensure the optional module 'cupoftea-" + format + "' is included in your dependencies."));
+    }
+
+    public static void registerScanner(FormatScanner scanner) {
+        if (scanner != null && scanner.format() != null) {
+            SCANNERS.put(scanner.format().toLowerCase(), scanner);
         }
     }
 }

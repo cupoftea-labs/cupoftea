@@ -124,6 +124,17 @@ public final class ColumnVectorSlice implements Serializable {
     }
 
     /**
+     * Returns the dictionary code at {@code localRow} if the underlying vector is a {@link DictionaryColumnVector}.
+     */
+    public int getCode(int localRow) {
+        checkLocalBounds(localRow);
+        if (vector instanceof DictionaryColumnVector dcv) {
+            return dcv.getCode(offset + localRow);
+        }
+        throw new UnsupportedOperationException("Underlying ColumnVector '" + vector.getName() + "' is not dictionary-encoded");
+    }
+
+    /**
      * Creates a zero-copy sub-slice of this slice for range {@code [localFrom, localTo)}.
      */
     public ColumnVectorSlice sliceView(int localFrom, int localTo) {
