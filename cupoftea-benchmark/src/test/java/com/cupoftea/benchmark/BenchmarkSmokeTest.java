@@ -18,6 +18,7 @@ import com.cupoftea.benchmark.micro.ParallelScanAndFilterBenchmark;
 import com.cupoftea.benchmark.micro.SimdCsvScannerBenchmark;
 import com.cupoftea.benchmark.micro.ZeroCopySlicingBenchmark;
 import com.cupoftea.benchmark.polars.OneBrcStandardBenchmark;
+import com.cupoftea.benchmark.polars.PolarsArrowBenchmark;
 import com.cupoftea.benchmark.polars.PolarsEgressBenchmark;
 import com.cupoftea.benchmark.polars.PolarsFilterVectorBenchmark;
 import com.cupoftea.benchmark.polars.PolarsGroupByBenchmark;
@@ -382,10 +383,30 @@ public class BenchmarkSmokeTest {
     }
 
     @Test
+    @DisplayName("Should execute PolarsArrowBenchmark without error")
+    void testPolarsArrowBenchmark() {
+        PolarsArrowBenchmark bench = new PolarsArrowBenchmark();
+        bench.rows = 1000;
+        bench.setupTrial();
+        try {
+            bench.exportToVectorSchemaRoot(noopBlackhole);
+            bench.importFromVectorSchemaRoot(noopBlackhole);
+            bench.exportToArrowRecordBatch(noopBlackhole);
+            bench.importFromArrowRecordBatch(noopBlackhole);
+            bench.exportToCDataInterface(noopBlackhole);
+            bench.importFromCDataInterface(noopBlackhole);
+        } finally {
+            bench.tearDownTrial();
+        }
+    }
+
+    @Test
     @DisplayName("Should resolve BenchmarkRunner preset targets including polars and 1brc")
     void testBenchmarkRunnerPresets() {
         assertThat(BenchmarkRunner.resolvePresetPattern("polars")).isEqualTo("com.cupoftea.benchmark.polars.*");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-comparison")).isEqualTo("com.cupoftea.benchmark.polars.*");
+        assertThat(BenchmarkRunner.resolvePresetPattern("polars-arrow")).contains("PolarsArrowBenchmark");
+        assertThat(BenchmarkRunner.resolvePresetPattern("arrow")).contains("PolarsArrowBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-ingest")).contains("PolarsIngestBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-egress")).contains("PolarsEgressBenchmark");
         assertThat(BenchmarkRunner.resolvePresetPattern("polars-groupby")).contains("PolarsGroupByBenchmark");

@@ -327,6 +327,17 @@ def main():
                 except Exception:
                     pass
 
+        # Arrow conversion benchmarks
+        arrow_table = base_df.to_arrow()
+        results.append(run_timed_benchmark(
+            "PolarsArrowBenchmark.exportToArrowRecordBatch", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: base_df.to_arrow()
+        ))
+        results.append(run_timed_benchmark(
+            "PolarsArrowBenchmark.importFromArrowRecordBatch", rows, mem_bytes, args.warmup, args.iterations,
+            lambda: pl.from_arrow(arrow_table)
+        ))
+
         results.append(run_timed_benchmark(
             "PolarsGroupByBenchmark.groupByLowCardSequential", rows, mem_bytes, args.warmup, args.iterations,
             lambda: base_df.group_by("k_low").agg([

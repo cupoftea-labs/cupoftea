@@ -95,6 +95,7 @@ public class BenchmarkRunner {
             case "scaling", "scale" -> "com.cupoftea.benchmark.scaling.*";
             case "competitive" -> "com.cupoftea.benchmark.scaling.CompetitiveBaselineBenchmark.*";
             case "polars", "polars-comparison" -> "com.cupoftea.benchmark.polars.*";
+            case "polars-arrow", "arrow" -> "com.cupoftea.benchmark.polars.PolarsArrowBenchmark.*";
             case "polars-ingest" -> "com.cupoftea.benchmark.polars.PolarsIngestBenchmark.*";
             case "polars-egress" -> "com.cupoftea.benchmark.polars.PolarsEgressBenchmark.*";
             case "polars-groupby" -> "com.cupoftea.benchmark.polars.PolarsGroupByBenchmark.*";
