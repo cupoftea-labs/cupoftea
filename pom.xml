@@ -64,7 +64,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <cupoftea.version>${project.version}</cupoftea.version>
-        <lombok.version>1.18.38</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
         <annotations.version>26.0.2</annotations.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
         <assertj.version>3.27.7</assertj.version>
