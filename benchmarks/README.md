@@ -55,6 +55,8 @@ java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vect
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar polars-window
 java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
+     -jar cupoftea-benchmark/target/benchmarks.jar tpch
+java --add-opens=java.base/java.nio=ALL-UNNAMED --add-modules=jdk.incubator.vector \
      -jar cupoftea-benchmark/target/benchmarks.jar 1brc
 ```
 

@@ -8,7 +8,7 @@
 # Options:
 #   --target <preset>       Benchmark target preset (default: polars)
 #                           (polars, polars-ingest, polars-egress, polars-groupby, polars-join,
-#                            polars-filter, polars-window, 1brc, micro, io, pipeline, scaling, all)
+#                            polars-filter, polars-window, tpch, 1brc, micro, io, pipeline, scaling, all)
 #   --rows <count>          Dataset row scale (default: 100000)
 #   --warmup <n>            Warmup iterations (default: 2)
 #   --iterations <n>        Measurement iterations (default: 3)

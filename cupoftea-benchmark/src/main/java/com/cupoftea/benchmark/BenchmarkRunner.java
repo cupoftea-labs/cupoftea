@@ -12,6 +12,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 import com.cupoftea.benchmark.data.SyntheticDataGenerator;
 import com.cupoftea.benchmark.profile.HardwareCountersProfiler;
+import com.cupoftea.benchmark.tpch.TpchDataGenerator;
 
 /**
  * Main command-line launcher for the CupOfTea JMH benchmark suite.
@@ -48,6 +49,20 @@ public class BenchmarkRunner {
 
                 File brcHybrid = new File(outDir, "1brc_hybrid3_" + rows + ".txt");
                 SyntheticDataGenerator.write1BrcFile(brcHybrid, rows, 1, Math.max(100, rows / 20));
+
+                double sf = Math.max(0.01, rows / 600_000.0);
+                System.out.println("Generating TPC-H datasets (SF=" + sf + ") in " + outDir.getAbsolutePath() + "...");
+                File tpchDir = new File(outDir, "tpch");
+                tpchDir.mkdirs();
+                TpchDataGenerator.TpchTables tpch = TpchDataGenerator.generate(sf);
+                TpchDataGenerator.writeCsv(tpch.lineitem(), new File(tpchDir, "lineitem.csv"), '|');
+                TpchDataGenerator.writeCsv(tpch.orders(), new File(tpchDir, "orders.csv"), '|');
+                TpchDataGenerator.writeCsv(tpch.customer(), new File(tpchDir, "customer.csv"), '|');
+                TpchDataGenerator.writeCsv(tpch.part(), new File(tpchDir, "part.csv"), '|');
+                TpchDataGenerator.writeCsv(tpch.supplier(), new File(tpchDir, "supplier.csv"), '|');
+                TpchDataGenerator.writeCsv(tpch.partsupp(), new File(tpchDir, "partsupp.csv"), '|');
+                TpchDataGenerator.writeCsv(tpch.nation(), new File(tpchDir, "nation.csv"), '|');
+                TpchDataGenerator.writeCsv(tpch.region(), new File(tpchDir, "region.csv"), '|');
 
                 System.out.println("Datasets generated successfully.");
                 return;
@@ -102,6 +117,7 @@ public class BenchmarkRunner {
             case "polars-join" -> "com.cupoftea.benchmark.polars.PolarsJoinBenchmark.*";
             case "polars-filter" -> "com.cupoftea.benchmark.polars.PolarsFilterVectorBenchmark.*";
             case "polars-window", "window" -> "com.cupoftea.benchmark.polars.PolarsWindowBenchmark.*";
+            case "tpch", "tpch-analytical", "polars-tpch" -> "com.cupoftea.benchmark.tpch.TpchAnalyticalBenchmark.*";
             case "1brc" -> "com.cupoftea.benchmark.polars.OneBrcStandardBenchmark.*";
             case "all" -> "com.cupoftea.benchmark.*";
             default -> null;
