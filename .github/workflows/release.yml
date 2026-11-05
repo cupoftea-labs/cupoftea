@@ -109,10 +109,10 @@ jobs:
             git push origin "$TAG"
           fi
 
-          # Gather release artifacts from target directories
+          # Gather release artifacts from target directories (excluding internal benchmark artifacts)
           ASSETS=()
           for jar in cupoftea-*/target/*.jar target/*.jar; do
-            if [ -f "$jar" ] && [[ ! "$jar" == *"original-"* ]]; then
+            if [ -f "$jar" ] && [[ ! "$jar" == *"original-"* ]] && [[ ! "$jar" == *"benchmark"* ]]; then
               ASSETS+=("$jar")
             fi
           done
