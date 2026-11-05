@@ -199,11 +199,19 @@ public class CSVExporter {
                         out.writeBoolean(boolVec.getBoolean(r));
                         if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
                     } else if (vec instanceof StringColumnVector strVec) {
-                        String s = strVec.getString(r);
-                        boolean quote = shouldQuote(quoteBehaviour, false, false, true, s != null);
+                        boolean quote = shouldQuote(quoteBehaviour, false, false, true, true);
                         if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
-                        if (s != null) out.writeAsciiOrUtf8(s);
-                        else out.writeBytes(stringNullBytes);
+                        byte[] rawBytes = strVec.getValues();
+                        if (rawBytes != null) {
+                            int[] offsets = strVec.getOffsets();
+                            int startOffset = offsets[r];
+                            int len = offsets[r + 1] - startOffset;
+                            out.write(rawBytes, startOffset, len);
+                        } else {
+                            String s = strVec.getString(r);
+                            if (s != null) out.writeAsciiOrUtf8(s);
+                            else out.writeBytes(stringNullBytes);
+                        }
                         if (quote && quoteBytes.length > 0) out.writeBytes(quoteBytes);
                     } else if (vec != null) {
                         Object obj = vec.getObject(r);
