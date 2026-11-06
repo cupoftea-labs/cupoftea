@@ -546,6 +546,19 @@ public final class SyntheticDataGenerator {
         return file;
     }
 
+    public static File generateTempJsonLines(int rows) throws IOException {
+        File file = File.createTempFile("bench_", ".jsonl");
+        file.deleteOnExit();
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
+            for (int i = 0; i < rows; i++) {
+                writer.write("{\"id\":" + i + ",\"val\":" + ((i % 1000) * 0.5 + 1.25)
+                        + ",\"amount\":" + ((long) i * 100L) + ",\"ratio\":" + ((float) ((i % 500) * 0.1f))
+                        + ",\"flag\":" + ((i % 2) == 0) + ",\"category\":\"CAT_" + (i % 10) + "\"}\n");
+            }
+        }
+        return file;
+    }
+
     /**
      * Checks if Parquet / Hadoop operations are supported.
      * Always returns true since cupoftea-parquet uses native LocalInputFile/LocalOutputFile.

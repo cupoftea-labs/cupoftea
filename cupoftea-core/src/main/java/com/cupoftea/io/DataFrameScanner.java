@@ -178,6 +178,17 @@ public class DataFrameScanner {
         return scan("json", buildOptions().file(file).build());
     }
 
+    public LazyCupOfTea json(String path, Object configuration) {
+        return json(new File(path), configuration);
+    }
+
+    public LazyCupOfTea json(File file, Object configuration) {
+        if (configuration instanceof ScanOptions so) {
+            return scan("json", so);
+        }
+        return scan("json", buildOptions().file(file).option("configuration", configuration).build());
+    }
+
     public LazyCupOfTea parquet(String path) {
         return parquet(new File(path));
     }

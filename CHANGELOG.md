@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-11-05
+
+### Added
+
+- Streaming & Lazy JSON Scan (`JsonLazySource`, `JsonFormatScanner`, NDJSON/JSON Lines chunking) ([#300](https://github.com/cupoftea-labs/cupoftea/issues/300)):
+  - Added low-level Jackson `JsonParser` direct streaming ingestion to columnar `ColumnVector` without intermediate DOM (`JsonNode`) allocations in `JsonFormatReader`.
+  - Added high-performance chunked and parallel scanner for NDJSON / JSON Lines (`JsonLazySource`) supporting parallel partitions across CPU cores.
+  - Added full integration with `LazyDataFrame` and `CupOfTea.scan().json(...)` / `CupOfTea.scanJson(...)` supporting column projection pushdown (`select`), limits (`head`/`limit`), and streaming aggregations.
+  - Added comparative JSON / NDJSON ingestion benchmarks in `cupoftea-benchmark` (`PolarsJsonBenchmark`).
+
 ## [0.24.1] - 2026-11-05
 
 ### Fixed
