@@ -5,9 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.25.0] - 2026-11-05
+## [0.27.0] - 2026-11-06
 
 ### Added
+
+- Visual, reproducible benchmark showcase and documentation in `README.md` ([#313](https://github.com/cupoftea-labs/cupoftea/issues/313)):
+  - Added dedicated "⚡ Benchmarks & Performance" section in `README.md` featuring detailed head-to-head comparison matrices against Polars, Pandas, Tablesaw, and DFLib.
+  - Added visual ASCII bar charts illustrating filter latency, primitive sum aggregation, and 1 Billion Row Challenge (1BRC) throughput.
+  - Documented standard TPC-H (Q1–Q22) analytical workloads and architectural performance drivers (zero-copy slicing, SWAR scanning, SSO, dynamic work-stealing, and cache-line interleaved accumulators).
+  - Provided step-by-step reproducibility commands for TPC-H analytical benchmarks, 1BRC runner script (`benchmarks/run-1brc.sh`), and the automated Polars benchmark suite.
+  - Documented official hardware, OS, and JVM baseline test environments.
 
 ## [0.26.0] - 2026-11-06
 

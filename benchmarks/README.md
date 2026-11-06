@@ -10,6 +10,7 @@ Automated, deterministic, and reproducible benchmarking harness comparing **CupO
 /benchmarks
 ├── README.md                          # Execution guide, OS isolation & profiling reference
 ├── run_benchmarks.sh                  # Master orchestrator (datasets -> JMH -> Polars -> Markdown report)
+├── run-1brc.sh                        # Standalone 1BRC execution script
 ├── scripts/
 │   ├── setup_env.sh                   # CPU governor, Turbo Boost check, taskset & OS page cache control
 │   ├── profile_flamegraph.sh          # async-profiler wrapper (CPU, Heap Allocation & Lock FlameGraphs)
