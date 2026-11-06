@@ -316,12 +316,21 @@ public class CupOfTea {
         return scan().json(file, configuration);
     }
 
+    public static LazyCupOfTea scanExcel(String path) {
+        return scan().excel(path);
+    }
+
+    public static LazyCupOfTea scanExcel(File file) {
+        return scan().excel(file);
+    }
+
     public static LazyCupOfTea scanParquet(String path) {
         return scan().parquet(path);
     }
 
     public static LazyCupOfTea scanParquet(File file) {
         return scan().parquet(file);
+    }
     }
 
     /**
@@ -1158,6 +1167,22 @@ public class CupOfTea {
         }
         CupOfTea loaded = read().target(this.dataFrame).excel(file, configuration);
         this.dataFrame = loaded.dataFrame;
+        return this;
+    }
+
+    public CupOfTea exportToExcel(File file) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().excel(file);
+        return this;
+    }
+
+    public CupOfTea exportToExcel(File file, Object configuration) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().excel(file, configuration);
         return this;
     }
 

@@ -46,6 +46,7 @@ public class EndToEndIoBenchmark {
     public File outCsvFile;
     public File outJsonFile;
     public File outParquetFile;
+    public File outExcelFile;
 
     public CupOfTea df;
 
@@ -61,6 +62,8 @@ public class EndToEndIoBenchmark {
         outCsvFile.deleteOnExit();
         outJsonFile = File.createTempFile("out_", ".json");
         outJsonFile.deleteOnExit();
+        outExcelFile = File.createTempFile("out_", ".xlsx");
+        outExcelFile.deleteOnExit();
 
         if (SyntheticDataGenerator.isHadoopSupported()) {
             outParquetFile = File.createTempFile("out_", ".parquet");
@@ -81,6 +84,7 @@ public class EndToEndIoBenchmark {
         safeDelete(outCsvFile);
         safeDelete(outJsonFile);
         safeDelete(outParquetFile);
+        safeDelete(outExcelFile);
     }
 
     private void safeDelete(File file) {
@@ -143,6 +147,15 @@ public class EndToEndIoBenchmark {
             safeDelete(outParquetFile);
             df.write().parquet(outParquetFile);
             bh.consume(outParquetFile.length());
+        }
+    }
+
+    @Benchmark
+    public void egressExcel(Blackhole bh) {
+        if (outExcelFile != null) {
+            safeDelete(outExcelFile);
+            df.write().excel(outExcelFile);
+            bh.consume(outExcelFile.length());
         }
     }
 }

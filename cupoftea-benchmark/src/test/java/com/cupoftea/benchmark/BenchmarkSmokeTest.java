@@ -141,6 +141,22 @@ public class BenchmarkSmokeTest {
             bench.egressCsv(noopBlackhole);
             bench.egressJson(noopBlackhole);
             bench.egressParquet(noopBlackhole);
+            bench.egressExcel(noopBlackhole);
+        } finally {
+            bench.tearDownTrial();
+        }
+    }
+
+    @Test
+    @DisplayName("Should execute ExcelStreamingBenchmark")
+    void testExcelStreamingBenchmark() throws IOException {
+        com.cupoftea.benchmark.macro.ExcelStreamingBenchmark bench = new com.cupoftea.benchmark.macro.ExcelStreamingBenchmark();
+        bench.rows = 50;
+        bench.setupTrial();
+        try {
+            bench.streamingSaxIngest(noopBlackhole);
+            bench.sxssfStreamingEgress(noopBlackhole);
+            bench.lazyExcelScan(noopBlackhole);
         } finally {
             bench.tearDownTrial();
         }

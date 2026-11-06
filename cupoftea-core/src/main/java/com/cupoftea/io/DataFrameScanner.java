@@ -196,4 +196,12 @@ public class DataFrameScanner {
     public LazyCupOfTea parquet(File file) {
         return scan("parquet", buildOptions().file(file).build());
     }
+
+    public LazyCupOfTea excel(String path) {
+        return excel(new File(path));
+    }
+
+    public LazyCupOfTea excel(File file) {
+        return scan("excel", buildOptions().file(file).build());
+    }
 }

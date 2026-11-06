@@ -78,6 +78,24 @@ public class DataFrameWriter {
         json(new File(path), configuration);
     }
 
+    // --- EXCEL ---
+
+    public void excel(String path) {
+        excel(new File(path));
+    }
+
+    public void excel(File file) {
+        write("excel", buildOptions().file(file).build());
+    }
+
+    public void excel(File file, Object configuration) {
+        write("excel", buildOptions().file(file).option("configuration", configuration).build());
+    }
+
+    public void excel(String path, Object configuration) {
+        excel(new File(path), configuration);
+    }
+
     // --- PARQUET ---
 
     public void parquet(String path) {
