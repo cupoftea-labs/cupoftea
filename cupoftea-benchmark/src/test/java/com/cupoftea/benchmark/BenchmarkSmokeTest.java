@@ -23,6 +23,7 @@ import com.cupoftea.benchmark.polars.PolarsEgressBenchmark;
 import com.cupoftea.benchmark.polars.PolarsFilterVectorBenchmark;
 import com.cupoftea.benchmark.polars.PolarsGroupByBenchmark;
 import com.cupoftea.benchmark.polars.PolarsIngestBenchmark;
+import com.cupoftea.benchmark.polars.PolarsJsonBenchmark;
 import com.cupoftea.benchmark.polars.PolarsJoinBenchmark;
 import com.cupoftea.benchmark.polars.PolarsWindowBenchmark;
 import com.cupoftea.benchmark.profile.HardwareCountersProfiler;
@@ -277,6 +278,25 @@ public class BenchmarkSmokeTest {
         } finally {
             bench.tearDownTrial();
         }
+    }
+
+    @Test
+    @DisplayName("Should execute PolarsJsonBenchmark across streaming JSON and NDJSON modes")
+    void testPolarsJsonBenchmark() throws IOException {
+        PolarsJsonBenchmark bench = new PolarsJsonBenchmark();
+        bench.rows = 200;
+        bench.setupTrial();
+        try {
+            bench.ingestJsonArrayEager(noopBlackhole);
+            bench.ingestJsonArrayLazyScan(noopBlackhole);
+            bench.ingestJsonArrayLazyProjected(noopBlackhole);
+            bench.ingestJsonLinesLazyScanParallel(noopBlackhole);
+            bench.ingestJsonLinesLazyAggregation(noopBlackhole);
+        } finally {
+            bench.tearDownTrial();
+        }
+        assertThat(BenchmarkRunner.resolvePresetPattern("polars-json")).contains("PolarsJsonBenchmark");
+        assertThat(BenchmarkRunner.resolvePresetPattern("json")).contains("PolarsJsonBenchmark");
     }
 
     @Test

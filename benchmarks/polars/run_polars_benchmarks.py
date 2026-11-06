@@ -317,8 +317,51 @@ def main():
                 )
             ))
 
+        json_array_file = ds_dir / f"mixed_analytics_{rows}.json"
+        json_lines_file = ds_dir / f"mixed_analytics_{rows}.jsonl"
+
         base_df = pl.read_csv(csv_file)
         mem_bytes = int(base_df.estimated_size())
+
+        if not json_array_file.exists():
+            base_df.write_json(json_array_file)
+        if not json_lines_file.exists():
+            base_df.write_ndjson(json_lines_file)
+
+        if json_array_file.exists():
+            ja_bytes = json_array_file.stat().st_size
+            results.append(run_timed_benchmark(
+                "PolarsJsonBenchmark.ingestJsonArrayEager", rows, ja_bytes, args.warmup, args.iterations,
+                lambda: pl.read_json(json_array_file)
+            ))
+            results.append(run_timed_benchmark(
+                "PolarsJsonBenchmark.ingestJsonArrayLazyScan", rows, ja_bytes, args.warmup, args.iterations,
+                lambda: pl.read_json(json_array_file)
+            ))
+            results.append(run_timed_benchmark(
+                "PolarsJsonBenchmark.ingestJsonArrayLazyProjected", rows, ja_bytes, args.warmup, args.iterations,
+                lambda: pl.read_json(json_array_file).select(["id", "val_fixed", "k_low"])
+            ))
+
+        if json_lines_file.exists():
+            jl_bytes = json_lines_file.stat().st_size
+            results.append(run_timed_benchmark(
+                "PolarsJsonBenchmark.ingestJsonLinesLazyScanParallel", rows, jl_bytes, args.warmup, args.iterations,
+                lambda: pl.scan_ndjson(json_lines_file).collect()
+            ))
+            results.append(run_timed_benchmark(
+                "PolarsJsonBenchmark.ingestJsonLinesLazyAggregation", rows, jl_bytes, args.warmup, args.iterations,
+                lambda: (
+                    pl.scan_ndjson(json_lines_file)
+                    .group_by("k_low")
+                    .agg([
+                        pl.col("val_fixed").sum().alias("sum_amount"),
+                        pl.col("val_fixed").mean().alias("mean_val"),
+                        pl.col("id").count().alias("cnt"),
+                    ])
+                    .collect()
+                )
+            ))
 
         out_csv_tmp = ds_dir / f".tmp_out_{rows}.csv"
         out_tsv_tmp = ds_dir / f".tmp_out_{rows}.tsv"

@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+## [0.26.0] - 2026-11-06
+
+### Added
+
+- Streaming & Lazy JSON Scan (`JsonLazySource`, `JsonFormatScanner`, NDJSON/JSON Lines chunking) ([#300](https://github.com/cupoftea-labs/cupoftea/issues/300)):
+  - Added low-level Jackson `JsonParser` direct streaming ingestion to columnar `ColumnVector` without intermediate DOM (`JsonNode`) allocations in `JsonFormatReader`.
+  - Added high-performance chunked and parallel scanner for NDJSON / JSON Lines (`JsonLazySource`) supporting parallel partitions across CPU cores.
+  - Added full integration with `LazyDataFrame` and `CupOfTea.scan().json(...)` / `CupOfTea.scanJson(...)` supporting column projection pushdown (`select`), limits (`head`/`limit`), and streaming aggregations.
+  - Added comparative JSON / NDJSON ingestion benchmarks in `cupoftea-benchmark` (`PolarsJsonBenchmark`).
+
+## [0.25.0] - 2026-11-05
+
+### Added
+
 - Optimize Excel reading and writing with XLSX streaming SAX/SXSSF and lazy scans ([#299](https://github.com/cupoftea-labs/cupoftea/issues/299)):
   - Implemented streaming event-driven SAX parser (`org.apache.poi.xssf.eventusermodel`) in `ExcelImporter` for `.xlsx`/`.xlsm` spreadsheets, populating columnar `ColumnVector` instances directly with bounded memory consumption instead of DOM tree loading.
   - Added high-performance streaming Excel exporter `ExcelExporter` powered by Apache POI `SXSSFWorkbook` with row sliding window (`rowAccessWindowSize`) and continuous flush to disk/stream, supported natively via `df.write().excel(...)` and `df.exportToExcel(...)`.

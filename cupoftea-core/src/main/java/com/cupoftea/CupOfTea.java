@@ -296,12 +296,40 @@ public class CupOfTea {
         return scan().csv(file, configuration);
     }
 
+    public static LazyCupOfTea scanJson(String path) {
+        return scan().json(path);
+    }
+
+    public static LazyCupOfTea scanJson(File file) {
+        return scan().json(file);
+    }
+
+    public static LazyCupOfTea scanJson(String path, Schema schema) {
+        return scan().schema(schema).json(path);
+    }
+
+    public static LazyCupOfTea scanJson(File file, Schema schema) {
+        return scan().schema(schema).json(file);
+    }
+
+    public static LazyCupOfTea scanJson(File file, Object configuration) {
+        return scan().json(file, configuration);
+    }
+
     public static LazyCupOfTea scanExcel(String path) {
         return scan().excel(path);
     }
 
     public static LazyCupOfTea scanExcel(File file) {
         return scan().excel(file);
+    }
+
+    public static LazyCupOfTea scanParquet(String path) {
+        return scan().parquet(path);
+    }
+
+    public static LazyCupOfTea scanParquet(File file) {
+        return scan().parquet(file);
     }
 
     /**
