@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.25.0] - 2026-11-05
+
+### Added
+
+- Optimize Excel reading and writing with XLSX streaming SAX/SXSSF and lazy scans ([#299](https://github.com/cupoftea-labs/cupoftea/issues/299)):
+  - Implemented streaming event-driven SAX parser (`org.apache.poi.xssf.eventusermodel`) in `ExcelImporter` for `.xlsx`/`.xlsm` spreadsheets, populating columnar `ColumnVector` instances directly with bounded memory consumption instead of DOM tree loading.
+  - Added high-performance streaming Excel exporter `ExcelExporter` powered by Apache POI `SXSSFWorkbook` with row sliding window (`rowAccessWindowSize`) and continuous flush to disk/stream, supported natively via `df.write().excel(...)` and `df.exportToExcel(...)`.
+  - Added `ExcelLazySource` and `ExcelFormatScanner` SPI integration enabling lazy evaluation pipelines (`CupOfTea.scan().excel(...)` and `CupOfTea.scanExcel(...)`).
+  - Added dedicated JMH macro-benchmarks `ExcelStreamingBenchmark` and extended `EndToEndIoBenchmark` with `egressExcel` to measure streaming ingestion, egress, and lazy evaluation times.
+
 ## [0.24.1] - 2026-11-05
 
 ### Fixed
