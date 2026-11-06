@@ -116,7 +116,7 @@ implementation("io.github.cupoftea-labs:cupoftea-json:0.24.0")
 | `cupoftea-sql` | SQL database reader and writer via JDBC with batching and transaction support | JDBC (`java.sql`, `javax.sql`) |
 | `cupoftea-html` | HTML table reader | Jsoup |
 | `cupoftea-yaml` | YAML format reader and writer | SnakeYAML |
-| `cupoftea-xml` | XML format reader | Standard Java XML DOM |
+| `cupoftea-xml` | XML reader, writer and lazy scan | JDK StAX (streaming) |
 | `cupoftea-plot` | Declarative plotting engine (Vega-Lite), HTML export, desktop preview | Jackson Databind |
 | `cupoftea-all` | Meta-module aggregating all format and plot modules | All above formats & plotting |
 

@@ -324,6 +324,26 @@ public class CupOfTea {
         return scan().excel(file);
     }
 
+    public static LazyCupOfTea scanXml(String path) {
+        return scan().xml(path);
+    }
+
+    public static LazyCupOfTea scanXml(File file) {
+        return scan().xml(file);
+    }
+
+    public static LazyCupOfTea scanXml(String path, Schema schema) {
+        return scan().schema(schema).xml(path);
+    }
+
+    public static LazyCupOfTea scanXml(File file, Schema schema) {
+        return scan().schema(schema).xml(file);
+    }
+
+    public static LazyCupOfTea scanXml(File file, Object configuration) {
+        return scan().xml(file, configuration);
+    }
+
     public static LazyCupOfTea scanParquet(String path) {
         return scan().parquet(path);
     }
@@ -1486,6 +1506,54 @@ public class CupOfTea {
         }
         CupOfTea loaded = read().target(this.dataFrame).xml(doc);
         this.dataFrame = loaded.dataFrame;
+        return this;
+    }
+
+    public CupOfTea exportToXml(File file) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().xml(file);
+        return this;
+    }
+
+    public CupOfTea exportToXml(File file, Object configuration) {
+        if (file == null) {
+            throw new ExportException("File cannot be null");
+        }
+        write().xml(file, configuration);
+        return this;
+    }
+
+    public CupOfTea exportToXml(java.io.OutputStream outputStream) {
+        if (outputStream == null) {
+            throw new ExportException("OutputStream cannot be null");
+        }
+        write().xml(outputStream);
+        return this;
+    }
+
+    public CupOfTea exportToXml(java.io.OutputStream outputStream, Object configuration) {
+        if (outputStream == null) {
+            throw new ExportException("OutputStream cannot be null");
+        }
+        write().xml(outputStream, configuration);
+        return this;
+    }
+
+    public CupOfTea exportToXml(java.io.Writer writer) {
+        if (writer == null) {
+            throw new ExportException("Writer cannot be null");
+        }
+        write().xml(writer);
+        return this;
+    }
+
+    public CupOfTea exportToXml(java.io.Writer writer, Object configuration) {
+        if (writer == null) {
+            throw new ExportException("Writer cannot be null");
+        }
+        write().xml(writer, configuration);
         return this;
     }
 

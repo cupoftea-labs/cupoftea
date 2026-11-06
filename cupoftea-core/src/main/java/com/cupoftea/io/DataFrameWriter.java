@@ -144,6 +144,40 @@ public class DataFrameWriter {
         write("yaml", buildOptions().file(file).build());
     }
 
+    // --- XML ---
+
+    public void xml(String path) {
+        xml(new File(path));
+    }
+
+    public void xml(File file) {
+        write("xml", buildOptions().file(file).build());
+    }
+
+    public void xml(File file, Object configuration) {
+        write("xml", buildOptions().file(file).option("configuration", configuration).build());
+    }
+
+    public void xml(String path, Object configuration) {
+        xml(new File(path), configuration);
+    }
+
+    public void xml(java.io.OutputStream outputStream) {
+        write("xml", buildOptions().option("outputStream", outputStream).build());
+    }
+
+    public void xml(java.io.OutputStream outputStream, Object configuration) {
+        write("xml", buildOptions().option("outputStream", outputStream).option("configuration", configuration).build());
+    }
+
+    public void xml(java.io.Writer writer) {
+        write("xml", buildOptions().option("writer", writer).build());
+    }
+
+    public void xml(java.io.Writer writer, Object configuration) {
+        write("xml", buildOptions().option("writer", writer).option("configuration", configuration).build());
+    }
+
     // --- HTML ---
 
     public void html(String path) {

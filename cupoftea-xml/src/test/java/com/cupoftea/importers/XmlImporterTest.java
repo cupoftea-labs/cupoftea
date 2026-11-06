@@ -28,7 +28,7 @@ public class XmlImporterTest {
     @Test
     @DisplayName("Should import DataFrame from XML file")
     void test_GivenAXmlFile_WhenImporting_ShouldReturnACupOfTeaDataFrame() {
-        int expectedColumnsNumber = 3;
+        int expectedColumnsNumber = 4;
         int expectedRowsNumber = 16;
 
         File testFile = getSampleXml();
