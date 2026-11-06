@@ -106,6 +106,8 @@ public class AllFormatsIntegrationTest {
         assertThat(FormatRegistry.getWriter("yaml")).isPresent();
 
         assertThat(FormatRegistry.getReader("xml")).isPresent();
+        assertThat(FormatRegistry.getWriter("xml")).isPresent();
+        assertThat(FormatRegistry.getScanner("xml")).isPresent();
 
         assertThat(FormatRegistry.getReader("sql")).isPresent();
         assertThat(FormatRegistry.getWriter("sql")).isPresent();
@@ -200,6 +202,8 @@ public class AllFormatsIntegrationTest {
             YamlExporter.class,
             IXmlImporter.class,
             XmlImporter.class,
+            com.cupoftea.exporters.interfaces.IXmlExporter.class,
+            com.cupoftea.exporters.XmlExporter.class,
             IDataTypeConverter.class,
             BooleanConverter.class,
             IntegerConverter.class,

@@ -204,4 +204,23 @@ public class DataFrameScanner {
     public LazyCupOfTea excel(File file) {
         return scan("excel", buildOptions().file(file).build());
     }
+
+    public LazyCupOfTea xml(String path) {
+        return xml(new File(path));
+    }
+
+    public LazyCupOfTea xml(File file) {
+        return scan("xml", buildOptions().file(file).build());
+    }
+
+    public LazyCupOfTea xml(String path, Object configuration) {
+        return xml(new File(path), configuration);
+    }
+
+    public LazyCupOfTea xml(File file, Object configuration) {
+        if (configuration instanceof ScanOptions so) {
+            return scan("xml", so);
+        }
+        return scan("xml", buildOptions().file(file).option("configuration", configuration).build());
+    }
 }

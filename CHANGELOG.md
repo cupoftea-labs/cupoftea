@@ -5,9 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.25.0] - 2026-11-05
+## [0.27.0] - 2026-11-06
 
 ### Added
+
+- Streaming XML I/O ([#301](https://github.com/cupoftea-labs/cupoftea/issues/301)):
+  - `XmlFormatReader` now parses with StAX `XMLStreamReader` directly into `ColumnVector`s (no DOM).
+  - New `XmlExporter` / `XmlFormatWriter` using `XMLStreamWriter` to `File`, `OutputStream` or `Writer`.
+  - New `XmlLazySource` / `XmlFormatScanner` with `CupOfTea.scanXml(...)`, projection pushdown and batching.
+  - `XmlImporterConfiguration`, `XmlExporterConfiguration`, `CupOfTea.exportToXml(...)`.
+
+### Changed
+
+- XML import now also creates columns for child elements that only appear in later rows (sample file yields 4 columns instead of 3).
 
 ## [0.26.0] - 2026-11-06
 

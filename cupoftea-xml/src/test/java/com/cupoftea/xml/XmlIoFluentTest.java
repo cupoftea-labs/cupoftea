@@ -20,7 +20,7 @@ public class XmlIoFluentTest {
         }
 
         CupOfTea df = CupOfTea.read().xml(sample.getPath());
-        assertThat(df.getHeaders()).hasSize(3);
+        assertThat(df.getHeaders()).hasSize(4);
         assertThat(df.size()).isEqualTo(16);
     }
 }

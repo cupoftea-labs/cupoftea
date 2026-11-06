@@ -30,7 +30,7 @@ flowchart TD
 | **Parquet** | `cupoftea-parquet` | Yes | Yes | Apache Parquet / Hadoop |
 | **HTML** | `cupoftea-html` | Yes (Tables) | - | Jsoup |
 | **YAML** | `cupoftea-yaml` | Yes | Yes | SnakeYAML |
-| **XML** | `cupoftea-xml` | Yes | In Progress | Standard Java DOM |
+| **XML** | `cupoftea-xml` | Yes | Yes | StAX streaming (JDK) |
 
 ---
 
