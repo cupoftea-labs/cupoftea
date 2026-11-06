@@ -107,6 +107,7 @@ public class BenchmarkRunner {
             case "simd", "csv" -> "com.cupoftea.benchmark.micro.SimdCsvScannerBenchmark.*";
             case "macro", "pipeline" -> "com.cupoftea.benchmark.macro.EndToEndPipelineBenchmark.*";
             case "io" -> "com.cupoftea.benchmark.macro.EndToEndIoBenchmark.*";
+            case "excel", "excel-io" -> "com.cupoftea.benchmark.macro.ExcelStreamingBenchmark.*";
             case "scaling", "scale" -> "com.cupoftea.benchmark.scaling.*";
             case "competitive" -> "com.cupoftea.benchmark.scaling.CompetitiveBaselineBenchmark.*";
             case "polars", "polars-comparison" -> "com.cupoftea.benchmark.polars.*";

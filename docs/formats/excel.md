@@ -38,3 +38,36 @@ CupOfTea q3 = CupOfTea.read()
     .option("configuration", config)
     .excel("quarterly_reports.xlsx");
 ```
+
+---
+
+## ⚡ Lazy Scan Pipelines
+
+Stream and scan large Excel workbooks without materializing the full dataset into memory:
+
+```java
+CupOfTea summary = CupOfTea.scan().excel("massive_dataset.xlsx")
+    .select("department", "salary")
+    .collect();
+```
+
+---
+
+## ✍️ High-Performance Streaming Excel Writing (SXSSF)
+
+Export DataFrames directly to `.xlsx` using sliding window buffers (`SXSSFWorkbook`):
+
+```java
+// Fluent API write
+df.write().excel("output_report.xlsx");
+
+// Or using ExcelExporterConfiguration
+import com.cupoftea.exporters.configurations.ExcelExporterConfiguration;
+
+ExcelExporterConfiguration exportConfig = new ExcelExporterConfiguration()
+    .setSheetName("Summary")
+    .setRowAccessWindowSize(100)
+    .setCompressTempFiles(true);
+
+df.write().excel("output_report.xlsx", exportConfig);
+```
