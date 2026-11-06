@@ -331,7 +331,6 @@ public class CupOfTea {
     public static LazyCupOfTea scanParquet(File file) {
         return scan().parquet(file);
     }
-    }
 
     /**
      * Converts this in-memory DataFrame into a {@link LazyCupOfTea} for lazy streaming pipeline evaluation.
