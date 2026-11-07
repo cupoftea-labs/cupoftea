@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.cupoftea.csv.fast.FastByteParser;
 import com.cupoftea.csv.fast.FastCsvReader;
 import com.cupoftea.csv.fast.SimdCsvScanner;
 import com.cupoftea.exceptions.CsvParseException;
@@ -229,9 +230,13 @@ public class CsvLazySource implements LazySource {
         return "CsvFile(path=" + file.getName() + ", size=" + file.length() + "B)";
     }
 
-    public static final int DEFAULT_SEGMENT_SIZE = 4 * 1024 * 1024; // 4 MB
+    public static final int DEFAULT_SEGMENT_SIZE = 32 * 1024 * 1024; // 32 MB
     public static final int MIN_SEGMENT_SIZE = 256 * 1024; // 256 KB
     public static final long ADAPTIVE_THRESHOLD_BYTES = 32L * 1024 * 1024; // 32 MB
+    private static final int LINE_BREAK_BUF_SIZE = 64 * 1024; // 64 KB
+
+    private static final ThreadLocal<ByteBuffer> LINE_BREAK_BUF =
+            ThreadLocal.withInitial(() -> ByteBuffer.allocateDirect(LINE_BREAK_BUF_SIZE));
 
     @Override
     public List<PartitionReader> getPartitions(ScanContext context) {
@@ -294,7 +299,7 @@ public class CsvLazySource implements LazySource {
 
     public static long findNextLineBreak(FileChannel channel, long startPos, long maxPos) throws IOException {
         long pos = startPos;
-        ByteBuffer buf = ByteBuffer.allocate(8192);
+        ByteBuffer buf = LINE_BREAK_BUF.get();
 
         while (pos < maxPos) {
             buf.clear();
@@ -302,27 +307,26 @@ public class CsvLazySource implements LazySource {
             buf.limit(toRead);
             int read = channel.read(buf, pos);
             if (read <= 0) break;
-            buf.flip();
 
-            for (int i = 0; i < read; i++) {
-                byte b = buf.get(i);
-                if (b == '\n') {
-                    return pos + i + 1;
-                } else if (b == '\r') {
-                    if (i + 1 < read) {
-                        if (buf.get(i + 1) == '\n') {
-                            return pos + i + 2;
-                        }
-                        return pos + i + 1;
-                    } else if (pos + i + 1 < maxPos) {
-                        ByteBuffer nextBuf = ByteBuffer.allocate(1);
-                        if (channel.read(nextBuf, pos + i + 1) > 0 && nextBuf.get(0) == '\n') {
-                            return pos + i + 2;
-                        }
-                        return pos + i + 1;
+            int idxN = FastByteParser.indexOfByte(buf, 0, read, (byte) '\n');
+            int idxR = FastByteParser.indexOfByte(buf, 0, read, (byte) '\r');
+
+            if (idxN != -1 && (idxR == -1 || idxN < idxR)) {
+                return pos + idxN + 1;
+            } else if (idxR != -1) {
+                if (idxR + 1 < read) {
+                    if (buf.get(idxR + 1) == '\n') {
+                        return pos + idxR + 2;
                     }
-                    return pos + i + 1;
+                    return pos + idxR + 1;
+                } else if (pos + idxR + 1 < maxPos) {
+                    ByteBuffer nextBuf = ByteBuffer.allocate(1);
+                    if (channel.read(nextBuf, pos + idxR + 1) > 0 && nextBuf.get(0) == '\n') {
+                        return pos + idxR + 2;
+                    }
+                    return pos + idxR + 1;
                 }
+                return pos + idxR + 1;
             }
             pos += read;
         }

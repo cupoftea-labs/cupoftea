@@ -19,6 +19,8 @@ public final class FastByteParser {
 
     private static final VarHandle LONG_LE =
             MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
+    private static final VarHandle BB_LONG_LE =
+            MethodHandles.byteBufferViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
     private static final long LO_BITS = 0x0101010101010101L;
     private static final long HI_BITS = 0x8080808080808080L;
@@ -58,6 +60,28 @@ public final class FastByteParser {
         }
         for (; i < end; i++) {
             if (buf[i] == target) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Finds the first index in [start, end) holding {@code target} directly in a {@link java.nio.ByteBuffer}.
+     *
+     * @return the index, or -1 if absent
+     */
+    public static int indexOfByte(java.nio.ByteBuffer buf, int start, int end, byte target) {
+        final long bt = (target & 0xFFL) * LO_BITS;
+        int i = start;
+        for (int limit = end - 8; i <= limit; i += 8) {
+            long mask = zeroBytes(((long) BB_LONG_LE.get(buf, i)) ^ bt);
+            if (mask != 0) {
+                return i + (Long.numberOfTrailingZeros(mask) >>> 3);
+            }
+        }
+        for (; i < end; i++) {
+            if (buf.get(i) == target) {
                 return i;
             }
         }

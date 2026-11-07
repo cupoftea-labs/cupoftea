@@ -81,9 +81,71 @@ public final class MemoryAdvisor {
     }
 
     /**
-     * @return free physical memory in bytes, or {@link Long#MAX_VALUE} if it cannot be determined.
+     * @return true available physical memory in bytes (including reclaimable/inactive cache),
+     * or {@link Long#MAX_VALUE} if it cannot be determined.
      */
     public static long freePhysicalMemory() {
+        // 1. Linux: /proc/meminfo "MemAvailable" reflects free + reclaimable slab/pagecache
+        try {
+            java.nio.file.Path meminfo = java.nio.file.Paths.get("/proc/meminfo");
+            if (java.nio.file.Files.exists(meminfo)) {
+                try (java.io.BufferedReader br = java.nio.file.Files.newBufferedReader(meminfo)) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        if (line.startsWith("MemAvailable:")) {
+                            String[] parts = line.split("\\s+");
+                            if (parts.length >= 2) {
+                                return Long.parseLong(parts[1]) * 1024L;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
+
+        // 2. macOS: vm_stat includes free, inactive, speculative and purgeable pages
+        try {
+            String os = System.getProperty("os.name", "").toLowerCase();
+            if (os.contains("mac")) {
+                Process p = new ProcessBuilder("vm_stat").start();
+                try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(p.getInputStream()))) {
+                    String line;
+                    long pageSize = 16384L;
+                    long freePages = 0;
+                    long inactivePages = 0;
+                    long speculativePages = 0;
+                    long purgeablePages = 0;
+                    while ((line = r.readLine()) != null) {
+                        if (line.startsWith("Mach Virtual Memory Statistics")) {
+                            int idx = line.indexOf("page size of ");
+                            if (idx != -1) {
+                                String sub = line.substring(idx + 13).trim();
+                                int endIdx = sub.indexOf(' ');
+                                if (endIdx != -1) pageSize = Long.parseLong(sub.substring(0, endIdx));
+                            }
+                        } else if (line.startsWith("Pages free:")) {
+                            freePages = parseVmStatPageCount(line);
+                        } else if (line.startsWith("Pages inactive:")) {
+                            inactivePages = parseVmStatPageCount(line);
+                        } else if (line.startsWith("Pages speculative:")) {
+                            speculativePages = parseVmStatPageCount(line);
+                        } else if (line.startsWith("Pages purgeable:")) {
+                            purgeablePages = parseVmStatPageCount(line);
+                        }
+                    }
+                    long totalAvail = (freePages + inactivePages + speculativePages + purgeablePages) * pageSize;
+                    if (totalAvail > 0) {
+                        return totalAvail;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall through
+        }
+
+        // 3. Fallback to OperatingSystemMXBean
         try {
             java.lang.management.OperatingSystemMXBean os = ManagementFactory.getOperatingSystemMXBean();
             if (os instanceof com.sun.management.OperatingSystemMXBean sun) {
@@ -96,6 +158,17 @@ public final class MemoryAdvisor {
             // fall through
         }
         return Long.MAX_VALUE;
+    }
+
+    private static long parseVmStatPageCount(String line) {
+        String[] parts = line.split(":");
+        if (parts.length == 2) {
+            String v = parts[1].trim().replace(".", "");
+            try {
+                return Long.parseLong(v);
+            } catch (NumberFormatException ignored) {}
+        }
+        return 0L;
     }
 
     /**

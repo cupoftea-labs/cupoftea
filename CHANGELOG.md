@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.2] - 2026-11-07
+
+### Performance
+
+- Accurate system available memory detection in `MemoryAdvisor`: introspects `MemAvailable` on Linux and active reclaimable/inactive/speculative page pools via `vm_stat` on macOS to prevent premature low-memory throttling on files up to available RAM ([#249](https://github.com/cupoftea-labs/cupoftea/issues/249)).
+- Optimized `CsvLazySource` and `CsvMmapPartitionReader` dynamic work-stealing segment boundaries and line breaking ([#249](https://github.com/cupoftea-labs/cupoftea/issues/249)):
+  - Increased `DEFAULT_SEGMENT_SIZE` from 4 MB to 32 MB to drastically reduce kernel VMA allocations and `channel.map` invocations on multi-gigabyte files.
+  - Eliminated per-segment synchronous `ByteBuffer.allocate(8192)` allocations in `findNextLineBreak` in favor of thread-local direct buffers scanned via SIMD/SWAR `FastByteParser.indexOfByte`.
+
 ## [0.27.1] - 2026-11-06
 
 ### Added
