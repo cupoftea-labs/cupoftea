@@ -21,8 +21,33 @@ import argparse
 import json
 import platform
 import re
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def get_pom_version() -> str:
+    for candidate in [Path("pom.xml"), Path("../pom.xml")]:
+        if candidate.exists():
+            try:
+                root = ET.parse(candidate).getroot()
+                ns = {"m": "http://maven.apache.org/POM/4.0.0"}
+                v = root.find("m:version", ns)
+                if v is not None and v.text:
+                    return v.text.strip()
+            except Exception:
+                pass
+    return "0.24+"
+
+
+def format_1brc_latency(ms: float | None) -> str:
+    if ms is None:
+        return "N/A"
+    if ms >= 1000.0:
+        s_val = ms / 1000.0
+        return f"**{s_val:.2f} s ({ms:,.0f} ms)**".replace(",", ".")
+    else:
+        return f"**{ms:,.0f} ms**".replace(",", ".")
 
 
 def parse_perf_log(perf_path: Path, kperf_path: Path | None = None) -> dict:
@@ -309,18 +334,105 @@ def generate_markdown(
                 f"`Native (Rust)` | `N/A` | `{cache_str}` | `{perf_info['branch_miss']}` | `1.00x (Ref)` |"
             )
 
-    lines.extend([
+    # 2. Standard 1BRC Historical Baseline & Current Version
+    current_version = get_pom_version()
+    header_current_col = f"**CupOfTea `{current_version}` *(Current)***"
+
+    # Pre-populate defaults from baseline
+    brc_scales = [
+        {
+            "label": "**1M linhas** (`~15 MB`)",
+            "rows": 1_000_000,
+            "tablesaw": "1.584 ms",
+            "dflib": "485 ms",
+            "pandas": "200 ms",
+            "polars_eager": "32 ms",
+            "polars_lazy": "36 ms",
+            "cot_legacy": "775 ms",
+            "cot_208": "80 ms",
+            "cot_current": "**~75 ms**",
+        },
+        {
+            "label": "**10M linhas** (`~147 MB`)",
+            "rows": 10_000_000,
+            "tablesaw": "9.131 ms",
+            "dflib": "3.444 ms",
+            "pandas": "1.258 ms",
+            "polars_eager": "332 ms",
+            "polars_lazy": "255 ms",
+            "cot_legacy": "4.166 ms",
+            "cot_208": "652 ms",
+            "cot_current": "**624 ms (0,62 s)**",
+        },
+        {
+            "label": "**100M linhas** (`~1,47 GB`)",
+            "rows": 100_000_000,
+            "tablesaw": "113,05 s *(OOM)*",
+            "dflib": "OOM / DNF",
+            "pandas": "22,40 s",
+            "polars_eager": "7,35 s",
+            "polars_lazy": "2,65 s",
+            "cot_legacy": "15,34 s",
+            "cot_208": "2,11 s *(méd: 2,25 s)*",
+            "cot_current": "**2,18 s (2.181 ms)** 🏆",
+        },
+        {
+            "label": "**1B linhas** (`~14,71 GB`)",
+            "rows": 1_000_000_000,
+            "tablesaw": "OOM / Crash",
+            "dflib": "OOM / Crash",
+            "pandas": "OOM / DNF",
+            "polars_eager": "OOM / DNF",
+            "polars_lazy": "**19,42 s**",
+            "cot_legacy": "OOM / DNF",
+            "cot_208": "31,55 s *(méd: 32,09 s)*",
+            "cot_current": "**31,12 s (31.124 ms)**",
+        },
+    ]
+
+    # Map dynamically executed JMH results for 1BRC
+    jmh_brc_map = {}
+    for entry in jmh_entries:
+        bname = entry.get("benchmark", "")
+        if "OneBrc" in bname or "oneBrc" in bname:
+            r = entry.get("rows")
+            if r not in jmh_brc_map or "Scale1" in bname:
+                jmh_brc_map[r] = entry
+
+    brc_table_lines = [
         "",
         "---",
         "",
         "## 2. Standard 1BRC (One Billion Row Challenge) Historical Baseline",
         "",
-        "| Escala do Dataset | Tablesaw `0.43.1` | DFLib `1.3.0` | Pandas `2.2` | Polars (Eager `read_csv`) | Polars (Lazy `scan_csv`) | CupOfTea `0.15.1` *(Legacy)* | CupOfTea `0.20.8` *(Interleaved #237)* | **CupOfTea `0.20.9+` *(Pure Int + Fast Cap)*** |",
+        f"| Escala do Dataset | Tablesaw `0.43.1` | DFLib `1.3.0` | Pandas `2.2` | Polars (Eager `read_csv`) | Polars (Lazy `scan_csv`) | CupOfTea `0.15.1` *(Legacy)* | CupOfTea `0.20.8` *(Interleaved #237)* | {header_current_col} |",
         "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |",
-        "| **1M linhas** (`~15 MB`) | 1.584 ms | 485 ms | 200 ms | 32 ms | 36 ms | 775 ms | 80 ms | **~75 ms** |",
-        "| **10M linhas** (`~147 MB`) | 9.131 ms | 3.444 ms | 1.258 ms | 332 ms | 255 ms | 4.166 ms | 652 ms | **624 ms (0,62 s)** |",
-        "| **100M linhas** (`~1,47 GB`) | 113,05 s *(OOM)* | OOM / DNF | 22,40 s | 7,35 s | 2,65 s | 15,34 s | 2,11 s *(méd: 2,25 s)* | **2,18 s (2.181 ms)** 🏆 |",
-        "| **1B linhas** (`~14,71 GB`) | OOM / Crash | OOM / Crash | OOM / DNF | OOM / DNF | **19,42 s** | OOM / DNF | 31,55 s *(méd: 32,09 s)* | **31,12 s (31.124 ms)** |",
+    ]
+
+    for item in brc_scales:
+        r = item["rows"]
+        cot_val = item["cot_current"]
+        if r in jmh_brc_map:
+            measured_score = jmh_brc_map[r].get("meanMs")
+            cot_val = format_1brc_latency(measured_score)
+
+        pl_lazy_val = item["polars_lazy"]
+        pl_key = ("OneBrcStandardBenchmark.oneBrcLazyStreamingScale1Standard", r)
+        if pl_key in polars_map:
+            pl_entry = polars_map[pl_key]
+            pl_score = pl_entry.get("meanMs")
+            if pl_score is not None:
+                if pl_score >= 1000.0:
+                    pl_lazy_val = f"`{pl_score / 1000.0:.2f} s`"
+                else:
+                    pl_lazy_val = f"`{pl_score:,.0f} ms`".replace(",", ".")
+
+        brc_table_lines.append(
+            f"| {item['label']} | {item['tablesaw']} | {item['dflib']} | {item['pandas']} | {item['polars_eager']} | {pl_lazy_val} | {item['cot_legacy']} | {item['cot_208']} | {cot_val} |"
+        )
+
+    lines.extend(brc_table_lines)
+    lines.extend([
         "",
         "---",
         "",

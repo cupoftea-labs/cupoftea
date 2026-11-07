@@ -260,7 +260,7 @@ public class CsvLazySource implements LazySource {
             } else if (fileLength < ADAPTIVE_THRESHOLD_BYTES && procs > 1) {
                 segmentSize = (int) Math.max((long) MIN_SEGMENT_SIZE, dataLen / procs);
             } else {
-                segmentSize = DEFAULT_SEGMENT_SIZE;
+                segmentSize = MemoryAdvisor.adaptSegmentSize(dataLen, MemoryAdvisor.freePhysicalMemory(), DEFAULT_SEGMENT_SIZE);
             }
 
             int numPartitions = 1;

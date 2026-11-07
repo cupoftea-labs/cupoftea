@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.1] - 2026-11-06
+
+### Added
+
+- Adaptive memory auto-tuning for large CSV streaming scans: segment size shrinks when the dataset exceeds free physical memory, plus best-effort `madvise` (`MADV_WILLNEED`/`MADV_DONTNEED`) via the Foreign Function & Memory API with graceful fallback on unsupported platforms ([#297](https://github.com/cupoftea-labs/cupoftea/issues/297)).
+- Dynamically update the 1BRC Historical Baseline benchmark table in `generate_report.py` with measured values and current version.
+
 ## [0.27.0] - 2026-11-06
 
 ### Added
