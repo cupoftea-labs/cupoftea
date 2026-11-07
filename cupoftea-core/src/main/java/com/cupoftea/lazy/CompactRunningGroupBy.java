@@ -166,7 +166,7 @@ public class CompactRunningGroupBy {
             if (type == double.class || type == Double.class) {
                 return new CompactDoubleTable();
             }
-            return new CompactStringTable(64);
+            return new CompactStringTable();
         }
         return new MultiColumnTable(groupColumns.length);
     }
@@ -303,7 +303,11 @@ public class CompactRunningGroupBy {
      */
     static class CompactStringTable implements GroupKeyTable {
         private static final float LOAD_FACTOR = 0.70f;
+        private static final int DEFAULT_INITIAL_CAPACITY = 2048;
         private static final int SSO_MAX_LEN = 16;
+        private static final int SLOT_LONGS = 3;
+        private static final long EMPTY_SLOT_TAG = 0x8000_0000L;
+        private static final long FAST_HASH_PRIME = 0x9E3779B97F4A7C15L;
         private static final java.lang.invoke.VarHandle LONG_LE = java.lang.invoke.MethodHandles
                 .byteArrayViewVarHandle(long[].class, java.nio.ByteOrder.LITTLE_ENDIAN);
         private int capacity;
@@ -311,27 +315,35 @@ public class CompactRunningGroupBy {
         private int threshold;
         private int numGroups;
 
-        private int[] table;
-        private int[] hashes;
+        // Interleaved slot array: 3 longs (24 bytes) per slot:
+        // slots[base + 0]: prefix1
+        // slots[base + 1]: prefix2
+        // slots[base + 2]: (hash << 32) | (gid & 0xFFFFFFFFL), or EMPTY_SLOT_TAG if empty
+        private long[] slots;
         private int[] lengths;
-        private long[] prefix1;
-        private long[] prefix2;
         private String[] keys;
         private byte[][] keyBytes;
 
+        CompactStringTable() {
+            this(DEFAULT_INITIAL_CAPACITY);
+        }
+
         CompactStringTable(int initialCapacity) {
-            this.capacity = Math.max(16, Integer.highestOneBit(initialCapacity) << 1);
+            this.capacity = Math.max(16, Integer.highestOneBit(Math.max(16, initialCapacity)) << 1);
             this.mask = capacity - 1;
             this.threshold = (int) (capacity * LOAD_FACTOR);
             this.numGroups = 0;
-            this.table = new int[capacity];
-            Arrays.fill(this.table, -1);
-            this.hashes = new int[capacity];
+            this.slots = new long[capacity * SLOT_LONGS];
+            initSlots(this.slots, capacity);
             this.lengths = new int[capacity];
-            this.prefix1 = new long[capacity];
-            this.prefix2 = new long[capacity];
             this.keys = new String[Math.max(16, capacity / 4)];
             this.keyBytes = new byte[Math.max(16, capacity / 4)][];
+        }
+
+        private static void initSlots(long[] s, int cap) {
+            for (int i = 0; i < cap; i++) {
+                s[i * SLOT_LONGS + 2] = EMPTY_SLOT_TAG;
+            }
         }
 
         @Override
@@ -358,22 +370,47 @@ public class CompactRunningGroupBy {
         }
 
         /**
+         * Fast hash function for 1-8 byte keys using single 64-bit prime multiplication and shift.
+         */
+        private static int fastHash8(long p1, int len) {
+            long h = (p1 ^ (len * FAST_HASH_PRIME)) * FAST_HASH_PRIME;
+            return (int) (h ^ (h >>> 32));
+        }
+
+        /**
          * Short String Optimization (SSO): keys of up to {@link #SSO_MAX_LEN} bytes are compared
          * using the stored length and two packed 64-bit prefixes (register comparisons), falling
          * back to a full byte comparison only for longer keys.
+         * Metadata is interleaved in {@link #slots} so hash, gid, prefix1, and prefix2 reside in the
+         * same CPU cache line.
          */
         private int findOrInsertSlice(byte[] buf, int offset, int len, String knownKey) {
             final boolean shortKey = len <= SSO_MAX_LEN;
-            final long p1 = shortKey ? loadWord(buf, offset, len, 0) : 0L;
-            final long p2 = shortKey ? loadWord(buf, offset, len, 1) : 0L;
-            final int h = shortKey
-                    ? StringColumnVector.hashShortWords(p1, p2, len)
-                    : StringColumnVector.hashBytes(buf, offset, len);
+            final long p1;
+            final long p2;
+            final int h;
+            if (shortKey) {
+                p1 = loadWord(buf, offset, len, 0);
+                if (len <= 8) {
+                    p2 = 0L;
+                    h = fastHash8(p1, len);
+                } else {
+                    p2 = loadWord(buf, offset, len, 1);
+                    h = StringColumnVector.hashShortWords(p1, p2, len);
+                }
+            } else {
+                p1 = 0L;
+                p2 = 0L;
+                h = StringColumnVector.hashBytes(buf, offset, len);
+            }
+
             int pos = h & mask;
+            final long targetTag = ((long) h << 32);
             while (true) {
-                int gid = table[pos];
-                if (gid == -1) {
-                    gid = numGroups++;
+                int base = pos * SLOT_LONGS;
+                long meta = slots[base + 2];
+                if (meta == EMPTY_SLOT_TAG) {
+                    int gid = numGroups++;
                     if (gid >= keys.length) {
                         grow();
                     }
@@ -382,24 +419,23 @@ public class CompactRunningGroupBy {
                     keyBytes[gid] = kb;
                     keys[gid] = knownKey != null ? knownKey : new String(kb, StandardCharsets.UTF_8);
 
-                    table[pos] = gid;
-                    hashes[pos] = h;
+                    slots[base] = p1;
+                    slots[base + 1] = p2;
+                    slots[base + 2] = targetTag | (gid & 0xFFFFFFFFL);
                     lengths[pos] = len;
-                    if (shortKey) {
-                        prefix1[pos] = p1;
-                        prefix2[pos] = p2;
-                    }
+
                     if (numGroups >= threshold) {
                         resize();
                     }
                     return gid;
                 }
-                if (hashes[pos] == h && lengths[pos] == len) {
+                if (meta == (targetTag | (meta & 0xFFFFFFFFL)) && lengths[pos] == len) {
                     if (shortKey) {
-                        if (prefix1[pos] == p1 && prefix2[pos] == p2) {
-                            return gid;
+                        if (slots[base] == p1 && slots[base + 1] == p2) {
+                            return (int) meta;
                         }
                     } else {
+                        int gid = (int) meta;
                         byte[] kb = keyBytes[gid];
                         if (kb != null && Arrays.equals(buf, offset, offset + len, kb, 0, len)) {
                             return gid;
@@ -433,23 +469,28 @@ public class CompactRunningGroupBy {
 
         @Override
         public int findOrInsertNull() {
-            int h = 0;
             int pos = 0;
+            final long nullTag = 0L; // (0 << 32)
             while (true) {
-                int gid = table[pos];
-                if (gid == -1) {
-                    gid = numGroups++;
+                int base = pos * SLOT_LONGS;
+                long meta = slots[base + 2];
+                if (meta == EMPTY_SLOT_TAG) {
+                    int gid = numGroups++;
                     if (gid >= keys.length) grow();
                     keys[gid] = null;
                     keyBytes[gid] = null;
-                    table[pos] = gid;
-                    hashes[pos] = 0;
+                    slots[base] = 0L;
+                    slots[base + 1] = 0L;
+                    slots[base + 2] = nullTag | (gid & 0xFFFFFFFFL);
                     lengths[pos] = -1;
                     if (numGroups >= threshold) resize();
                     return gid;
                 }
-                if (hashes[pos] == 0 && keys[gid] == null) {
-                    return gid;
+                if (meta == (nullTag | (meta & 0xFFFFFFFFL)) && lengths[pos] == -1) {
+                    int gid = (int) meta;
+                    if (keys[gid] == null) {
+                        return gid;
+                    }
                 }
                 pos = (pos + 1) & mask;
             }
@@ -522,33 +563,28 @@ public class CompactRunningGroupBy {
         private void resize() {
             int newCap = capacity * 2;
             int newMask = newCap - 1;
-            int[] newTable = new int[newCap];
-            Arrays.fill(newTable, -1);
-            int[] newHashes = new int[newCap];
+            long[] newSlots = new long[newCap * SLOT_LONGS];
+            initSlots(newSlots, newCap);
             int[] newLengths = new int[newCap];
-            long[] newP1 = new long[newCap];
-            long[] newP2 = new long[newCap];
 
             for (int i = 0; i < capacity; i++) {
-                int gid = table[i];
-                if (gid != -1) {
-                    int h = hashes[i];
+                int oldBase = i * SLOT_LONGS;
+                long meta = slots[oldBase + 2];
+                if (meta != EMPTY_SLOT_TAG) {
+                    int h = (int) (meta >>> 32);
                     int pos = h & newMask;
-                    while (newTable[pos] != -1) {
+                    while (newSlots[pos * SLOT_LONGS + 2] != EMPTY_SLOT_TAG) {
                         pos = (pos + 1) & newMask;
                     }
-                    newTable[pos] = gid;
-                    newHashes[pos] = h;
+                    int newBase = pos * SLOT_LONGS;
+                    newSlots[newBase] = slots[oldBase];
+                    newSlots[newBase + 1] = slots[oldBase + 1];
+                    newSlots[newBase + 2] = meta;
                     newLengths[pos] = lengths[i];
-                    newP1[pos] = prefix1[i];
-                    newP2[pos] = prefix2[i];
                 }
             }
-            this.table = newTable;
-            this.hashes = newHashes;
+            this.slots = newSlots;
             this.lengths = newLengths;
-            this.prefix1 = newP1;
-            this.prefix2 = newP2;
             this.capacity = newCap;
             this.mask = newMask;
             this.threshold = (int) (newCap * LOAD_FACTOR);
