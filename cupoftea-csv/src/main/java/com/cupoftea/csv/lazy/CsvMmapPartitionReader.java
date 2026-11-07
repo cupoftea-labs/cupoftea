@@ -164,6 +164,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
 
             long len = end - start;
             MappedByteBuffer mapped = channel.map(FileChannel.MapMode.READ_ONLY, start, len);
+            MemoryAdvisor.willNeed(mapped);
 
             FastCsvReader.ChunkResult res = FastCsvReader.executeChunk(
                     null, mapped, 0, (int) len,
@@ -174,6 +175,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
                     charset, config, useSimd
             );
 
+            MemoryAdvisor.dontNeed(mapped);
             return FastCsvReader.assembleChunk(colNames, colTypes, colTypeIds, res);
         }
     }
@@ -228,6 +230,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
 
             long len = end - start;
             MappedByteBuffer mapped = channel.map(FileChannel.MapMode.READ_ONLY, start, len);
+            MemoryAdvisor.willNeed(mapped);
 
             FastCsvReader.executeChunkDirect(
                     null, mapped, 0, (int) len,
@@ -237,6 +240,7 @@ public class CsvMmapPartitionReader implements PartitionReader {
                     colNames, colTypes, colTypeIds,
                     charset, config, useSimd, aggregator
             );
+            MemoryAdvisor.dontNeed(mapped);
         }
     }
 
