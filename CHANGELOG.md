@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.4] - 2026-11-07
+
+### Performance
+
+- Fused single-table key and aggregation hash table embedding group metrics directly in hash slots ([#238](https://github.com/cupoftea-labs/cupoftea/issues/238)):
+  - Implemented `FusedGroupAggTable` using a contiguous 64-byte slot Array-of-Structs (AoS) layout (`SLOT_LONGS = 8`), placing key SSO prefixes (`prefix1`, `prefix2`), packed metadata (`hash << 32 | gid`), length, and running numeric aggregates (`min`, `max`, `sum`, `count`) inside a single CPU L1 cache line.
+  - Replaced the two-stage lookup pattern in `StreamingDirectAggregator` for single string key analytical workloads (e.g. 1BRC) by accumulating directly into slot statistics in `accumulate1Brc` and `accumulate1BrcScaled`.
+  - Added seamless hierarchical reduction and table synchronization in `StreamingDirectAggregator.merge` and `StreamingDirectAggregator.finish`, eliminating secondary accumulator dereferencing and intermediate cache misses.
+
 ## [0.27.3] - 2026-11-07
 
 ### Performance

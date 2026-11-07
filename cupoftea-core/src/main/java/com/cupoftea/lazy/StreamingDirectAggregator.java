@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.cupoftea.CupOfTea;
 import com.cupoftea.table.Aggregate;
 import com.cupoftea.table.Aggregation;
 import com.cupoftea.table.Column;
@@ -26,6 +27,7 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
 
     private boolean isSingleStringKey;
     private CompactStringTable singleStringTable;
+    private FusedGroupAggTable fusedGroupAggTable;
 
     private boolean isSingleIntKey;
     private CompactIntTable singleIntTable;
@@ -48,12 +50,60 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     private InterleavedNumericAccumulator[] colInterleavedAccs; // per column root interleaved accumulator if applicable
 
     public StreamingDirectAggregator(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders) {
-        this(groupColumns, aggregates, sourceHeaders, buildAccumulators(aggregates, sourceHeaders));
+        this(groupColumns, aggregates, sourceHeaders, buildAccumulators(aggregates, sourceHeaders),
+                resolveCustomKeyTable(groupColumns, aggregates, sourceHeaders));
+    }
+
+    private static GroupKeyTable resolveCustomKeyTable(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders) {
+        if (groupColumns != null && groupColumns.length == 1 && aggregates != null && aggregates.length > 0) {
+            String col = groupColumns[0];
+            Class<?> type = null;
+            if (sourceHeaders != null) {
+                for (Column c : sourceHeaders) {
+                    if (col.equals(c.columnName())) {
+                        type = c.columnType();
+                        break;
+                    }
+                }
+            }
+            if (type == null || type == String.class) {
+                // Check if all aggregates are interleaved eligible on a single numeric column
+                String targetCol = aggregates[0].getColumn();
+                boolean allInterleaved = true;
+                for (Aggregate agg : aggregates) {
+                    Aggregation t = agg.getAggregationType();
+                    if (t == null) {
+                        String lower = agg.getOutputColumnName().toLowerCase();
+                        if (lower.endsWith("sum")) t = Aggregation.SUM;
+                        else if (lower.endsWith("mean") || lower.endsWith("avg") || lower.endsWith("average")) t = Aggregation.MEAN;
+                        else if (lower.endsWith("min") || lower.endsWith("minimum")) t = Aggregation.MIN;
+                        else if (lower.endsWith("max") || lower.endsWith("maximum")) t = Aggregation.MAX;
+                        else if (lower.endsWith("count")) t = Aggregation.COUNT;
+                    }
+                    if (t != Aggregation.MIN && t != Aggregation.MINIMUM
+                            && t != Aggregation.MAX && t != Aggregation.MAXIMUM
+                            && t != Aggregation.SUM
+                            && t != Aggregation.MEAN && t != Aggregation.AVG && t != Aggregation.AVERAGE
+                            && t != Aggregation.COUNT) {
+                        allInterleaved = false;
+                        break;
+                    }
+                    if (agg.getColumn() != null && targetCol != null && !agg.getColumn().equals(targetCol)) {
+                        allInterleaved = false;
+                        break;
+                    }
+                }
+                if (allInterleaved) {
+                    return new FusedGroupAggTable();
+                }
+            }
+        }
+        return null;
     }
 
     private StreamingDirectAggregator(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders,
-                                      RunningAccumulator[] builtAccumulators) {
-        super(groupColumns, aggregates, sourceHeaders, builtAccumulators);
+                                      RunningAccumulator[] builtAccumulators, GroupKeyTable customKeyTable) {
+        super(groupColumns, aggregates, sourceHeaders, builtAccumulators, customKeyTable);
         initFastTables();
         initInterleavedOptimization();
         if (sourceHeaders != null && !sourceHeaders.isEmpty()) {
@@ -165,6 +215,9 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
             if (keyTable instanceof CompactStringTable cst) {
                 isSingleStringKey = true;
                 singleStringTable = cst;
+            } else if (keyTable instanceof FusedGroupAggTable fat) {
+                isSingleStringKey = true;
+                fusedGroupAggTable = fat;
             } else if (keyTable instanceof CompactIntTable cit) {
                 isSingleIntKey = true;
                 singleIntTable = cit;
@@ -352,6 +405,11 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
             ensureAccumulatorCapacity(singleStringTable.capacityLimit());
             return gid;
         }
+        if (fusedGroupAggTable != null) {
+            int gid = fusedGroupAggTable.findOrInsertBytes(buf, offset, len);
+            ensureAccumulatorCapacity(fusedGroupAggTable.capacityLimit());
+            return gid;
+        }
         String s = new String(buf, offset, len, StandardCharsets.UTF_8);
         return findOrInsertSingleString(s);
     }
@@ -360,6 +418,11 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         if (singleStringTable != null) {
             int gid = singleStringTable.findOrInsertString(s);
             ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+            return gid;
+        }
+        if (fusedGroupAggTable != null) {
+            int gid = fusedGroupAggTable.findOrInsertString(s);
+            ensureAccumulatorCapacity(fusedGroupAggTable.capacityLimit());
             return gid;
         }
         return 0;
@@ -547,8 +610,14 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
      * Bypasses all intermediate buffers and updates running accumulators directly.
      */
     public void accumulate1Brc(byte[] buf, int keyStart, int keyLen, double val) {
-        int gid = singleStringTable.findOrInsertBytes(buf, keyStart, keyLen);
-        ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+        if (fusedGroupAggTable != null) {
+            fusedGroupAggTable.accumulate(buf, keyStart, keyLen, val);
+            return;
+        }
+        int gid = singleStringTable != null ? singleStringTable.findOrInsertBytes(buf, keyStart, keyLen) : 0;
+        if (singleStringTable != null) {
+            ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+        }
         if (isInterleaved1Brc) {
             rootInterleavedAcc.updateAll(gid, val);
             return;
@@ -563,8 +632,14 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
      * Passes scaled long values directly into accumulators to avoid branch mispredictions and float division.
      */
     public void accumulate1BrcScaled(byte[] buf, int keyStart, int keyLen, long scaledVal, int scale) {
-        int gid = singleStringTable.findOrInsertBytes(buf, keyStart, keyLen);
-        ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+        if (fusedGroupAggTable != null) {
+            fusedGroupAggTable.accumulateScaled(buf, keyStart, keyLen, scaledVal, scale);
+            return;
+        }
+        int gid = singleStringTable != null ? singleStringTable.findOrInsertBytes(buf, keyStart, keyLen) : 0;
+        if (singleStringTable != null) {
+            ensureAccumulatorCapacity(singleStringTable.capacityLimit());
+        }
         if (isInterleaved1Brc) {
             rootInterleavedAcc.updateAllScaled(gid, scaledVal, scale);
             return;
@@ -572,6 +647,60 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         for (int a = 0; a < accumulators.length; a++) {
             accumulators[a].accumulateScaled(gid, scaledVal, scale);
         }
+    }
+
+    @Override
+    public CupOfTea finish() {
+        if (fusedGroupAggTable != null && rootInterleavedAcc != null) {
+            rootInterleavedAcc.ensureCapacity(fusedGroupAggTable.numGroups());
+            fusedGroupAggTable.populateStats(rootInterleavedAcc.getStatsArray(), rootInterleavedAcc.getHasValuesArray());
+        }
+        return super.finish();
+    }
+
+    @Override
+    public void merge(CompactRunningGroupBy other) {
+        if (other == null || other.numGroups() == 0) {
+            return;
+        }
+        if (this.fusedGroupAggTable != null && other instanceof StreamingDirectAggregator otherSda
+                && otherSda.fusedGroupAggTable != null) {
+            this.fusedGroupAggTable.merge(otherSda.fusedGroupAggTable);
+            ensureAccumulatorCapacity(this.fusedGroupAggTable.capacityLimit());
+            // If any rows were accumulated via standard accumulators, merge them as well
+            if (this.rootInterleavedAcc != null && otherSda.rootInterleavedAcc != null) {
+                boolean thisHv = this.hasAnyInterleavedValues();
+                boolean otherHv = otherSda.hasAnyInterleavedValues();
+                if (thisHv || otherHv) {
+                    super.merge(other);
+                }
+            }
+            return;
+        }
+        // Fallback or cross-type merge: synchronize source metrics if needed
+        if (other instanceof StreamingDirectAggregator otherSda
+                && otherSda.fusedGroupAggTable != null && otherSda.rootInterleavedAcc != null) {
+            otherSda.rootInterleavedAcc.ensureCapacity(otherSda.fusedGroupAggTable.numGroups());
+            otherSda.fusedGroupAggTable.populateStats(otherSda.rootInterleavedAcc.getStatsArray(),
+                    otherSda.rootInterleavedAcc.getHasValuesArray());
+        }
+        if (this.fusedGroupAggTable != null && this.rootInterleavedAcc != null) {
+            this.rootInterleavedAcc.ensureCapacity(this.fusedGroupAggTable.numGroups());
+            this.fusedGroupAggTable.populateStats(this.rootInterleavedAcc.getStatsArray(),
+                    this.rootInterleavedAcc.getHasValuesArray());
+        }
+        super.merge(other);
+    }
+
+    private boolean hasAnyInterleavedValues() {
+        if (rootInterleavedAcc == null) return false;
+        boolean[] hv = rootInterleavedAcc.getHasValuesArray();
+        if (hv == null) return false;
+        int n = numGroups();
+        for (int i = 0; i < n && i < hv.length; i++) {
+            if (hv[i]) return true;
+        }
+        return false;
     }
 
     public String[] getGroupColumns() {
