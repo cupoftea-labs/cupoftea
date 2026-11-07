@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.3] - 2026-11-07
+
+### Performance
+
+- Optimized `CompactRunningGroupBy.CompactStringTable` memory layout, initial capacity, and short-key hashing ([#250](https://github.com/cupoftea-labs/cupoftea/issues/250)):
+  - Interleaved slot metadata into a contiguous `long[]` array (`prefix1`, `prefix2`, and packed `(hash << 32) | gid`) to keep probe entries within the same 64-byte CPU cache line and eliminate parallel array traversals.
+  - Increased default initial capacity from 64 to 2048 (4096 power-of-two table capacity) to eliminate table reallocations and rehashing overhead on standard 1BRC and analytical workloads.
+  - Fast-path 1–8 byte keys: bypassed secondary word loading (`loadWord(..., 1)`) and applied a lightweight multiplicative hash with 64-bit prime mixing.
+
 ## [0.27.2] - 2026-11-07
 
 ### Performance

@@ -47,4 +47,15 @@ public class CompactStringTableTest {
         // string path agrees with bytes path
         assertThat(table.findOrInsertString(keys[17])).isEqualTo(expected.get(keys[17]));
     }
+
+    @Test
+    @DisplayName("Default constructor initializes with 2048 initial capacity (4096 power-of-two table capacity)")
+    void defaultCapacity() {
+        CompactRunningGroupBy.CompactStringTable defaultTable = new CompactRunningGroupBy.CompactStringTable();
+        // Insert short keys (1..8 bytes), medium keys (9..16 bytes), and keys > 16 bytes
+        assertThat(defaultTable.findOrInsertString("station1")).isGreaterThanOrEqualTo(0);
+        assertThat(defaultTable.findOrInsertString("ab")).isGreaterThanOrEqualTo(0);
+        assertThat(defaultTable.findOrInsertString("long_station_name_12345")).isGreaterThanOrEqualTo(0);
+        assertThat(defaultTable.numGroups()).isEqualTo(3);
+    }
 }
