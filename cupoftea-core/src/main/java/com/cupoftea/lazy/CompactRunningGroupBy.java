@@ -38,16 +38,21 @@ public class CompactRunningGroupBy {
     protected final RunningAccumulator[] accumulators;
 
     public CompactRunningGroupBy(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders) {
-        this(groupColumns, aggregates, sourceHeaders, null);
+        this(groupColumns, aggregates, sourceHeaders, null, null);
     }
 
     protected CompactRunningGroupBy(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders,
                                     RunningAccumulator[] customAccumulators) {
+        this(groupColumns, aggregates, sourceHeaders, customAccumulators, null);
+    }
+
+    protected CompactRunningGroupBy(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders,
+                                    RunningAccumulator[] customAccumulators, GroupKeyTable customKeyTable) {
         this.groupColumns = groupColumns != null ? groupColumns : new String[0];
         this.aggregates = aggregates != null ? aggregates : new Aggregate[0];
         this.sourceHeaders = sourceHeaders != null ? sourceHeaders : new ArrayList<>();
 
-        this.keyTable = createGroupTable(this.groupColumns, this.sourceHeaders);
+        this.keyTable = customKeyTable != null ? customKeyTable : createGroupTable(this.groupColumns, this.sourceHeaders);
         if (customAccumulators != null) {
             this.accumulators = customAccumulators;
         } else {
@@ -514,10 +519,17 @@ public class CompactRunningGroupBy {
             return findOrInsertSlice(kb, 0, kb.length, s);
         }
 
+        public String getStringKey(int gid) {
+            return (gid >= 0 && gid < numGroups) ? keys[gid] : null;
+        }
+
         @Override
         public int insertFromOther(GroupKeyTable other, int otherGid) {
             if (other instanceof CompactStringTable ost) {
                 return findOrInsertString(ost.keys[otherGid]);
+            }
+            if (other instanceof FusedGroupAggTable fot) {
+                return findOrInsertString(fot.getKey(otherGid));
             }
             return 0;
         }
