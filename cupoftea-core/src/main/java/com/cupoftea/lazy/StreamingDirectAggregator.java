@@ -28,6 +28,18 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     private boolean isSingleStringKey;
     private CompactStringTable singleStringTable;
     private FusedGroupAggTable fusedGroupAggTable;
+    private RadixPartitionedAggTable radixPartitionedAggTable;
+
+    // L1 direct-mapped micro-cache (32 slots)
+    // Stores recent (p1, p2, len, gid, hash) for instant L1-hit aggregation
+    private static final int MICRO_CACHE_SLOTS = 32;
+    private static final int MICRO_CACHE_MASK = MICRO_CACHE_SLOTS - 1;
+    private final long[] mcP1 = new long[MICRO_CACHE_SLOTS];
+    private final long[] mcP2 = new long[MICRO_CACHE_SLOTS];
+    private final int[] mcLen = new int[MICRO_CACHE_SLOTS];
+    private final int[] mcGid = new int[MICRO_CACHE_SLOTS];
+    private final int[] mcHash = new int[MICRO_CACHE_SLOTS];
+    private final boolean[] mcValid = new boolean[MICRO_CACHE_SLOTS];
 
     private boolean isSingleIntKey;
     private CompactIntTable singleIntTable;
@@ -45,7 +57,7 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     private boolean bound = false;
 
     // Cache-line interleaved numeric accumulators
-    private boolean isInterleaved1Brc;
+    private boolean isSingleStringNumericStreaming;
     private InterleavedNumericAccumulator rootInterleavedAcc;
     private InterleavedNumericAccumulator[] colInterleavedAccs; // per column root interleaved accumulator if applicable
 
@@ -55,49 +67,6 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     }
 
     private static GroupKeyTable resolveCustomKeyTable(String[] groupColumns, Aggregate[] aggregates, List<Column> sourceHeaders) {
-        if (groupColumns != null && groupColumns.length == 1 && aggregates != null && aggregates.length > 0) {
-            String col = groupColumns[0];
-            Class<?> type = null;
-            if (sourceHeaders != null) {
-                for (Column c : sourceHeaders) {
-                    if (col.equals(c.columnName())) {
-                        type = c.columnType();
-                        break;
-                    }
-                }
-            }
-            if (type == null || type == String.class) {
-                // Check if all aggregates are interleaved eligible on a single numeric column
-                String targetCol = aggregates[0].getColumn();
-                boolean allInterleaved = true;
-                for (Aggregate agg : aggregates) {
-                    Aggregation t = agg.getAggregationType();
-                    if (t == null) {
-                        String lower = agg.getOutputColumnName().toLowerCase();
-                        if (lower.endsWith("sum")) t = Aggregation.SUM;
-                        else if (lower.endsWith("mean") || lower.endsWith("avg") || lower.endsWith("average")) t = Aggregation.MEAN;
-                        else if (lower.endsWith("min") || lower.endsWith("minimum")) t = Aggregation.MIN;
-                        else if (lower.endsWith("max") || lower.endsWith("maximum")) t = Aggregation.MAX;
-                        else if (lower.endsWith("count")) t = Aggregation.COUNT;
-                    }
-                    if (t != Aggregation.MIN && t != Aggregation.MINIMUM
-                            && t != Aggregation.MAX && t != Aggregation.MAXIMUM
-                            && t != Aggregation.SUM
-                            && t != Aggregation.MEAN && t != Aggregation.AVG && t != Aggregation.AVERAGE
-                            && t != Aggregation.COUNT) {
-                        allInterleaved = false;
-                        break;
-                    }
-                    if (agg.getColumn() != null && targetCol != null && !agg.getColumn().equals(targetCol)) {
-                        allInterleaved = false;
-                        break;
-                    }
-                }
-                if (allInterleaved) {
-                    return new FusedGroupAggTable();
-                }
-            }
-        }
         return null;
     }
 
@@ -202,7 +171,7 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
                 }
             }
             if (allSameRoot) {
-                this.isInterleaved1Brc = true;
+                this.isSingleStringNumericStreaming = true;
                 this.rootInterleavedAcc = ina;
             }
         }
@@ -218,6 +187,9 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
             } else if (keyTable instanceof FusedGroupAggTable fat) {
                 isSingleStringKey = true;
                 fusedGroupAggTable = fat;
+            } else if (keyTable instanceof RadixPartitionedAggTable rpt) {
+                isSingleStringKey = true;
+                radixPartitionedAggTable = rpt;
             } else if (keyTable instanceof CompactIntTable cit) {
                 isSingleIntKey = true;
                 singleIntTable = cit;
@@ -384,6 +356,10 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         return colIsNumericAgg != null && colIdx >= 0 && colIdx < colIsNumericAgg.length && colIsNumericAgg[colIdx];
     }
 
+    public boolean isSingleStringNumericStreamingEligible() {
+        return isSingleStringKey && isSingleStringNumericStreaming && rootInterleavedAcc != null;
+    }
+
     public boolean hasCountAll() {
         return countAllAggIndices != null;
     }
@@ -410,6 +386,11 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
             ensureAccumulatorCapacity(fusedGroupAggTable.capacityLimit());
             return gid;
         }
+        if (radixPartitionedAggTable != null) {
+            int gid = radixPartitionedAggTable.findOrInsertBytes(buf, offset, len);
+            ensureAccumulatorCapacity(radixPartitionedAggTable.capacityLimit());
+            return gid;
+        }
         String s = new String(buf, offset, len, StandardCharsets.UTF_8);
         return findOrInsertSingleString(s);
     }
@@ -423,6 +404,11 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         if (fusedGroupAggTable != null) {
             int gid = fusedGroupAggTable.findOrInsertString(s);
             ensureAccumulatorCapacity(fusedGroupAggTable.capacityLimit());
+            return gid;
+        }
+        if (radixPartitionedAggTable != null) {
+            int gid = radixPartitionedAggTable.findOrInsertString(s);
+            ensureAccumulatorCapacity(radixPartitionedAggTable.capacityLimit());
             return gid;
         }
         return 0;
@@ -606,19 +592,72 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     }
 
     /**
-     * Ultra-fast path for 1BRC style queries (single string key + double aggregations).
-     * Bypasses all intermediate buffers and updates running accumulators directly.
+     * Ultra-fast path for single string key + numeric aggregations streaming directly from raw byte buffers.
+     * Bypasses intermediate buffers and updates running accumulators directly in CPU registers.
      */
-    public void accumulate1Brc(byte[] buf, int keyStart, int keyLen, double val) {
-        if (fusedGroupAggTable != null) {
-            fusedGroupAggTable.accumulate(buf, keyStart, keyLen, val);
+    public void accumulateSingleStringNumeric(byte[] buf, int keyStart, int keyLen, double val) {
+        if (fusedGroupAggTable != null || radixPartitionedAggTable != null) {
+            final boolean shortKey = keyLen <= 16;
+            final long p1;
+            final long p2;
+            final int h;
+            if (shortKey) {
+                p1 = FusedGroupAggTable.loadWord(buf, keyStart, keyLen, 0);
+                if (keyLen <= 8) {
+                    p2 = 0L;
+                    long mix = (p1 ^ (keyLen * 0x9E3779B97F4A7C15L)) * 0x9E3779B97F4A7C15L;
+                    h = (int) (mix ^ (mix >>> 32));
+                } else {
+                    p2 = FusedGroupAggTable.loadWord(buf, keyStart, keyLen, 1);
+                    h = com.cupoftea.table.vector.StringColumnVector.hashShortWords(p1, p2, keyLen);
+                }
+            } else {
+                p1 = 0L;
+                p2 = 0L;
+                h = com.cupoftea.table.vector.StringColumnVector.hashBytes(buf, keyStart, keyLen);
+            }
+
+            int mcIdx = h & MICRO_CACHE_MASK;
+            if (mcValid[mcIdx] && mcLen[mcIdx] == keyLen && mcHash[mcIdx] == h) {
+                if (shortKey) {
+                    if (mcP1[mcIdx] == p1 && mcP2[mcIdx] == p2) {
+                        int gid = mcGid[mcIdx];
+                        if (fusedGroupAggTable != null) {
+                            fusedGroupAggTable.updateMetricsForGid(gid, val);
+                        } else {
+                            int p = (h >>> RadixPartitionedAggTable.RADIX_SHIFT) & RadixPartitionedAggTable.RADIX_MASK;
+                            radixPartitionedAggTable.getPartition(p).updateMetricsForGid(gid, val);
+                        }
+                        return;
+                    }
+                } else {
+                    // For long keys, fallback to table probe
+                }
+            }
+
+            final int gid;
+            if (fusedGroupAggTable != null) {
+                gid = fusedGroupAggTable.accumulateWithHash(buf, keyStart, keyLen, val, h);
+            } else {
+                int p = (h >>> RadixPartitionedAggTable.RADIX_SHIFT) & RadixPartitionedAggTable.RADIX_MASK;
+                gid = radixPartitionedAggTable.getPartition(p).accumulateWithHash(buf, keyStart, keyLen, val, h);
+            }
+
+            if (shortKey) {
+                mcP1[mcIdx] = p1;
+                mcP2[mcIdx] = p2;
+                mcLen[mcIdx] = keyLen;
+                mcGid[mcIdx] = gid;
+                mcHash[mcIdx] = h;
+                mcValid[mcIdx] = true;
+            }
             return;
         }
         int gid = singleStringTable != null ? singleStringTable.findOrInsertBytes(buf, keyStart, keyLen) : 0;
         if (singleStringTable != null) {
             ensureAccumulatorCapacity(singleStringTable.capacityLimit());
         }
-        if (isInterleaved1Brc) {
+        if (isSingleStringNumericStreaming) {
             rootInterleavedAcc.updateAll(gid, val);
             return;
         }
@@ -628,19 +667,79 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
     }
 
     /**
-     * Ultra-fast path for 1BRC style queries with fixed-point decimal parsing.
+     * Backward compatible alias for {@link #accumulateSingleStringNumeric(byte[], int, int, double)}.
+     */
+    public void accumulate1Brc(byte[] buf, int keyStart, int keyLen, double val) {
+        accumulateSingleStringNumeric(buf, keyStart, keyLen, val);
+    }
+
+    /**
+     * Ultra-fast path for single string key + numeric aggregations with fixed-point decimal parsing.
      * Passes scaled long values directly into accumulators to avoid branch mispredictions and float division.
      */
-    public void accumulate1BrcScaled(byte[] buf, int keyStart, int keyLen, long scaledVal, int scale) {
-        if (fusedGroupAggTable != null) {
-            fusedGroupAggTable.accumulateScaled(buf, keyStart, keyLen, scaledVal, scale);
+    public void accumulateSingleStringNumericScaled(byte[] buf, int keyStart, int keyLen, long scaledVal, int scale) {
+        if (fusedGroupAggTable != null || radixPartitionedAggTable != null) {
+            final boolean shortKey = keyLen <= 16;
+            final long p1;
+            final long p2;
+            final int h;
+            if (shortKey) {
+                p1 = FusedGroupAggTable.loadWord(buf, keyStart, keyLen, 0);
+                if (keyLen <= 8) {
+                    p2 = 0L;
+                    long mix = (p1 ^ (keyLen * 0x9E3779B97F4A7C15L)) * 0x9E3779B97F4A7C15L;
+                    h = (int) (mix ^ (mix >>> 32));
+                } else {
+                    p2 = FusedGroupAggTable.loadWord(buf, keyStart, keyLen, 1);
+                    h = com.cupoftea.table.vector.StringColumnVector.hashShortWords(p1, p2, keyLen);
+                }
+            } else {
+                p1 = 0L;
+                p2 = 0L;
+                h = com.cupoftea.table.vector.StringColumnVector.hashBytes(buf, keyStart, keyLen);
+            }
+
+            int mcIdx = h & MICRO_CACHE_MASK;
+            if (mcValid[mcIdx] && mcLen[mcIdx] == keyLen && mcHash[mcIdx] == h) {
+                if (shortKey) {
+                    if (mcP1[mcIdx] == p1 && mcP2[mcIdx] == p2) {
+                        int gid = mcGid[mcIdx];
+                        if (fusedGroupAggTable != null) {
+                            fusedGroupAggTable.updateMetricsScaledForGid(gid, scaledVal, scale);
+                        } else {
+                            int p = (h >>> RadixPartitionedAggTable.RADIX_SHIFT) & RadixPartitionedAggTable.RADIX_MASK;
+                            radixPartitionedAggTable.getPartition(p).updateMetricsScaledForGid(gid, scaledVal, scale);
+                        }
+                        return;
+                    }
+                } else {
+                    // For long keys, fallback to table probe
+                }
+            }
+
+            final int gid;
+            if (fusedGroupAggTable != null) {
+                gid = fusedGroupAggTable.accumulateScaledWithHash(buf, keyStart, keyLen, scaledVal, scale, h);
+            } else {
+                int p = (h >>> RadixPartitionedAggTable.RADIX_SHIFT) & RadixPartitionedAggTable.RADIX_MASK;
+                gid = radixPartitionedAggTable.getPartition(p).accumulateScaledWithHash(buf, keyStart, keyLen, scaledVal, scale, h);
+            }
+
+            if (shortKey) {
+                mcP1[mcIdx] = p1;
+                mcP2[mcIdx] = p2;
+                mcLen[mcIdx] = keyLen;
+                mcGid[mcIdx] = gid;
+                mcHash[mcIdx] = h;
+                mcValid[mcIdx] = true;
+            }
             return;
         }
         int gid = singleStringTable != null ? singleStringTable.findOrInsertBytes(buf, keyStart, keyLen) : 0;
         if (singleStringTable != null) {
             ensureAccumulatorCapacity(singleStringTable.capacityLimit());
         }
-        if (isInterleaved1Brc) {
+        if (isSingleStringNumericStreaming) {
             rootInterleavedAcc.updateAllScaled(gid, scaledVal, scale);
             return;
         }
@@ -649,9 +748,19 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         }
     }
 
+    /**
+     * Backward compatible alias for {@link #accumulateSingleStringNumericScaled(byte[], int, int, long, int)}.
+     */
+    public void accumulate1BrcScaled(byte[] buf, int keyStart, int keyLen, long scaledVal, int scale) {
+        accumulateSingleStringNumericScaled(buf, keyStart, keyLen, scaledVal, scale);
+    }
+
     @Override
     public CupOfTea finish() {
-        if (fusedGroupAggTable != null && rootInterleavedAcc != null) {
+        if (radixPartitionedAggTable != null && rootInterleavedAcc != null) {
+            rootInterleavedAcc.ensureCapacity(radixPartitionedAggTable.numGroups());
+            radixPartitionedAggTable.populateStats(rootInterleavedAcc.getStatsArray(), rootInterleavedAcc.getHasValuesArray());
+        } else if (fusedGroupAggTable != null && rootInterleavedAcc != null) {
             rootInterleavedAcc.ensureCapacity(fusedGroupAggTable.numGroups());
             fusedGroupAggTable.populateStats(rootInterleavedAcc.getStatsArray(), rootInterleavedAcc.getHasValuesArray());
         }
@@ -663,28 +772,49 @@ public class StreamingDirectAggregator extends CompactRunningGroupBy {
         if (other == null || other.numGroups() == 0) {
             return;
         }
-        if (this.fusedGroupAggTable != null && other instanceof StreamingDirectAggregator otherSda
-                && otherSda.fusedGroupAggTable != null) {
-            this.fusedGroupAggTable.merge(otherSda.fusedGroupAggTable);
-            ensureAccumulatorCapacity(this.fusedGroupAggTable.capacityLimit());
-            // If any rows were accumulated via standard accumulators, merge them as well
-            if (this.rootInterleavedAcc != null && otherSda.rootInterleavedAcc != null) {
-                boolean thisHv = this.hasAnyInterleavedValues();
-                boolean otherHv = otherSda.hasAnyInterleavedValues();
-                if (thisHv || otherHv) {
-                    super.merge(other);
-                }
+        if (this.radixPartitionedAggTable != null && other instanceof StreamingDirectAggregator otherSda) {
+            if (otherSda.radixPartitionedAggTable != null) {
+                this.radixPartitionedAggTable.merge(otherSda.radixPartitionedAggTable);
+                ensureAccumulatorCapacity(this.radixPartitionedAggTable.capacityLimit());
+                return;
+            } else if (otherSda.fusedGroupAggTable != null) {
+                this.radixPartitionedAggTable.merge(otherSda.fusedGroupAggTable);
+                ensureAccumulatorCapacity(this.radixPartitionedAggTable.capacityLimit());
+                return;
             }
-            return;
+        }
+        if (this.fusedGroupAggTable != null && other instanceof StreamingDirectAggregator otherSda) {
+            if (otherSda.fusedGroupAggTable != null) {
+                this.fusedGroupAggTable.merge(otherSda.fusedGroupAggTable);
+                ensureAccumulatorCapacity(this.fusedGroupAggTable.capacityLimit());
+                // If any rows were accumulated via standard accumulators, merge them as well
+                if (this.rootInterleavedAcc != null && otherSda.rootInterleavedAcc != null) {
+                    boolean thisHv = this.hasAnyInterleavedValues();
+                    boolean otherHv = otherSda.hasAnyInterleavedValues();
+                    if (thisHv || otherHv) {
+                        super.merge(other);
+                    }
+                }
+                return;
+            }
         }
         // Fallback or cross-type merge: synchronize source metrics if needed
-        if (other instanceof StreamingDirectAggregator otherSda
-                && otherSda.fusedGroupAggTable != null && otherSda.rootInterleavedAcc != null) {
-            otherSda.rootInterleavedAcc.ensureCapacity(otherSda.fusedGroupAggTable.numGroups());
-            otherSda.fusedGroupAggTable.populateStats(otherSda.rootInterleavedAcc.getStatsArray(),
-                    otherSda.rootInterleavedAcc.getHasValuesArray());
+        if (other instanceof StreamingDirectAggregator otherSda) {
+            if (otherSda.radixPartitionedAggTable != null && otherSda.rootInterleavedAcc != null) {
+                otherSda.rootInterleavedAcc.ensureCapacity(otherSda.radixPartitionedAggTable.numGroups());
+                otherSda.radixPartitionedAggTable.populateStats(otherSda.rootInterleavedAcc.getStatsArray(),
+                        otherSda.rootInterleavedAcc.getHasValuesArray());
+            } else if (otherSda.fusedGroupAggTable != null && otherSda.rootInterleavedAcc != null) {
+                otherSda.rootInterleavedAcc.ensureCapacity(otherSda.fusedGroupAggTable.numGroups());
+                otherSda.fusedGroupAggTable.populateStats(otherSda.rootInterleavedAcc.getStatsArray(),
+                        otherSda.rootInterleavedAcc.getHasValuesArray());
+            }
         }
-        if (this.fusedGroupAggTable != null && this.rootInterleavedAcc != null) {
+        if (this.radixPartitionedAggTable != null && this.rootInterleavedAcc != null) {
+            this.rootInterleavedAcc.ensureCapacity(this.radixPartitionedAggTable.numGroups());
+            this.radixPartitionedAggTable.populateStats(this.rootInterleavedAcc.getStatsArray(),
+                    this.rootInterleavedAcc.getHasValuesArray());
+        } else if (this.fusedGroupAggTable != null && this.rootInterleavedAcc != null) {
             this.rootInterleavedAcc.ensureCapacity(this.fusedGroupAggTable.numGroups());
             this.fusedGroupAggTable.populateStats(this.rootInterleavedAcc.getStatsArray(),
                     this.rootInterleavedAcc.getHasValuesArray());

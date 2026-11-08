@@ -1282,15 +1282,16 @@ public final class SimdCsvScanner {
         }
     }
 
-    static boolean is1BrcCandidate(int colCount, byte[] colTypeIds, byte quote, byte escape,
-                                   StreamingDirectAggregator aggregator) {
+    static boolean isDirectKeyValueStreamEligible(int colCount, byte[] colTypeIds, byte quote, byte escape,
+                                                  StreamingDirectAggregator aggregator) {
         return colCount == 2
                 && quote == ICSVParser.NULL_CHARACTER
                 && escape == ICSVParser.NULL_CHARACTER
                 && aggregator != null
                 && aggregator.isSingleStringKey()
                 && aggregator.getGroupColIndex(0) == 0
-                && (colTypeIds[1] == TYPE_DOUBLE || colTypeIds[1] == TYPE_FLOAT);
+                && (colTypeIds[1] == TYPE_DOUBLE || colTypeIds[1] == TYPE_FLOAT)
+                && aggregator.isSingleStringNumericStreamingEligible();
     }
 
     static void parseChunkSimdMappedDirect(
@@ -1300,8 +1301,8 @@ public final class SimdCsvScanner {
             Charset charset, CSVImporterConfiguration config,
             StreamingDirectAggregator aggregator) {
 
-        if (is1BrcCandidate(colNames.length, colTypeIds, quote, escape, aggregator)) {
-            parse1BrcSimdMappedDirect(mappedBuf, chunkStart, chunkEnd, delim, aggregator);
+        if (isDirectKeyValueStreamEligible(colNames.length, colTypeIds, quote, escape, aggregator)) {
+            parseDirectKeyValueStreamMapped(mappedBuf, chunkStart, chunkEnd, delim, aggregator);
             return;
         }
 
@@ -1315,7 +1316,7 @@ public final class SimdCsvScanner {
                 delim, quote, escape, colNames, colTypes, colTypeIds, charset, config, aggregator);
     }
 
-    static void parse1BrcSimdMappedDirect(
+    static void parseDirectKeyValueStreamMapped(
             MappedByteBuffer mappedBuf, int chunkStart, int chunkEnd,
             byte delim, StreamingDirectAggregator aggregator) {
 
@@ -1435,13 +1436,13 @@ public final class SimdCsvScanner {
                             int vLen = valEnd - valStart;
                             if (vLen >= 3 && vLen <= 6 && valStart + 8 <= buf.length && buf[valEnd - 2] == '.') {
                                 long scaled = FastByteParser.parseFixedPoint1(buf, valStart, valEnd);
-                                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 1);
+                                aggregator.accumulateSingleStringNumericScaled(buf, rowStart, delimPos - rowStart, scaled, 1);
                             } else if (vLen >= 4 && vLen <= 7 && valStart + 8 <= buf.length && buf[valEnd - 3] == '.') {
                                 long scaled = FastByteParser.parseFixedPoint2(buf, valStart, valEnd);
-                                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 2);
+                                aggregator.accumulateSingleStringNumericScaled(buf, rowStart, delimPos - rowStart, scaled, 2);
                             } else {
                                 double val = FastByteParser.parseDouble(buf, valStart, valEnd);
-                                aggregator.accumulate1Brc(buf, rowStart, delimPos - rowStart, val);
+                                aggregator.accumulateSingleStringNumeric(buf, rowStart, delimPos - rowStart, val);
                             }
                         }
                         rowStart = absoluteOffset + 1;
@@ -1458,13 +1459,13 @@ public final class SimdCsvScanner {
             int vLen = valEnd - valStart;
             if (vLen >= 3 && vLen <= 6 && valStart + 8 <= buf.length && buf[valEnd - 2] == '.') {
                 long scaled = FastByteParser.parseFixedPoint1(buf, valStart, valEnd);
-                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 1);
+                aggregator.accumulateSingleStringNumericScaled(buf, rowStart, delimPos - rowStart, scaled, 1);
             } else if (vLen >= 4 && vLen <= 7 && valStart + 8 <= buf.length && buf[valEnd - 3] == '.') {
                 long scaled = FastByteParser.parseFixedPoint2(buf, valStart, valEnd);
-                aggregator.accumulate1BrcScaled(buf, rowStart, delimPos - rowStart, scaled, 2);
+                aggregator.accumulateSingleStringNumericScaled(buf, rowStart, delimPos - rowStart, scaled, 2);
             } else {
                 double val = FastByteParser.parseDouble(buf, valStart, valEnd);
-                aggregator.accumulate1Brc(buf, rowStart, delimPos - rowStart, val);
+                aggregator.accumulateSingleStringNumeric(buf, rowStart, delimPos - rowStart, val);
             }
         }
     }

@@ -67,6 +67,7 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
 
     // Contiguous table slots: capacity * SLOT_LONGS
     private long[] slots;
+    private int[] gidToSlotBase;
     private String[] keys;
     private byte[][] keyBytes;
 
@@ -81,8 +82,10 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
         this.numGroups = 0;
         this.slots = new long[capacity * SLOT_LONGS];
         initSlots(this.slots, capacity);
-        this.keys = new String[Math.max(16, capacity / 4)];
-        this.keyBytes = new byte[Math.max(16, capacity / 4)][];
+        int keyCap = Math.max(16, capacity / 4);
+        this.keys = new String[keyCap];
+        this.keyBytes = new byte[keyCap][];
+        this.gidToSlotBase = new int[keyCap];
     }
 
     private static void initSlots(long[] s, int cap) {
@@ -119,7 +122,7 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
         return (int) (h ^ (h >>> 32));
     }
 
-    private static long loadWord(byte[] b, int off, int len, int wordIdx) {
+    public static long loadWord(byte[] b, int off, int len, int wordIdx) {
         int start = wordIdx << 3;
         int n = len - start;
         if (n <= 0) {
@@ -137,6 +140,19 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
             v = (v << 8) | (b[idx + i] & 0xFFL);
         }
         return v;
+    }
+
+    public static int hashKey(byte[] buf, int offset, int len) {
+        if (len <= SSO_MAX_LEN) {
+            long p1 = loadWord(buf, offset, len, 0);
+            if (len <= 8) {
+                return fastHash8(p1, len);
+            } else {
+                long p2 = loadWord(buf, offset, len, 1);
+                return StringColumnVector.hashShortWords(p1, p2, len);
+            }
+        }
+        return StringColumnVector.hashBytes(buf, offset, len);
     }
 
     /**
@@ -168,6 +184,25 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
             h = StringColumnVector.hashBytes(buf, offset, len);
         }
 
+        return accumulateWithParsedKey(buf, offset, len, val, shortKey, p1, p2, h);
+    }
+
+    public int accumulateWithHash(byte[] buf, int offset, int len, double val, int h) {
+        final boolean shortKey = len <= SSO_MAX_LEN;
+        final long p1;
+        final long p2;
+        if (shortKey) {
+            p1 = loadWord(buf, offset, len, 0);
+            p2 = (len <= 8) ? 0L : loadWord(buf, offset, len, 1);
+        } else {
+            p1 = 0L;
+            p2 = 0L;
+        }
+        return accumulateWithParsedKey(buf, offset, len, val, shortKey, p1, p2, h);
+    }
+
+    private int accumulateWithParsedKey(byte[] buf, int offset, int len, double val,
+                                        boolean shortKey, long p1, long p2, int h) {
         int pos = h & mask;
         final long targetTag = ((long) h << 32);
 
@@ -195,6 +230,7 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
                 slots[base + OFF_MAX] = Double.doubleToRawLongBits(val);
                 slots[base + OFF_SUM] = Double.doubleToRawLongBits(val);
                 slots[base + OFF_COUNT] = Double.doubleToRawLongBits(1.0);
+                gidToSlotBase[gid] = base;
 
                 if (numGroups >= threshold) {
                     resize();
@@ -236,6 +272,17 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
         return accumulate(buf, offset, len, (double) scaledVal / divisor);
     }
 
+    public int accumulateScaledWithHash(byte[] buf, int offset, int len, long scaledVal, int scale, int h) {
+        double divisor = switch (scale) {
+            case 1 -> 10.0;
+            case 2 -> 100.0;
+            case 3 -> 1000.0;
+            case 4 -> 10000.0;
+            default -> Math.pow(10, scale);
+        };
+        return accumulateWithHash(buf, offset, len, (double) scaledVal / divisor, h);
+    }
+
     private void updateSlotMetrics(int base, double val) {
         double curMin = Double.longBitsToDouble(slots[base + OFF_MIN]);
         double curMax = Double.longBitsToDouble(slots[base + OFF_MAX]);
@@ -272,6 +319,31 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
             h = StringColumnVector.hashBytes(buf, offset, len);
         }
 
+        return findOrInsertBytesWithParsedKey(buf, offset, len, shortKey, p1, p2, h);
+    }
+
+    public int findOrInsertBytesWithHash(byte[] buf, int offset, int len, int h) {
+        final boolean shortKey = len <= SSO_MAX_LEN;
+        final long p1;
+        final long p2;
+        if (shortKey) {
+            p1 = loadWord(buf, offset, len, 0);
+            p2 = (len <= 8) ? 0L : loadWord(buf, offset, len, 1);
+        } else {
+            p1 = 0L;
+            p2 = 0L;
+        }
+        return findOrInsertBytesWithParsedKey(buf, offset, len, shortKey, p1, p2, h);
+    }
+
+    private int findOrInsertBytesWithParsedKey(byte[] buf, int offset, int len,
+                                               boolean shortKey, long p1, long p2, int h) {
+        int slotBase = findOrInsertSlotBase(buf, offset, len, shortKey, p1, p2, h);
+        return (int) slots[slotBase + OFF_META];
+    }
+
+    public int findOrInsertSlotBase(byte[] buf, int offset, int len,
+                                    boolean shortKey, long p1, long p2, int h) {
         int pos = h & mask;
         final long targetTag = ((long) h << 32);
 
@@ -293,23 +365,26 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
                 slots[base + OFF_PREFIX2] = p2;
                 slots[base + OFF_META] = targetTag | (gid & 0xFFFFFFFFL);
                 slots[base + OFF_LEN] = len;
+                gidToSlotBase[gid] = base;
 
                 if (numGroups >= threshold) {
                     resize();
+                    // After resize, locate new base
+                    return gidToSlotBase[gid];
                 }
-                return gid;
+                return base;
             }
 
             if (meta == (targetTag | (meta & 0xFFFFFFFFL)) && slots[base + OFF_LEN] == len) {
                 if (shortKey) {
                     if (slots[base + OFF_PREFIX1] == p1 && slots[base + OFF_PREFIX2] == p2) {
-                        return (int) meta;
+                        return base;
                     }
                 } else {
                     int gid = (int) meta;
                     byte[] kb = keyBytes[gid];
                     if (kb != null && Arrays.equals(buf, offset, offset + len, kb, 0, len)) {
-                        return gid;
+                        return base;
                     }
                 }
             }
@@ -341,6 +416,7 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
                 slots[base + OFF_PREFIX2] = 0L;
                 slots[base + OFF_META] = nullTag | (gid & 0xFFFFFFFFL);
                 slots[base + OFF_LEN] = -1;
+                gidToSlotBase[gid] = base;
                 if (numGroups >= threshold) resize();
                 return gid;
             }
@@ -394,32 +470,91 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
      * @param destHasValues hasValues array of size (numGroups)
      */
     public void populateStats(double[] destStats, boolean[] destHasValues) {
+        populateStatsWithOffset(destStats, destHasValues, 0);
+    }
+
+    /**
+     * Populates destination interleaved stats array with metrics offset by a given gidOffset.
+     */
+    public void populateStatsWithOffset(double[] destStats, boolean[] destHasValues, int gidOffset) {
         for (int i = 0; i < capacity; i++) {
             int base = i * SLOT_LONGS;
             long meta = slots[base + OFF_META];
             if (meta != EMPTY_SLOT_TAG) {
-                int gid = (int) meta;
-                if (gid >= 0 && gid < numGroups) {
+                int localGid = (int) meta;
+                if (localGid >= 0 && localGid < numGroups) {
                     double cnt = Double.longBitsToDouble(slots[base + OFF_COUNT]);
                     if (cnt > 0.0) {
-                        int destBase = gid * InterleavedNumericAccumulator.STATS_SIZE;
+                        int destGid = localGid + gidOffset;
+                        int destBase = destGid * InterleavedNumericAccumulator.STATS_SIZE;
                         double slotMin = Double.longBitsToDouble(slots[base + OFF_MIN]);
                         double slotMax = Double.longBitsToDouble(slots[base + OFF_MAX]);
                         double slotSum = Double.longBitsToDouble(slots[base + OFF_SUM]);
 
-                        if (!destHasValues[gid] || slotMin < destStats[destBase + InterleavedNumericAccumulator.OFF_MIN]) {
+                        if (!destHasValues[destGid] || slotMin < destStats[destBase + InterleavedNumericAccumulator.OFF_MIN]) {
                             destStats[destBase + InterleavedNumericAccumulator.OFF_MIN] = slotMin;
                         }
-                        if (!destHasValues[gid] || slotMax > destStats[destBase + InterleavedNumericAccumulator.OFF_MAX]) {
+                        if (!destHasValues[destGid] || slotMax > destStats[destBase + InterleavedNumericAccumulator.OFF_MAX]) {
                             destStats[destBase + InterleavedNumericAccumulator.OFF_MAX] = slotMax;
                         }
                         destStats[destBase + InterleavedNumericAccumulator.OFF_SUM] += slotSum;
                         destStats[destBase + InterleavedNumericAccumulator.OFF_COUNT] += cnt;
-                        destHasValues[gid] = true;
+                        destHasValues[destGid] = true;
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Merges metrics directly into this table's slot for a known key.
+     */
+    public void mergeSlotDirect(byte[] buf, String knownKey, int len, int h,
+                                double oMin, double oMax, double oSum, double oCnt) {
+        final int slotBase;
+        if (buf != null) {
+            final boolean shortKey = len <= SSO_MAX_LEN;
+            final long p1;
+            final long p2;
+            if (shortKey) {
+                p1 = loadWord(buf, 0, len, 0);
+                p2 = (len <= 8) ? 0L : loadWord(buf, 0, len, 1);
+            } else {
+                p1 = 0L;
+                p2 = 0L;
+            }
+            slotBase = findOrInsertSlotBase(buf, 0, len, shortKey, p1, p2, h);
+        } else if (knownKey == null) {
+            int gid = findOrInsertNull();
+            slotBase = findSlotByGid(gid);
+        } else {
+            byte[] kb = knownKey.getBytes(StandardCharsets.UTF_8);
+            final boolean shortKey = kb.length <= SSO_MAX_LEN;
+            final long p1;
+            final long p2;
+            if (shortKey) {
+                p1 = loadWord(kb, 0, kb.length, 0);
+                p2 = (kb.length <= 8) ? 0L : loadWord(kb, 0, kb.length, 1);
+            } else {
+                p1 = 0L;
+                p2 = 0L;
+            }
+            slotBase = findOrInsertSlotBase(kb, 0, kb.length, shortKey, p1, p2, h);
+        }
+
+        double curMin = Double.longBitsToDouble(slots[slotBase + OFF_MIN]);
+        double curMax = Double.longBitsToDouble(slots[slotBase + OFF_MAX]);
+        double curSum = Double.longBitsToDouble(slots[slotBase + OFF_SUM]);
+        double curCnt = Double.longBitsToDouble(slots[slotBase + OFF_COUNT]);
+
+        if (curCnt == 0.0 || oMin < curMin) {
+            slots[slotBase + OFF_MIN] = Double.doubleToRawLongBits(oMin);
+        }
+        if (curCnt == 0.0 || oMax > curMax) {
+            slots[slotBase + OFF_MAX] = Double.doubleToRawLongBits(oMax);
+        }
+        slots[slotBase + OFF_SUM] = Double.doubleToRawLongBits(curSum + oSum);
+        slots[slotBase + OFF_COUNT] = Double.doubleToRawLongBits(curCnt + oCnt);
     }
 
     /**
@@ -476,7 +611,29 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
         return findSlotByGid(gid);
     }
 
+    public void updateMetricsForGid(int gid, double val) {
+        if (gid >= 0 && gid < numGroups) {
+            updateSlotMetrics(gidToSlotBase[gid], val);
+        }
+    }
+
+    public void updateMetricsScaledForGid(int gid, long scaledVal, int scale) {
+        if (gid >= 0 && gid < numGroups) {
+            double divisor = switch (scale) {
+                case 1 -> 10.0;
+                case 2 -> 100.0;
+                case 3 -> 1000.0;
+                case 4 -> 10000.0;
+                default -> Math.pow(10, scale);
+            };
+            updateSlotMetrics(gidToSlotBase[gid], (double) scaledVal / divisor);
+        }
+    }
+
     private int findSlotByGid(int targetGid) {
+        if (targetGid >= 0 && targetGid < numGroups) {
+            return gidToSlotBase[targetGid];
+        }
         for (int i = 0; i < capacity; i++) {
             int base = i * SLOT_LONGS;
             long meta = slots[base + OFF_META];
@@ -523,6 +680,7 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
         int newCap = Math.max(16, keys.length * 2);
         keys = Arrays.copyOf(keys, newCap);
         keyBytes = Arrays.copyOf(keyBytes, newCap);
+        gidToSlotBase = Arrays.copyOf(gidToSlotBase, newCap);
     }
 
     private void resize() {
@@ -542,6 +700,8 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
                 }
                 int newBase = pos * SLOT_LONGS;
                 System.arraycopy(slots, oldBase, newSlots, newBase, SLOT_LONGS);
+                int gid = (int) meta;
+                gidToSlotBase[gid] = newBase;
             }
         }
         this.slots = newSlots;

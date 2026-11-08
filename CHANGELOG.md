@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.27.5] - 2026-11-08
+
+### Performance
+
+- High-cardinality aggregation via radix-partitioned L2-resident hash clustering and thread-local L1 micro-cache ([#319](https://github.com/cupoftea-labs/cupoftea/issues/319)):
+  - Implemented 32-slot thread-local direct-mapped L1 micro-cache (`mcP1`, `mcP2`, `mcLen`, `mcGid`, `mcHash`, `mcValid`) inside `StreamingDirectAggregator`, bypassing global table lookups on repeated hot keys (Pareto/skewed locality) with zero L2 cache misses.
+  - Implemented `RadixPartitionedAggTable` partitioning incoming string keys into 32 mini hash tables based on the high bits of 32-bit key hashes (`hash >>> 27`). Each partition remains compact (~1,290 keys on 41,343 stations), fitting entirely inside CPU L2 cache and eliminating RAM latency stalls.
+  - Decoupled numeric streaming aggregations back to high-throughput contiguous `double[]` arrays (`InterleavedNumericAccumulator`), executing `min/max/sum/mean` directly via CPU floating-point registers and eliminating per-slot bitwise casting overhead.
+  - Replaced ad-hoc benchmark checking in `SimdCsvScanner` with query optimizer capability matching (`isDirectKeyValueStreamEligible` and `accumulateSingleStringNumeric`), enabling general zero-copy streaming acceleration for any 2-column key-metric analytical workload.
+  - Added seamless partition-level hierarchical merging (`RadixPartitionedAggTable.merge`) and direct table reduction for parallel chunk scanners.
+
 ## [0.27.4] - 2026-11-07
 
 ### Performance
