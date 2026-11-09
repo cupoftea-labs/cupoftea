@@ -1,6 +1,7 @@
 package com.cupoftea.spi;
 
 import java.io.File;
+import java.net.URI;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
@@ -15,6 +16,7 @@ public class ReadOptions {
 
     private final File file;
     private final String path;
+    private final URI uri;
     private final String text;
     private final URL url;
     private final Object sourceObject;
@@ -26,6 +28,7 @@ public class ReadOptions {
     private ReadOptions(Builder builder) {
         this.file = builder.file;
         this.path = builder.path != null ? builder.path : (builder.file != null ? builder.file.getPath() : null);
+        this.uri = builder.uri != null ? builder.uri : (this.path != null && this.path.contains("://") ? tryParseUri(this.path) : null);
         this.text = builder.text;
         this.url = builder.url;
         this.sourceObject = builder.sourceObject;
@@ -33,6 +36,14 @@ public class ReadOptions {
         this.hasHeaders = builder.hasHeaders;
         this.targetDataFrame = builder.targetDataFrame;
         this.options = Collections.unmodifiableMap(new HashMap<>(builder.options));
+    }
+
+    private static URI tryParseUri(String p) {
+        try {
+            return URI.create(p);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     public static Builder builder() {
@@ -45,6 +56,10 @@ public class ReadOptions {
 
     public String getPath() {
         return path;
+    }
+
+    public URI getUri() {
+        return uri;
     }
 
     public String getText() {
@@ -91,6 +106,7 @@ public class ReadOptions {
     public static class Builder {
         private File file;
         private String path;
+        private URI uri;
         private String text;
         private URL url;
         private Object sourceObject;
@@ -106,6 +122,11 @@ public class ReadOptions {
 
         public Builder path(String path) {
             this.path = path;
+            return this;
+        }
+
+        public Builder uri(URI uri) {
+            this.uri = uri;
             return this;
         }
 

@@ -1,6 +1,7 @@
 package com.cupoftea.spi;
 
 import java.io.File;
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +16,7 @@ public class ScanOptions {
 
     private final File file;
     private final String path;
+    private final URI uri;
     private final Schema schema;
     private final Map<String, Class<?>> schemaMap;
     private final boolean hasHeaders;
@@ -28,6 +30,7 @@ public class ScanOptions {
     private ScanOptions(Builder builder) {
         this.file = builder.file;
         this.path = builder.path != null ? builder.path : (builder.file != null ? builder.file.getPath() : null);
+        this.uri = builder.uri != null ? builder.uri : (this.path != null && this.path.contains("://") ? tryParseUri(this.path) : null);
         this.schema = builder.schema;
         this.schemaMap = builder.schemaMap != null ? Collections.unmodifiableMap(builder.schemaMap) : Collections.emptyMap();
         this.hasHeaders = builder.hasHeaders;
@@ -37,6 +40,14 @@ public class ScanOptions {
         this.parallel = builder.parallel;
         this.executor = builder.executor;
         this.options = Collections.unmodifiableMap(new HashMap<>(builder.options));
+    }
+
+    private static URI tryParseUri(String p) {
+        try {
+            return URI.create(p);
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     public static Builder builder() {
@@ -49,6 +60,10 @@ public class ScanOptions {
 
     public String getPath() {
         return path;
+    }
+
+    public URI getUri() {
+        return uri;
     }
 
     public Schema getSchema() {
@@ -103,6 +118,7 @@ public class ScanOptions {
     public static class Builder {
         private File file;
         private String path;
+        private URI uri;
         private Schema schema;
         private Map<String, Class<?>> schemaMap;
         private boolean hasHeaders = true;
@@ -120,6 +136,11 @@ public class ScanOptions {
 
         public Builder path(String path) {
             this.path = path;
+            return this;
+        }
+
+        public Builder uri(URI uri) {
+            this.uri = uri;
             return this;
         }
 

@@ -74,7 +74,14 @@ Add format modules as needed. The core engine dynamically discovers format reade
 <dependency>
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-xml</artifactId>
-    <version>0.17.0</version>
+    <version>0.29.0</version>
+</dependency>
+
+<!-- Cloud Object Storage (S3, GCS, Azure Blob, HTTP) -->
+<dependency>
+    <groupId>io.github.cupoftea-labs</groupId>
+    <artifactId>cupoftea-storage</artifactId>
+    <version>0.29.0</version>
 </dependency>
 ```
 

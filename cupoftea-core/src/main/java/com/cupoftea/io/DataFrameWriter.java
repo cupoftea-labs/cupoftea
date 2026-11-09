@@ -49,6 +49,10 @@ public class DataFrameWriter {
     // --- CSV ---
 
     public void csv(String path) {
+        if (path != null && path.contains("://")) {
+            write("csv", buildOptions().path(path).build());
+            return;
+        }
         csv(new File(path));
     }
 
@@ -63,6 +67,10 @@ public class DataFrameWriter {
     // --- JSON ---
 
     public void json(String path) {
+        if (path != null && path.contains("://")) {
+            write("json", buildOptions().path(path).build());
+            return;
+        }
         json(new File(path));
     }
 
@@ -75,12 +83,20 @@ public class DataFrameWriter {
     }
 
     public void json(String path, Object configuration) {
+        if (path != null && path.contains("://")) {
+            write("json", buildOptions().path(path).option("configuration", configuration).build());
+            return;
+        }
         json(new File(path), configuration);
     }
 
     // --- EXCEL ---
 
     public void excel(String path) {
+        if (path != null && path.contains("://")) {
+            write("excel", buildOptions().path(path).build());
+            return;
+        }
         excel(new File(path));
     }
 
@@ -93,12 +109,20 @@ public class DataFrameWriter {
     }
 
     public void excel(String path, Object configuration) {
+        if (path != null && path.contains("://")) {
+            write("excel", buildOptions().path(path).option("configuration", configuration).build());
+            return;
+        }
         excel(new File(path), configuration);
     }
 
     // --- PARQUET ---
 
     public void parquet(String path) {
+        if (path != null && path.contains("://")) {
+            write("parquet", buildOptions().path(path).build());
+            return;
+        }
         parquet(new File(path));
     }
 
@@ -109,6 +133,10 @@ public class DataFrameWriter {
     // --- ARROW / FEATHER ---
 
     public void arrow(String path) {
+        if (path != null && path.contains("://")) {
+            write("arrow", buildOptions().path(path).build());
+            return;
+        }
         arrow(new File(path));
     }
 
@@ -117,6 +145,10 @@ public class DataFrameWriter {
     }
 
     public void feather(String path) {
+        if (path != null && path.contains("://")) {
+            write("feather", buildOptions().path(path).build());
+            return;
+        }
         feather(new File(path));
     }
 
@@ -216,6 +248,10 @@ public class DataFrameWriter {
     // --- GENERIC FORMAT ---
 
     public void format(String format, String path) {
+        if (path != null && path.contains("://")) {
+            write(format, buildOptions().path(path).build());
+            return;
+        }
         format(format, new File(path));
     }
 

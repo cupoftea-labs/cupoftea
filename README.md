@@ -19,6 +19,7 @@ CupOfTea is a lightweight library for data manipulation in Java. It provides a s
 - **Statistical Operations & Summary**: High-performance linear $O(n)$ quantiles and median (via Introselect), sample and population variance and standard deviation, skewness, kurtosis, covariance, correlation matrix (`corr()`), and descriptive summary (`describe()`).
 - **Window, Rolling & Cumulative Functions**: Sliding rolling windows (`df.rolling(w)`), expanding windows (`df.expanding()`), cumulative operations (`cumsum`, `cumprod`, `cummin`, `cummax`), time series shifts (`lead`, `lag`, `diff`, `pctChange`), and SQL-like analytical window partitioning and ranking (`df.window().partitionBy(...).orderBy(...).rank()`).
 - Read and write CSV, JSON, Excel, Parquet, and YAML files.
+- **Cloud Object Storage (S3, GCS, Azure Blob, HTTP)**: Pluggable `cupoftea-storage` module supporting `s3://`, `gs://`, `abfss://`, `https://`, and `http://` with selective Parquet byte-range requests (`RFC 7233 / 9110 Range Requests`) and streaming egress.
 - **DTO & Record Mapping**: Import and export standard Java POJOs/JavaBeans and Java Records directly (`CupOfTea.read().records(...)`, `df.write().records(...)`, `CupOfTea.read().dtos(...)`, `df.write().dtos(...)`).
 - **Columnar Engine**: High-performance contiguous memory layout (`ColumnVector` with primitive `int[]`, `double[]`, `long[]`, `float[]`, `boolean[]`, `String[]`, and `BitSet` null bitmasks), eliminating per-cell boxed object overhead and row hash lookups.
 - **Unified Mutation Modes**: Fluent `IN_PLACE` builder by default with opt-in `COPY_ON_WRITE` via `.asCopyOnWrite()` and `.asInPlace()`.
@@ -46,7 +47,7 @@ Add the core dependency to your `pom.xml`:
 </dependency>
 ```
 
-Add optional format modules as needed (CSV, JSON, Excel, Parquet, Arrow, Plot, SQL, HTML, YAML, XML):
+Add optional format and storage modules as needed (CSV, JSON, Excel, Parquet, Arrow, Storage, Plot, SQL, HTML, YAML, XML):
 
 ```xml
 <!-- Example: Add CSV and JSON format support -->
@@ -117,6 +118,7 @@ implementation("io.github.cupoftea-labs:cupoftea-json:0.24.0")
 | `cupoftea-html` | HTML table reader | Jsoup |
 | `cupoftea-yaml` | YAML format reader and writer | SnakeYAML |
 | `cupoftea-xml` | XML reader, writer and lazy scan | JDK StAX (streaming) |
+| `cupoftea-storage` | Cloud Object Storage (S3, GCS, Azure Blob, HTTP Range Requests) | Zero heavy deps (JDK HTTP / NIO) |
 | `cupoftea-plot` | Declarative plotting engine (Vega-Lite), HTML export, desktop preview | Jackson Databind |
 | `cupoftea-all` | Meta-module aggregating all format and plot modules | All above formats & plotting |
 

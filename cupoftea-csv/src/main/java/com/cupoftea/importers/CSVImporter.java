@@ -67,7 +67,22 @@ public class CSVImporter implements ICSVImporter {
             throw new ImportException("File cannot be null");
         }
 
-        if (FastCsvReader.isEligible(file, this.configuration)) {
+        try {
+            importFromReader(new BufferedReader(new InputStreamReader(new FileInputStream(file), this.configuration.getCharset())), file.getPath(), file);
+        } catch (IOException e) {
+            throw new CsvParseException("Failed to read CSV file: " + file.getPath(), e);
+        }
+    }
+
+    public void importFromInputStream(java.io.InputStream in, String sourceDescription) {
+        if (in == null) {
+            throw new ImportException("InputStream cannot be null");
+        }
+        importFromReader(new BufferedReader(new InputStreamReader(in, this.configuration.getCharset())), sourceDescription, null);
+    }
+
+    private void importFromReader(BufferedReader br, String sourceDescription, File file) {
+        if (file != null && FastCsvReader.isEligible(file, this.configuration)) {
             try {
                 FastCsvReader fastReader = new FastCsvReader(this.configuration);
                 fastReader.readInto(file, this.dataFrame);
@@ -99,8 +114,8 @@ public class CSVImporter implements ICSVImporter {
         String[] headerNames;
         int columnCount;
 
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), this.configuration.getCharset()));
-             CSVReader reader = new CSVReaderBuilder(br).withCSVParser(parser).build()) {
+        try (BufferedReader readerBr = br;
+             CSVReader reader = new CSVReaderBuilder(readerBr).withCSVParser(parser).build()) {
 
             String[] firstLine = reader.readNext();
             if (firstLine == null) {
@@ -136,7 +151,7 @@ public class CSVImporter implements ICSVImporter {
                 rawRows.add(line);
             }
         } catch (IOException e) {
-            throw new CsvParseException("Failed to read CSV file: " + file.getPath(), e);
+            throw new CsvParseException("Failed to read CSV source: " + sourceDescription, e);
         } catch (Exception e) {
             if (e instanceof CsvParseException) {
                 throw (CsvParseException) e;

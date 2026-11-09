@@ -1,0 +1,2 @@
+com.cupoftea.storage.http.HttpStorageFileSystem
+com.cupoftea.storage.cloud.CloudStorageFileSystem
