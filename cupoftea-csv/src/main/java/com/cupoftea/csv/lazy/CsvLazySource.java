@@ -264,6 +264,13 @@ public class CsvLazySource implements LazySource {
                 segmentSize = context.getChunkSizeBytes();
             } else if (fileLength < ADAPTIVE_THRESHOLD_BYTES && procs > 1) {
                 segmentSize = (int) Math.max((long) MIN_SEGMENT_SIZE, dataLen / procs);
+            } else if (procs > 1 && dataLen < 1L * 1024 * 1024 * 1024) {
+                // For sub-gigabyte files, divide into fine-grained chunks (~4 chunks per worker)
+                // to balance work stealing across all cores without tail latency.
+                int targetSegments = procs * 4;
+                long targetChunk = dataLen / targetSegments;
+                int adapted = MemoryAdvisor.adaptSegmentSize(dataLen, MemoryAdvisor.freePhysicalMemory(), DEFAULT_SEGMENT_SIZE);
+                segmentSize = (int) Math.max(MIN_SEGMENT_SIZE, Math.min(adapted, targetChunk));
             } else {
                 segmentSize = MemoryAdvisor.adaptSegmentSize(dataLen, MemoryAdvisor.freePhysicalMemory(), DEFAULT_SEGMENT_SIZE);
             }

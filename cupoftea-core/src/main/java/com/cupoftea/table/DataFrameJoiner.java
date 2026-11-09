@@ -921,6 +921,9 @@ public final class DataFrameJoiner {
     }
 
     private abstract static class HashJoinIndex {
+        static final int PREFETCH_DISTANCE = 8;
+        static final int LLC_CACHE_THRESHOLD = 32768; // ~512KB - 1MB table size threshold to activate interleaved prefetching
+
         final int buildSize;
         boolean uniqueBuildKeys;
 
@@ -1016,6 +1019,121 @@ public final class DataFrameJoiner {
             int[] heads = this.bucketHead;
             int[] next = this.nextRowIdx;
             int m = this.mask;
+            int len = end - start;
+
+            // Software Prefetching via Interleaved Probing when hash table size exceeds L2/L3 cache threshold
+            if (this.buildSize >= LLC_CACHE_THRESHOLD && len >= PREFETCH_DISTANCE * 2) {
+                final int K = PREFETCH_DISTANCE;
+                int l = start;
+                int limit = end - K + 1;
+                int[] keyBuf = new int[K];
+                int[] ptrBuf = new int[K];
+
+                if (!this.probeHasNulls) {
+                    for (; l < limit; l += K) {
+                        int active = 0;
+                        for (int i = 0; i < K; i++) {
+                            int row = l + i;
+                            int k = pData[row];
+                            keyBuf[i] = k;
+                            int ptr = heads[mixInt(k) & m];
+                            ptrBuf[i] = ptr;
+                            outRightIdx[row - start] = -1;
+                            if (ptr != -1) active++;
+                        }
+
+                        while (active > 0) {
+                            for (int i = 0; i < K; i++) {
+                                int r = ptrBuf[i];
+                                if (r != -1) {
+                                    if (bData[r] == keyBuf[i]) {
+                                        outRightIdx[(l + i) - start] = r;
+                                        ptrBuf[i] = -1;
+                                        active--;
+                                    } else {
+                                        int nxt = next[r];
+                                        ptrBuf[i] = nxt;
+                                        if (nxt == -1) {
+                                            active--;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    BitSet pNulls = this.probeNulls;
+                    for (; l < limit; l += K) {
+                        int active = 0;
+                        for (int i = 0; i < K; i++) {
+                            int row = l + i;
+                            if (pNulls.get(row)) {
+                                outRightIdx[row - start] = -1;
+                                ptrBuf[i] = -1;
+                            } else {
+                                int k = pData[row];
+                                keyBuf[i] = k;
+                                int ptr = heads[mixInt(k) & m];
+                                ptrBuf[i] = ptr;
+                                outRightIdx[row - start] = -1;
+                                if (ptr != -1) active++;
+                            }
+                        }
+
+                        while (active > 0) {
+                            for (int i = 0; i < K; i++) {
+                                int r = ptrBuf[i];
+                                if (r != -1) {
+                                    if (bData[r] == keyBuf[i]) {
+                                        outRightIdx[(l + i) - start] = r;
+                                        ptrBuf[i] = -1;
+                                        active--;
+                                    } else {
+                                        int nxt = next[r];
+                                        ptrBuf[i] = nxt;
+                                        if (nxt == -1) {
+                                            active--;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Drain remaining scalar keys
+                if (!this.probeHasNulls) {
+                    for (; l < end; l++) {
+                        int k = pData[l];
+                        int matched = -1;
+                        for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                            if (bData[r] == k) {
+                                matched = r;
+                                break;
+                            }
+                        }
+                        outRightIdx[l - start] = matched;
+                    }
+                } else {
+                    BitSet pNulls = this.probeNulls;
+                    for (; l < end; l++) {
+                        if (pNulls.get(l)) {
+                            outRightIdx[l - start] = -1;
+                            continue;
+                        }
+                        int k = pData[l];
+                        int matched = -1;
+                        for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                            if (bData[r] == k) {
+                                matched = r;
+                                break;
+                            }
+                        }
+                        outRightIdx[l - start] = matched;
+                    }
+                }
+                return;
+            }
 
             if (!this.probeHasNulls) {
                 for (int l = start; l < end; l++) {
@@ -1061,6 +1179,70 @@ public final class DataFrameJoiner {
             int[] heads = this.bucketHead;
             int[] next = this.nextRowIdx;
             int m = this.mask;
+
+            // Software Prefetching via Interleaved Probing for 1:1 unique build keys
+            if (this.uniqueBuildKeys && !this.probeHasNulls && this.buildSize >= LLC_CACHE_THRESHOLD && len >= PREFETCH_DISTANCE * 2) {
+                final int K = PREFETCH_DISTANCE;
+                int l = start;
+                int limit = end - K + 1;
+                int[] keyBuf = new int[K];
+                int[] ptrBuf = new int[K];
+                int[] resBuf = new int[K];
+
+                for (; l < limit; l += K) {
+                    int active = 0;
+                    for (int i = 0; i < K; i++) {
+                        int row = l + i;
+                        int k = pData[row];
+                        keyBuf[i] = k;
+                        int ptr = heads[mixInt(k) & m];
+                        ptrBuf[i] = ptr;
+                        resBuf[i] = -1;
+                        if (ptr != -1) active++;
+                    }
+
+                    while (active > 0) {
+                        for (int i = 0; i < K; i++) {
+                            int r = ptrBuf[i];
+                            if (r != -1) {
+                                if (bData[r] == keyBuf[i]) {
+                                    resBuf[i] = r;
+                                    ptrBuf[i] = -1;
+                                    active--;
+                                } else {
+                                    int nxt = next[r];
+                                    ptrBuf[i] = nxt;
+                                    if (nxt == -1) {
+                                        active--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < K; i++) {
+                        int r = resBuf[i];
+                        if (r != -1) {
+                            leftIdx[count] = l + i;
+                            rightIdx[count] = r;
+                            count++;
+                        }
+                    }
+                }
+
+                for (; l < end; l++) {
+                    int k = pData[l];
+                    for (int r = heads[mixInt(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                            break;
+                        }
+                    }
+                }
+                return new ProbeChunk(leftIdx, rightIdx, count);
+            }
 
             if (this.uniqueBuildKeys && !this.probeHasNulls) {
                 for (int l = start; l < end; l++) {
@@ -1216,6 +1398,59 @@ public final class DataFrameJoiner {
             boolean pHasNulls = this.probeHasNulls;
             BitSet pNulls = this.probeNulls;
 
+            int len = end - start;
+            if (!pHasNulls && this.buildSize >= LLC_CACHE_THRESHOLD && len >= PREFETCH_DISTANCE * 2) {
+                final int K = PREFETCH_DISTANCE;
+                int l = start;
+                int limit = end - K + 1;
+                long[] keyBuf = new long[K];
+                int[] ptrBuf = new int[K];
+
+                for (; l < limit; l += K) {
+                    int active = 0;
+                    for (int i = 0; i < K; i++) {
+                        long k = pData[l + i];
+                        keyBuf[i] = k;
+                        int ptr = heads[mixLong(k) & m];
+                        ptrBuf[i] = ptr;
+                        outRightIdx[(l + i) - start] = -1;
+                        if (ptr != -1) active++;
+                    }
+
+                    while (active > 0) {
+                        for (int i = 0; i < K; i++) {
+                            int r = ptrBuf[i];
+                            if (r != -1) {
+                                if (bData[r] == keyBuf[i]) {
+                                    outRightIdx[(l + i) - start] = r;
+                                    ptrBuf[i] = -1;
+                                    active--;
+                                } else {
+                                    int nxt = next[r];
+                                    ptrBuf[i] = nxt;
+                                    if (nxt == -1) {
+                                        active--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (; l < end; l++) {
+                    long k = pData[l];
+                    int matched = -1;
+                    for (int r = heads[mixLong(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            matched = r;
+                            break;
+                        }
+                    }
+                    outRightIdx[l - start] = matched;
+                }
+                return;
+            }
+
             for (int l = start; l < end; l++) {
                 if (pHasNulls && pNulls.get(l)) {
                     outRightIdx[l - start] = -1;
@@ -1245,6 +1480,71 @@ public final class DataFrameJoiner {
             int[] heads = this.bucketHead;
             int[] next = this.nextRowIdx;
             int m = this.mask;
+
+            // Software Prefetching via Interleaved Probing for 1:1 unique build keys
+            if (this.uniqueBuildKeys && !this.probeHasNulls && this.buildSize >= LLC_CACHE_THRESHOLD && len >= PREFETCH_DISTANCE * 2) {
+                final int K = PREFETCH_DISTANCE;
+                int l = start;
+                int limit = end - K + 1;
+                long[] keyBuf = new long[K];
+                int[] ptrBuf = new int[K];
+                int[] resBuf = new int[K];
+
+                for (; l < limit; l += K) {
+                    int active = 0;
+                    for (int i = 0; i < K; i++) {
+                        int row = l + i;
+                        long k = pData[row];
+                        keyBuf[i] = k;
+                        int ptr = heads[mixLong(k) & m];
+                        ptrBuf[i] = ptr;
+                        resBuf[i] = -1;
+                        if (ptr != -1) active++;
+                    }
+
+                    while (active > 0) {
+                        for (int i = 0; i < K; i++) {
+                            int r = ptrBuf[i];
+                            if (r != -1) {
+                                if (bData[r] == keyBuf[i]) {
+                                    resBuf[i] = r;
+                                    ptrBuf[i] = -1;
+                                    active--;
+                                } else {
+                                    int nxt = next[r];
+                                    ptrBuf[i] = nxt;
+                                    if (nxt == -1) {
+                                        active--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < K; i++) {
+                        int r = resBuf[i];
+                        if (r != -1) {
+                            leftIdx[count] = l + i;
+                            rightIdx[count] = r;
+                            count++;
+                        }
+                    }
+                }
+
+                for (; l < end; l++) {
+                    long k = pData[l];
+                    for (int r = heads[mixLong(k) & m]; r != -1; r = next[r]) {
+                        if (bData[r] == k) {
+                            leftIdx[count] = l;
+                            rightIdx[count] = r;
+                            count++;
+                            break;
+                        }
+                    }
+                }
+                return new ProbeChunk(leftIdx, rightIdx, count);
+            }
+
             boolean pHasNulls = this.probeHasNulls;
             BitSet pNulls = this.probeNulls;
             boolean unique = this.uniqueBuildKeys;
@@ -1501,6 +1801,117 @@ public final class DataFrameJoiner {
             int[] next = this.nextRowIdx;
             int m = this.mask;
 
+            int len = end - start;
+            if (!this.probeHasNulls && this.buildSize >= LLC_CACHE_THRESHOLD && len >= PREFETCH_DISTANCE * 2) {
+                final int K = PREFETCH_DISTANCE;
+                int l = start;
+                int limit = end - K + 1;
+                int[] hBuf = new int[K];
+                int[] lenBuf = new int[K];
+                long[] p1Buf = new long[K];
+                long[] p2Buf = new long[K];
+                int[] startBuf = new int[K];
+                int[] ptrBuf = new int[K];
+
+                for (; l < limit; l += K) {
+                    int active = 0;
+                    for (int i = 0; i < K; i++) {
+                        int row = l + i;
+                        int pStart = pOffsets[row];
+                        int pLen = pOffsets[row + 1] - pStart;
+                        startBuf[i] = pStart;
+                        lenBuf[i] = pLen;
+                        int h;
+                        if (pLen <= SSO_MAX_LEN) {
+                            long p1 = loadWord(pValues, pStart, pLen, 0);
+                            long p2 = loadWord(pValues, pStart, pLen, 1);
+                            p1Buf[i] = p1;
+                            p2Buf[i] = p2;
+                            h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                        } else {
+                            h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                        }
+                        hBuf[i] = h;
+                        int ptr = heads[h & m];
+                        ptrBuf[i] = ptr;
+                        outRightIdx[row - start] = -1;
+                        if (ptr != -1) active++;
+                    }
+
+                    while (active > 0) {
+                        for (int i = 0; i < K; i++) {
+                            int r = ptrBuf[i];
+                            if (r != -1) {
+                                int h = hBuf[i];
+                                int pLen = lenBuf[i];
+                                boolean match = false;
+                                if (bHashes[r] == h && bLengths[r] == pLen) {
+                                    if (pLen <= SSO_MAX_LEN) {
+                                        if (bP1[r] == p1Buf[i] && bP2[r] == p2Buf[i]) {
+                                            match = true;
+                                        }
+                                    } else {
+                                        int bStart = bOffsets[r];
+                                        int pStart = startBuf[i];
+                                        if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                            match = true;
+                                        }
+                                    }
+                                }
+
+                                if (match) {
+                                    outRightIdx[(l + i) - start] = r;
+                                    ptrBuf[i] = -1;
+                                    active--;
+                                } else {
+                                    int nxt = next[r];
+                                    ptrBuf[i] = nxt;
+                                    if (nxt == -1) {
+                                        active--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                for (; l < end; l++) {
+                    int pStart = pOffsets[l];
+                    int pLen = pOffsets[l + 1] - pStart;
+                    int h;
+                    long p1 = 0L;
+                    long p2 = 0L;
+                    if (pLen <= SSO_MAX_LEN) {
+                        p1 = loadWord(pValues, pStart, pLen, 0);
+                        p2 = loadWord(pValues, pStart, pLen, 1);
+                        h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                    } else {
+                        h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                    }
+                    int matched = -1;
+                    if (pLen <= SSO_MAX_LEN) {
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2) {
+                                matched = r;
+                                break;
+                            }
+                        }
+                    } else {
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen) {
+                                int bStart = bOffsets[r];
+                                if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                    matched = r;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    outRightIdx[l - start] = matched;
+                }
+                return;
+            }
+
             if (!this.probeHasNulls) {
                 for (int l = start; l < end; l++) {
                     int pStart = pOffsets[l];
@@ -1597,6 +2008,126 @@ public final class DataFrameJoiner {
             int[] heads = this.bucketHead;
             int[] next = this.nextRowIdx;
             int m = this.mask;
+
+            // Software Prefetching via Interleaved Probing for 1:1 unique build keys
+            if (this.uniqueBuildKeys && !this.probeHasNulls && this.buildSize >= LLC_CACHE_THRESHOLD && len >= PREFETCH_DISTANCE * 2) {
+                final int K = PREFETCH_DISTANCE;
+                int l = start;
+                int limit = end - K + 1;
+                int[] hBuf = new int[K];
+                int[] lenBuf = new int[K];
+                long[] p1Buf = new long[K];
+                long[] p2Buf = new long[K];
+                int[] startBuf = new int[K];
+                int[] ptrBuf = new int[K];
+                int[] resBuf = new int[K];
+
+                for (; l < limit; l += K) {
+                    int active = 0;
+                    for (int i = 0; i < K; i++) {
+                        int row = l + i;
+                        int pStart = pOffsets[row];
+                        int pLen = pOffsets[row + 1] - pStart;
+                        startBuf[i] = pStart;
+                        lenBuf[i] = pLen;
+                        int h;
+                        if (pLen <= SSO_MAX_LEN) {
+                            long p1 = loadWord(pValues, pStart, pLen, 0);
+                            long p2 = loadWord(pValues, pStart, pLen, 1);
+                            p1Buf[i] = p1;
+                            p2Buf[i] = p2;
+                            h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                        } else {
+                            h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                        }
+                        hBuf[i] = h;
+                        int ptr = heads[h & m];
+                        ptrBuf[i] = ptr;
+                        resBuf[i] = -1;
+                        if (ptr != -1) active++;
+                    }
+
+                    while (active > 0) {
+                        for (int i = 0; i < K; i++) {
+                            int r = ptrBuf[i];
+                            if (r != -1) {
+                                int h = hBuf[i];
+                                int pLen = lenBuf[i];
+                                boolean match = false;
+                                if (bHashes[r] == h && bLengths[r] == pLen) {
+                                    if (pLen <= SSO_MAX_LEN) {
+                                        if (bP1[r] == p1Buf[i] && bP2[r] == p2Buf[i]) {
+                                            match = true;
+                                        }
+                                    } else {
+                                        int bStart = bOffsets[r];
+                                        int pStart = startBuf[i];
+                                        if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                            match = true;
+                                        }
+                                    }
+                                }
+
+                                if (match) {
+                                    resBuf[i] = r;
+                                    ptrBuf[i] = -1;
+                                    active--;
+                                } else {
+                                    int nxt = next[r];
+                                    ptrBuf[i] = nxt;
+                                    if (nxt == -1) {
+                                        active--;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    for (int i = 0; i < K; i++) {
+                        int r = resBuf[i];
+                        if (r != -1) {
+                            leftIdx[count] = l + i;
+                            rightIdx[count] = r;
+                            count++;
+                        }
+                    }
+                }
+
+                for (; l < end; l++) {
+                    int pStart = pOffsets[l];
+                    int pLen = pOffsets[l + 1] - pStart;
+                    int h;
+                    long p1 = 0L;
+                    long p2 = 0L;
+                    if (pLen <= SSO_MAX_LEN) {
+                        p1 = loadWord(pValues, pStart, pLen, 0);
+                        p2 = loadWord(pValues, pStart, pLen, 1);
+                        h = StringColumnVector.hashShortWords(p1, p2, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen && bP1[r] == p1 && bP2[r] == p2) {
+                                leftIdx[count] = l;
+                                rightIdx[count] = r;
+                                count++;
+                                break;
+                            }
+                        }
+                    } else {
+                        h = StringColumnVector.hashBytes(pValues, pStart, pLen);
+                        for (int r = heads[h & m]; r != -1; r = next[r]) {
+                            if (bHashes[r] == h && bLengths[r] == pLen) {
+                                int bStart = bOffsets[r];
+                                if (Arrays.equals(pValues, pStart, pStart + pLen, bValues, bStart, bStart + pLen)) {
+                                    leftIdx[count] = l;
+                                    rightIdx[count] = r;
+                                    count++;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                return new ProbeChunk(leftIdx, rightIdx, count);
+            }
 
             if (this.uniqueBuildKeys && !this.probeHasNulls) {
                 for (int l = start; l < end; l++) {

@@ -95,6 +95,14 @@ classDiagram
 - CupOfTea utilizes an open-addressing primitive hash table (`GroupHashTable`) storing representative row indices in contiguous `int[]` arrays.
 - Aggregate reductions (`sum`, `mean`, `min`, `max`, `count`) accumulate single-pass updates directly into primitive arrays (`double[]`, `long[]`, `int[]`) and populate destination `ColumnVector` instances without boxing or creating row-level objects.
 
+### 5. Software Prefetching via Interleaved Probing (AMAC)
+- When hash tables exceed Last-Level Cache (LLC, threshold $\ge 32,768$ entries), memory access latency to main RAM causes CPU execution pipeline stalls.
+- CupOfTea employs Asynchronous Memory Access Chaining (AMAC) / Interleaved Probing with prefetch distance $K = 8$:
+  - In `DataFrameJoiner` (`IntHashJoinIndex`, `LongHashJoinIndex`, and `StringHashJoinIndex`), batch probing interleaves bucket resolution and collision traversal across 8 keys simultaneously.
+  - In `GroupHashTable` / `GroupBy`, `findOrInsertBatch` processes keys in interleaved windows of 8 elements.
+  - This overlaps memory stall cycles across modern CPU Line Fill Buffers (Memory-Level Parallelism), achieving high throughput even on out-of-cache join and partition workloads.
+  - Small hash tables fitting in L2/L3 cache automatically bypass the buffer overhead via scalar fast paths.
+
 ---
 
 ## ⚡ Direct Vector Access

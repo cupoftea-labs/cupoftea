@@ -2488,30 +2488,8 @@ public class DataFrame extends IDataFrame {
                 if (vec == null) {
                     continue;
                 }
-                if (vec instanceof DictionaryColumnVector dcv) {
-                    boolean nullA = dcv.isNull(idxA);
-                    boolean nullB = dcv.isNull(idxB);
-                    if (nullA && nullB) {
-                        continue;
-                    }
-                    if (nullA) {
-                        return 1;
-                    }
-                    if (nullB) {
-                        return -1;
-                    }
-                    int cmp = dcv.compareRows(idxA, idxB);
-                    if (cmp != 0) {
-                        return order.type() == Order.DESCENDING ? -cmp : cmp;
-                    }
-                    continue;
-                }
-                Object valA = vec.getObject(idxA);
-                Object valB = vec.getObject(idxB);
-
-                boolean nullA = NA.isNA(valA);
-                boolean nullB = NA.isNA(valB);
-
+                boolean nullA = vec.isNull(idxA);
+                boolean nullB = vec.isNull(idxB);
                 if (nullA && nullB) {
                     continue;
                 }
@@ -2521,9 +2499,7 @@ public class DataFrame extends IDataFrame {
                 if (nullB) {
                     return -1; // nulls always placed last
                 }
-
-                Class<?> declaredType = findDeclaredColumnType(columnName);
-                int cmp = compareNonNullValues(valA, valB, declaredType);
+                int cmp = vec.compareRows(idxA, idxB);
                 if (cmp != 0) {
                     return order.type() == Order.DESCENDING ? -cmp : cmp;
                 }
