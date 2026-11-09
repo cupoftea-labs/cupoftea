@@ -9,6 +9,8 @@ CupOfTea uses a pluggable, modular IO architecture powered by `java.util.Service
 ```mermaid
 flowchart TD
     App[User Application: CupOfTea.read() / .write()] --> Engine[Core SPI FormatRegistry]
+    App --> StorageSPI[Core SPI StorageRegistry]
+    StorageSPI -->|Discovers via ServiceLoader| CloudStorage[cupoftea-storage: S3 / GCS / Azure / HTTP]
     Engine -->|Discovers via ServiceLoader| CSV[cupoftea-csv: CsvFormatReader / Writer]
     Engine -->|Discovers via ServiceLoader| JSON[cupoftea-json: JsonFormatReader / Writer]
     Engine -->|Discovers via ServiceLoader| Excel[cupoftea-excel: ExcelFormatReader]
@@ -31,6 +33,7 @@ flowchart TD
 | **HTML** | `cupoftea-html` | Yes (Tables) | - | Jsoup |
 | **YAML** | `cupoftea-yaml` | Yes | Yes | SnakeYAML |
 | **XML** | `cupoftea-xml` | Yes | Yes | StAX streaming (JDK) |
+| **Cloud Storage** | `cupoftea-storage` | Yes (`s3://`, `gs://`, `abfss://`, `http(s)://`) | Yes | Cloud Storage SPI & HTTP Range Request SeekableByteChannel |
 
 ---
 
@@ -44,6 +47,11 @@ CupOfTea df1 = CupOfTea.read().csv("data.csv");
 CupOfTea df2 = CupOfTea.read().json("data.json");
 CupOfTea df3 = CupOfTea.read().excel("data.xlsx");
 CupOfTea df4 = CupOfTea.read().parquet("data.parquet");
+
+// Cloud Object Storage & HTTP Range Requests (via cupoftea-storage)
+CupOfTea dfS3 = CupOfTea.read().csv("s3://my-bucket/data.csv");
+CupOfTea dfParquetGcs = CupOfTea.read().parquet("gs://analytics-bucket/events.parquet");
+CupOfTea dfHttp = CupOfTea.read().parquet("https://cdn.example.com/large_dataset.parquet");
 
 // Generic format invocation with options
 CupOfTea df5 = CupOfTea.read()
