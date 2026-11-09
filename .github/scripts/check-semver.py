@@ -29,6 +29,7 @@ SUBMODULES = [
     "cupoftea-html",
     "cupoftea-yaml",
     "cupoftea-xml",
+    "cupoftea-storage",
     "cupoftea-all",
 ]
 

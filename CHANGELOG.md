@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.29.0] - 2026-11-09
+
+### Added
+
+- Cloud Object Storage integration and Storage SPI ([#308](https://github.com/cupoftea-labs/cupoftea/issues/308)):
+  - Pluggable `StorageFileSystem` and global `StorageRegistry` SPI with automatic `ServiceLoader` discovery.
+  - New modular artifact `cupoftea-storage` supporting cloud object stores:
+    - Amazon S3 (`s3://`, `s3a://`, `s3n://`)
+    - Google Cloud Storage (`gs://`, `gcs://`)
+    - Azure Blob Storage & ADLS Gen2 (`abfs://`, `abfss://`, `wasb://`, `wasbs://`)
+    - HTTP / HTTPS endpoints (`http://`, `https://`)
+  - Random-access selective reads via `HttpRangeSeekableByteChannel` implementing RFC 7233 / RFC 9110 HTTP Range Requests for reading remote Parquet metadata and footers without downloading entire files.
+  - Direct URI detection and streaming I/O in `DataFrameReader` (`csv`, `parquet`, `arrow`, `feather`) and `DataFrameWriter` (`csv`, `parquet`, etc.).
+  - Cloud mock simulation storage and endpoint override support for MinIO, LocalStack, and Azurite.
+
+### Changed
+
+- Updated dependencies to latest stable versions and resolved Dependabot alerts:
+  - Bumped Lombok from `1.18.38` to `1.18.48` ([#193](https://github.com/cupoftea-labs/cupoftea/pull/193)).
+  - Bumped Commons IO from `2.18.0` to `2.22.0` ([#240](https://github.com/cupoftea-labs/cupoftea/pull/240)).
+  - Bumped H2 Database from `2.3.232` to `2.5.252` ([#241](https://github.com/cupoftea-labs/cupoftea/pull/241)).
+  - Bumped Jackson (`jackson-core`, `jackson-annotations`, `jackson-databind`) from `2.18.11` to `2.19.4` ([#242](https://github.com/cupoftea-labs/cupoftea/pull/242)).
+
+
 ## [0.28.0] - 2026-11-08
 
 ### Performance

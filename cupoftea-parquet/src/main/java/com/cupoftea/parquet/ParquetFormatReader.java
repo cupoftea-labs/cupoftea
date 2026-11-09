@@ -21,19 +21,30 @@ public class ParquetFormatReader implements FormatReader {
         if (options == null) {
             throw new ImportException("ReadOptions cannot be null");
         }
-        File file = options.getFile();
-        if (file == null && options.getPath() != null) {
-            file = new File(options.getPath());
-        }
-        if (file == null) {
-            throw new ImportException("Parquet file or path must be provided");
-        }
 
         CupOfTea target = options.getTargetDataFrame() != null
                 ? new CupOfTea(options.getTargetDataFrame())
                 : new CupOfTea();
 
         ParquetImporter importer = new ParquetImporter(target);
+
+        if (options.getUri() != null) {
+            importer.importFromUri(options.getUri());
+            return target.getDataFrame();
+        }
+
+        File file = options.getFile();
+        if (file == null && options.getPath() != null) {
+            if (options.getPath().contains("://")) {
+                importer.importFromUri(java.net.URI.create(options.getPath()));
+                return target.getDataFrame();
+            }
+            file = new File(options.getPath());
+        }
+        if (file == null) {
+            throw new ImportException("Parquet file, URI or path must be provided");
+        }
+
         importer.importFromParquet(file);
         return target.getDataFrame();
     }

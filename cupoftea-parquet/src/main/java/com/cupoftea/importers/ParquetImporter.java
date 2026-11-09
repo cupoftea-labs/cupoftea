@@ -55,7 +55,17 @@ public class ParquetImporter implements IParquetImporter {
             throw new ImportException("File does not exist: " + file.getPath());
         }
 
-        NioChannelInputFile inputFile = new NioChannelInputFile(file);
+        importFromInputFile(new NioChannelInputFile(file), file.getPath());
+    }
+
+    public void importFromUri(final java.net.URI uri) {
+        if (uri == null) {
+            throw new ImportException("URI cannot be null");
+        }
+        importFromInputFile(new NioChannelInputFile(uri), uri.toString());
+    }
+
+    public void importFromInputFile(final org.apache.parquet.io.InputFile inputFile, final String locationDescription) {
         ParquetReadOptions options = ParquetReadOptions.builder()
                 .withAllocator(DirectByteBufferAllocator.getInstance())
                 .useOffHeapDecryptBuffer(true)
@@ -110,12 +120,12 @@ public class ParquetImporter implements IParquetImporter {
                 this.dataFrame.setDataFrame(loaded);
             }
         } catch (IOException e) {
-            throw new ImportException("Failed to read Parquet file: " + file.getPath(), e);
+            throw new ImportException("Failed to read Parquet data: " + locationDescription, e);
         } catch (Exception e) {
             if (e instanceof ImportException) {
                 throw (ImportException) e;
             }
-            throw new ImportException("Failed to read Parquet file: " + file.getPath(), e);
+            throw new ImportException("Failed to read Parquet data: " + locationDescription, e);
         }
     }
 

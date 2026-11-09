@@ -6,7 +6,7 @@
 
     <groupId>io.github.cupoftea-labs</groupId>
     <artifactId>cupoftea-parent</artifactId>
-    <version>0.28.0</version>
+    <version>0.29.0</version>
     <packaging>pom</packaging>
 
     <name>CupOfTea Parent</name>
@@ -53,6 +53,7 @@
         <module>cupoftea-xml</module>
         <module>cupoftea-plot</module>
         <module>cupoftea-sql</module>
+        <module>cupoftea-storage</module>
         <module>cupoftea-all</module>
         <module>cupoftea-benchmark</module>
     </modules>
@@ -64,19 +65,19 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <cupoftea.version>${project.version}</cupoftea.version>
-        <lombok.version>1.18.38</lombok.version>
+        <lombok.version>1.18.48</lombok.version>
         <annotations.version>26.0.2</annotations.version>
         <junit.jupiter.version>5.11.4</junit.jupiter.version>
         <assertj.version>3.27.7</assertj.version>
         <opencsv.version>5.10</opencsv.version>
-        <jackson.version>2.18.11</jackson.version>
+        <jackson.version>2.19.4</jackson.version>
         <poi.version>5.5.1</poi.version>
         <xmlbeans.version>5.3.0</xmlbeans.version>
         <parquet.version>1.15.2</parquet.version>
         <hadoop.version>3.4.1</hadoop.version>
         <jsoup.version>1.23.2</jsoup.version>
         <snakeyaml.version>2.4</snakeyaml.version>
-        <commons-io.version>2.18.0</commons-io.version>
+        <commons-io.version>2.22.0</commons-io.version>
         <commons-compress.version>1.27.1</commons-compress.version>
         <org.json.version>20250107</org.json.version>
         <arrow.version>18.2.0</arrow.version>
@@ -140,6 +141,11 @@
             <dependency>
                 <groupId>io.github.cupoftea-labs</groupId>
                 <artifactId>cupoftea-sql</artifactId>
+                <version>${cupoftea.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.cupoftea-labs</groupId>
+                <artifactId>cupoftea-storage</artifactId>
                 <version>${cupoftea.version}</version>
             </dependency>
             <dependency>

@@ -80,9 +80,21 @@ public class DataFrameReader {
         return b;
     }
 
+    private ReadOptions.Builder buildOptionsForPath(String path) {
+        ReadOptions.Builder b = buildOptions().path(path);
+        if (path != null && (path.contains("://") || !new File(path).exists())) {
+            // remote URI or non-file path
+            return b;
+        }
+        return b.file(new File(path));
+    }
+
     // --- CSV ---
 
     public CupOfTea csv(String path) {
+        if (path != null && path.contains("://")) {
+            return read("csv", buildOptions().path(path).build());
+        }
         return csv(new File(path));
     }
 
@@ -159,6 +171,9 @@ public class DataFrameReader {
     // --- PARQUET ---
 
     public CupOfTea parquet(String path) {
+        if (path != null && path.contains("://")) {
+            return read("parquet", buildOptions().path(path).build());
+        }
         return parquet(new File(path));
     }
 
@@ -169,6 +184,9 @@ public class DataFrameReader {
     // --- ARROW / FEATHER ---
 
     public CupOfTea arrow(String path) {
+        if (path != null && path.contains("://")) {
+            return read("arrow", buildOptions().path(path).build());
+        }
         return arrow(new File(path));
     }
 
@@ -177,6 +195,9 @@ public class DataFrameReader {
     }
 
     public CupOfTea feather(String path) {
+        if (path != null && path.contains("://")) {
+            return read("feather", buildOptions().path(path).build());
+        }
         return feather(new File(path));
     }
 
@@ -300,6 +321,9 @@ public class DataFrameReader {
         }
 
         public CupOfTea load(String path) {
+            if (path != null && path.contains("://")) {
+                return reader.read(format, reader.buildOptions().path(path).build());
+            }
             return load(new File(path));
         }
 

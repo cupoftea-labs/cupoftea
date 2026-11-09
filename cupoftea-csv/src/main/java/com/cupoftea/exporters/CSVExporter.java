@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.ByteBuffer;
@@ -96,6 +97,15 @@ public class CSVExporter {
     public void exportToCsv(File file, CSVExporterConfiguration configuration) {
         this.configuration = configuration;
         this.exportToCsv(file);
+    }
+
+    public void exportToOutputStream(OutputStream outputStream, CSVExporterConfiguration configuration) {
+        this.configuration = configuration != null ? configuration : new CSVExporterConfiguration();
+        try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputStream, StandardCharsets.UTF_8), 64 * 1024)) {
+            exportToWriter(writer);
+        } catch (IOException e) {
+            throw new ExportException("Failed to export to CSV stream", e);
+        }
     }
 
     private void exportParallelChunked(File file) throws IOException {
