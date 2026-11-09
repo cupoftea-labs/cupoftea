@@ -85,9 +85,7 @@ public class GroupBy {
     private GroupPartitionState buildSequentialPartitions(ColumnVector[] keyVectors, int totalRows) {
         GroupHashTable table = new GroupHashTable(keyVectors, totalRows);
         int[] rowGroups = new int[totalRows];
-        for (int r = 0; r < totalRows; r++) {
-            rowGroups[r] = table.findOrInsert(r);
-        }
+        table.findOrInsertBatch(0, totalRows, rowGroups);
         return new GroupPartitionState(
             table.numGroups(),
             table.getFirstRowOfGroup(),
@@ -117,9 +115,7 @@ public class GroupBy {
             totalRows, this.executor, (chunkIdx, start, end) -> {
                 GroupHashTable localTable = new GroupHashTable(keyVectors, end - start);
                 int[] chunkRowGroups = new int[end - start];
-                for (int r = start; r < end; r++) {
-                    chunkRowGroups[r - start] = localTable.findOrInsert(r);
-                }
+                localTable.findOrInsertBatch(start, end, chunkRowGroups);
                 return new ChunkPartition(localTable, chunkRowGroups, start, end);
             }
         );

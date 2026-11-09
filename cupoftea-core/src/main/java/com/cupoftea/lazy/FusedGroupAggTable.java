@@ -106,7 +106,7 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
 
     @Override
     public int capacityLimit() {
-        return keys.length;
+        return Math.max(keys.length, capacity);
     }
 
     public int getCapacity() {
@@ -300,6 +300,11 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
     }
 
     public int findOrInsertBytes(byte[] buf, int offset, int len) {
+        int base = findOrInsertSlotBytes(buf, offset, len);
+        return (int) this.slots[base + OFF_META];
+    }
+
+    public int findOrInsertSlotBytes(byte[] buf, int offset, int len) {
         final boolean shortKey = len <= SSO_MAX_LEN;
         final long p1;
         final long p2;
@@ -400,8 +405,21 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
         return findOrInsertBytes(kb, 0, kb.length);
     }
 
+    public int findOrInsertSlotString(String s) {
+        if (s == null) {
+            return findOrInsertSlotNull();
+        }
+        byte[] kb = s.getBytes(StandardCharsets.UTF_8);
+        return findOrInsertSlotBytes(kb, 0, kb.length);
+    }
+
     @Override
     public int findOrInsertNull() {
+        int base = findOrInsertSlotNull();
+        return (int) this.slots[base + OFF_META];
+    }
+
+    public int findOrInsertSlotNull() {
         int pos = 0;
         final long nullTag = 0L;
         while (true) {
@@ -417,13 +435,16 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
                 slots[base + OFF_META] = nullTag | (gid & 0xFFFFFFFFL);
                 slots[base + OFF_LEN] = -1;
                 gidToSlotBase[gid] = base;
-                if (numGroups >= threshold) resize();
-                return gid;
+                if (numGroups >= threshold) {
+                    resize();
+                    return gidToSlotBase[gid];
+                }
+                return base;
             }
             if (meta == (nullTag | (meta & 0xFFFFFFFFL)) && slots[base + OFF_LEN] == -1) {
                 int gid = (int) meta;
                 if (keys[gid] == null) {
-                    return gid;
+                    return base;
                 }
             }
             pos = (pos + 1) & mask;
@@ -600,15 +621,12 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
 
     private int findSlotForMerge(byte[] buf, String knownKey, int len) {
         if (buf == null && knownKey == null) {
-            int gid = findOrInsertNull();
-            return findSlotByGid(gid);
+            return findOrInsertSlotNull();
         }
         if (buf != null) {
-            int gid = findOrInsertBytes(buf, 0, len);
-            return findSlotByGid(gid);
+            return findOrInsertSlotBytes(buf, 0, len);
         }
-        int gid = findOrInsertString(knownKey);
-        return findSlotByGid(gid);
+        return findOrInsertSlotString(knownKey);
     }
 
     public void updateMetricsForGid(int gid, double val) {

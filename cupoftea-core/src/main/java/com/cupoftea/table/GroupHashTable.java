@@ -120,6 +120,69 @@ public class GroupHashTable {
         }
     }
 
+    /**
+     * Batch find-or-insert with software prefetching via interleaved probing (K=8).
+     * Processes keys in interleaved windows of 8 elements, parallelizing hash bucket
+     * lookups across CPU line fill buffers to avoid memory stalls on large tables.
+     */
+    public void findOrInsertBatch(int start, int end, int[] outGroupIds) {
+        int len = end - start;
+        final int K = 8;
+        if (len < K * 2) {
+            for (int r = start; r < end; r++) {
+                outGroupIds[r - start] = findOrInsert(r);
+            }
+            return;
+        }
+
+        int[] hBuf = new int[K];
+        int[] posBuf = new int[K];
+        int[] rowBuf = new int[K];
+        int[] resBuf = new int[K];
+
+        int r = start;
+        int limit = end - K + 1;
+        for (; r < limit; r += K) {
+            int active = K;
+            for (int i = 0; i < K; i++) {
+                int row = r + i;
+                rowBuf[i] = row;
+                int h = computeHash(row);
+                hBuf[i] = h;
+                posBuf[i] = h & mask;
+                resBuf[i] = -1;
+            }
+
+            while (active > 0) {
+                for (int i = 0; i < K; i++) {
+                    if (resBuf[i] != -1) continue;
+
+                    int pos = posBuf[i];
+                    int repRow = table[pos];
+                    if (repRow == -1) {
+                        // Empty slot -> new group insert
+                        int gid = findOrInsert(rowBuf[i]);
+                        resBuf[i] = gid;
+                        active--;
+                    } else if (hashes[pos] == hBuf[i] && keysEqual(rowBuf[i], repRow)) {
+                        resBuf[i] = groupIds[pos];
+                        active--;
+                    } else {
+                        posBuf[i] = (pos + 1) & mask;
+                    }
+                }
+            }
+
+            for (int i = 0; i < K; i++) {
+                outGroupIds[(r + i) - start] = resBuf[i];
+            }
+        }
+
+        for (; r < end; r++) {
+            outGroupIds[r - start] = findOrInsert(r);
+        }
+    }
+
     public int numGroups() {
         return numGroups;
     }

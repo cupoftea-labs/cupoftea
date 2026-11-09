@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.28.0] - 2026-11-08
+
+### Performance
+
+- Software Prefetching via Asynchronous Interleaved Probing for Hash Join and GroupBy ([#315](https://github.com/cupoftea-labs/cupoftea/issues/315)):
+  - Implemented Asynchronous Memory Access Chaining (AMAC) / Interleaved Probing with prefetch distance $K = 8$ in `DataFrameJoiner` (`IntHashJoinIndex`, `LongHashJoinIndex`, and `StringHashJoinIndex`) for both inner joins and unique left joins.
+  - Implemented `findOrInsertBatch` in `GroupHashTable` and integrated it into `GroupBy.buildSequentialPartitions` and `GroupBy.buildParallelPartitions`, overlapping hash bucket dereferences and key equality checks across CPU Line Fill Buffers (MLP).
+  - Added cache-conscious adaptive bypass threshold (`LLC_CACHE_THRESHOLD = 32768`, ~512KB - 1MB table size) to ensure zero overhead on small in-cache hash tables while eliminating LLC/RAM latency stalls on large datasets exceeding Last-Level Cache.
+  - Optimized partition merge in `FusedGroupAggTable` with $O(1)$ slot lookups (`findOrInsertSlotBytes`, `findOrInsertSlotString`).
+  - Added adaptive sub-gigabyte segment sizing in `CsvLazySource` for balanced multi-threaded work-stealing across CPU cores.
+  - Accelerated `DataFrame.orderBy` by delegating directly to columnar vector comparisons (`compareRows`).
+
 ## [0.27.5] - 2026-11-08
 
 ### Performance
