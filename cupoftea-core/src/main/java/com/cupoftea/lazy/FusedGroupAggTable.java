@@ -324,7 +324,7 @@ public final class FusedGroupAggTable implements CompactRunningGroupBy.GroupKeyT
             h = StringColumnVector.hashBytes(buf, offset, len);
         }
 
-        return findOrInsertBytesWithParsedKey(buf, offset, len, shortKey, p1, p2, h);
+        return findOrInsertSlotBase(buf, offset, len, shortKey, p1, p2, h);
     }
 
     public int findOrInsertBytesWithHash(byte[] buf, int offset, int len, int h) {
